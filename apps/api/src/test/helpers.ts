@@ -16,6 +16,7 @@ export interface TestApp {
   seed: SeedResult;
   deps: AppDeps;
   runner: TaskRunner;
+  deviceServerPublicKey: Buffer;
   /** Przetwarza kolejkę do opróżnienia (testy nie uruchamiają pętli w tle). */
   drain(): Promise<number>;
   close(): Promise<void>;
@@ -30,10 +31,18 @@ export async function truncateAll(db: Db): Promise<void> {
   const { rows } = await db.owner.query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'`,
   );
-  if (rows.length) {
-    await db.owner.query(
-      `TRUNCATE ${rows.map((r) => `"${r.tablename}"`).join(', ')} RESTART IDENTITY CASCADE`,
-    );
+  if (!rows.length) return;
+  // Zadania w tle poprzedniego testu (np. zamknięcie WebSocket) mogą jeszcze pisać — ponów przy deadlocku.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await db.owner.query(
+        `TRUNCATE ${rows.map((r) => `"${r.tablename}"`).join(', ')} RESTART IDENTITY CASCADE`,
+      );
+      return;
+    } catch (err) {
+      if ((err as { code?: string }).code !== '40P01' || attempt >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 50));
+    }
   }
 }
 
@@ -45,13 +54,13 @@ export async function createTestApp(
   const db = createDb(config.databaseUrlApp, config.databaseUrlOwner);
   await truncateAll(db);
   const seed = await seedDev(db, config.env);
-  const { deps, runner } = createApp(config, db, {
+  const { deps, runner, deviceServerPublicKey } = createApp(config, db, {
     version: 'test',
     demoStepMs: 2,
     retryBaseMs: 1,
     ...opts,
   });
-  const app = await buildServer(deps);
+  const app = await buildServer(deps, { deviceServerPublicKey });
   return {
     app,
     db,
@@ -59,6 +68,7 @@ export async function createTestApp(
     seed,
     deps,
     runner,
+    deviceServerPublicKey,
     drain: () => runner.drain(),
     async close() {
       await app.close();

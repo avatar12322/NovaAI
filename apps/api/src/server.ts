@@ -9,6 +9,7 @@ import { HttpError } from './lib/errors';
 import { LOG_REDACT_PATHS } from './lib/redact';
 import { approvalRoutes } from './modules/approvals';
 import { budgetRoutes } from './modules/budget';
+import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
 import { healthRoutes } from './modules/health';
@@ -26,6 +27,8 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export interface BuildOptions {
   logger?: boolean;
+  /** Klucz publiczny do podpisu poleceń urządzeń (z createApp). Brak => moduł urządzeń wyłączony. */
+  deviceServerPublicKey?: Buffer;
 }
 
 export async function buildServer(
@@ -108,10 +111,13 @@ export async function buildServer(
       await api.register(approvalRoutes(deps));
       await api.register(eventRoutes(deps));
       await api.register(budgetRoutes(deps));
+      if (opts.deviceServerPublicKey)
+        await api.register(deviceRoutes(deps, opts.deviceServerPublicKey));
     },
     { prefix: '/api' },
   );
 
+  app.addHook('onClose', async () => deps.devices.hub.closeAll());
   return app;
 }
 

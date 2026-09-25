@@ -3,6 +3,7 @@ import { buildTurnContext } from '../agent/context';
 import { withUserTx } from '../db/pool';
 import { emitEvent } from '../events';
 import { insertMessage } from '../modules/conversations';
+import { writeAudit } from '../audit';
 import { ToolDenied } from '../tools/types';
 import type { StepSpec } from './tasks';
 import type { RunnerDeps, TaskKindDef, TaskRow } from './runner';
@@ -25,6 +26,48 @@ async function conversationContext(deps: RunnerDeps, task: TaskRow): Promise<Con
  */
 export const agentTurnKind: TaskKindDef = {
   context: conversationContext,
+  /**
+   * Wynik narzędzia trafia do rozmowy jako wiadomość `tool` — tylko jeśli klasyfikacja wyniku pozwala:
+   * wyniki prywatne (np. pliki z urządzenia) nigdy nie są zapisywane w rozmowie wspólnej.
+   */
+  async afterToolStep(x, output) {
+    if (!x.task.conversation_id || !x.step.tool) return;
+    const def = x.deps.broker.def(x.step.tool);
+    if (def?.resultVisibility === 'private' && x.task.visibility !== 'private') {
+      await writeAudit(x.deps.db, {
+        actorKind: 'system',
+        ownerUserId: x.principal.userId,
+        householdId: x.task.household_id,
+        source: 'queue',
+        action: 'tool.result_withheld',
+        resourceType: 'task',
+        resourceId: x.task.id,
+        tool: x.step.tool,
+        outcome: 'deny',
+        details: { reason: 'private_result_in_shared_conversation' },
+      });
+      return;
+    }
+    const scope = x.task.visibility === 'shared' ? 'shared' : 'user';
+    await withUserTx(x.deps.db, { userId: x.principal.userId, scope }, async (c) => {
+      const m = await insertMessage(c, {
+        conversationId: x.task.conversation_id!,
+        role: 'tool',
+        authorUserId: null,
+        content: formatToolResult(x.step.tool!, output),
+        meta: { tool: x.step.tool, taskId: x.task.id, stepId: x.step.id },
+        requestId: x.task.request_id,
+      });
+      await emitEvent(c, {
+        householdId: x.task.household_id,
+        ownerUserId: x.principal.userId,
+        visibility: x.task.visibility,
+        taskId: x.task.id,
+        type: 'message.created',
+        payload: { conversationId: x.task.conversation_id, messageId: m.id, role: 'tool' },
+      });
+    });
+  },
   steps: {
     reply: async (x) => {
       const messageId = String(x.task.input.messageId ?? '');
@@ -50,10 +93,20 @@ export const agentTurnKind: TaskKindDef = {
         x.task.request_id ?? x.task.id,
       );
       await x.progress(30);
+      // Narzędzia urządzeń tylko, gdy użytkownik ma aktywne urządzenie (mniej szumu i tokenów).
+      let capabilities = x.deps.broker.capabilitiesFor(ctx.contextKind);
+      if (capabilities.some((c) => c.startsWith('device.'))) {
+        const hasDevice = await x.deps.db.owner.query(
+          `SELECT 1 FROM devices WHERE owner_user_id = $1 AND status = 'active' LIMIT 1`,
+          [x.principal.userId],
+        );
+        if (hasDevice.rowCount === 0)
+          capabilities = capabilities.filter((c) => !c.startsWith('device.'));
+      }
       const result = await x.deps.runtime.runTurn(
         { ...ctx.input, taskId: x.task.id },
         ctx.userContext,
-        x.deps.broker.capabilitiesFor(ctx.contextKind),
+        capabilities,
       );
       await x.progress(80);
 
@@ -166,4 +219,29 @@ export function demoWorkflowSteps(message: string): StepSpec[] {
     },
     { key: 'summary', title: 'Podsumuj (demo)', kind: 'note', dependsOn: ['draft'] },
   ];
+}
+
+const MAX_TOOL_MESSAGE = 6000;
+
+/** Czytelna forma wyniku narzędzia do rozmowy (z limitem długości). */
+export function formatToolResult(tool: string, out: Record<string, unknown>): string {
+  const summary = typeof out.summary === 'string' ? out.summary : tool;
+  let body = '';
+  if (Array.isArray(out.entries)) {
+    body = (out.entries as Array<{ name?: string; kind?: string; size?: number }>)
+      .slice(0, 200)
+      .map(
+        (e) =>
+          `${e.kind === 'dir' ? '[katalog]' : '[plik]   '} ${e.name ?? '?'}${e.kind === 'dir' ? '' : ` (${e.size ?? 0} B)`}`,
+      )
+      .join('\n');
+  } else if (typeof out.content === 'string') {
+    body = `sha256: ${String(out.sha256 ?? '')}\n---\n${out.content}`;
+  } else if (typeof out.output === 'string') {
+    body = out.output || '(brak zmian)';
+  } else if (typeof out.backupPath === 'string') {
+    body = `Kopia zapasowa: ${out.backupPath}`;
+  }
+  const text = body ? `${summary}\n${body}` : summary;
+  return text.length > MAX_TOOL_MESSAGE ? `${text.slice(0, MAX_TOOL_MESSAGE)}\n… (skrócono)` : text;
 }

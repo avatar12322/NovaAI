@@ -8,8 +8,8 @@ async function main(): Promise<void> {
   loadDotEnv();
   const config = parseConfig(process.env);
   const db = createDb(config.databaseUrlApp, config.databaseUrlOwner);
-  const { deps, runner } = createApp(config, db, { version: VERSION });
-  const app = await buildServer(deps, { logger: true });
+  const { deps, runner, deviceServerPublicKey } = createApp(config, db, { version: VERSION });
+  const app = await buildServer(deps, { logger: true, deviceServerPublicKey });
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

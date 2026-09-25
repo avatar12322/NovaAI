@@ -46,6 +46,31 @@ export class FakeAgentRuntime implements AgentRuntime {
       });
       lines.push(`Proponuję wysłać wiadomość: „${notify[2].trim()}” (wymaga Twojej zgody).`);
     }
+    const device = /(?:^|\n)\s*(pliki|przeczytaj|git status|git diff)[:\s]+(\S.*)$/im.exec(text);
+    if (device?.[1] && device[2]) {
+      const kind = device[1].toLowerCase();
+      const target = device[2].trim();
+      const tool =
+        kind === 'pliki'
+          ? { tool: 'device.files.list', params: { path: target } }
+          : kind === 'przeczytaj'
+            ? { tool: 'device.files.read', params: { path: target } }
+            : {
+                tool: kind === 'git status' ? 'device.git.status' : 'device.git.diff',
+                params: { repoPath: target },
+              };
+      toolCalls.push({ ...tool, reason: 'prośba o dane z urządzenia' });
+      lines.push(`Sprawdzam na urządzeniu: ${target}.`);
+    }
+    const write = /(?:^|\n)\s*zapisz\s+(\S+):\s*([\s\S]+)$/im.exec(text);
+    if (write?.[1] && write[2]) {
+      toolCalls.push({
+        tool: 'device.files.write',
+        params: { path: write[1], content: write[2] },
+        reason: 'prośba o zapis pliku',
+      });
+      lines.push(`Proponuję zapis pliku ${write[1]} (wymaga Twojej zgody z podglądem zmian).`);
+    }
     // Celowo bez filtrowania po allowedCapabilities — granicę wyznacza broker.
     void allowedCapabilities;
 

@@ -70,6 +70,11 @@ export class ToolBroker {
     return [...this.tools.values()].filter((t) => t.contexts.includes(context)).map((t) => t.name);
   }
 
+  /** Definicja narzędzia (np. do sprawdzenia klasyfikacji wyniku). */
+  def(name: string): ToolDef | undefined {
+    return this.tools.get(name);
+  }
+
   private get(ctx: ToolContext, name: string): ToolDef {
     const def = this.tools.get(name);
     if (!def) throw new ToolDenied('unknown_tool');

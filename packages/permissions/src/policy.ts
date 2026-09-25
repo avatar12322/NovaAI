@@ -76,6 +76,7 @@ export const ACTIONS = [
   'device.files.read',
   'device.files.write',
   'device.command.execute',
+  'device.git.read',
   'connection.read',
   'connection.manage',
   'budget.read',
@@ -108,6 +109,7 @@ const OWNER_ONLY: ReadonlySet<Action> = new Set<Action>([
   'device.files.read',
   'device.files.write',
   'device.command.execute',
+  'device.git.read',
   'connection.read',
   'connection.manage',
 ]);
@@ -183,6 +185,7 @@ export function decide(
   if (
     action === 'device.files.read' ||
     action === 'device.files.write' ||
+    action === 'device.git.read' ||
     action === 'device.command.execute'
   ) {
     if (!isOwner) return deny('not_owner');

@@ -62,6 +62,8 @@ export interface TaskKindDef {
   context(deps: RunnerDeps, task: TaskRow): Promise<ContextKind>;
   /** Handlery kroków `model`/`note` wg klucza kroku; kroki `tool` obsługuje broker. */
   steps: Record<string, StepHandler>;
+  /** Po udanym kroku narzędzia (np. zapis wyniku w rozmowie po kontroli widoczności). */
+  afterToolStep?(x: StepExecution, output: Record<string, unknown>): Promise<void>;
 }
 
 export type RunnerDeps = AppDeps;
@@ -584,6 +586,7 @@ export class TaskRunner {
           approvalId: step.approval_id,
         });
         output = { summary: result.summary, ...result.output };
+        if (def.afterToolStep) await def.afterToolStep(exec, output);
       } else {
         const handler = def.steps[step.key] ?? def.steps[`*${step.kind}`];
         if (!handler) throw new ToolDenied('no_handler');

@@ -33,6 +33,7 @@ const META_SQL: Partial<Record<ResourceType, string>> = {
              FROM memories m WHERE m.id = $1`,
   task: `SELECT owner_user_id, household_id, visibility FROM tasks WHERE id = $1`,
   approval: `SELECT owner_user_id, household_id, 'private'::text AS visibility FROM approvals WHERE id = $1`,
+  device: `SELECT owner_user_id, household_id, 'private'::text AS visibility FROM devices WHERE id = $1`,
 };
 
 const READ_ACTION: Partial<Record<ResourceType, Action>> = {
@@ -40,6 +41,7 @@ const READ_ACTION: Partial<Record<ResourceType, Action>> = {
   memory: 'memory.read',
   task: 'task.read',
   approval: 'approval.read',
+  device: 'device.read',
 };
 
 export async function loadMeta(

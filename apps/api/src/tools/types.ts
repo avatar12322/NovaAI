@@ -36,6 +36,11 @@ export interface ToolDef<P extends Record<string, unknown> = Record<string, unkn
   title: string;
   /** Konteksty agentów, którym serwer w ogóle udostępnia narzędzie. */
   contexts: readonly ContextKind[];
+  /**
+   * Widoczność wyniku: 'private' = wynik (np. zawartość pliku z urządzenia) wolno zapisać wyłącznie
+   * w prywatnej rozmowie właściciela. Brak = wynik bez danych wrażliwych.
+   */
+  resultVisibility?: 'private';
   params: z.ZodType<P>;
   requiresApproval(p: P, ctx: ToolContext): boolean;
   /** Rozwiązanie i zamrożenie parametrów przed zgodą (np. wskazanie odbiorcy). */

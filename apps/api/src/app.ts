@@ -3,7 +3,11 @@ import type { AgentRuntime } from './agent/runtime';
 import type { AppConfig } from './config';
 import type { Db } from './db/pool';
 import type { AppDeps } from './deps';
-import { EventHub } from './events';
+import { DeviceBroker } from './devices/broker';
+import { DeviceHub } from './devices/hub';
+import { deviceSigningKey } from './devices/keys';
+import { DEVICE_TOOLS } from './devices/tools';
+import { emitEvent, EventHub } from './events';
 import { ModelAgentRuntime } from './model/agent-runtime';
 import { loadModelsConfig, type ModelsConfig } from './model/config';
 import { ModelGateway } from './model/gateway';
@@ -29,11 +33,33 @@ export interface AppOptions {
 export interface App {
   deps: AppDeps;
   runner: TaskRunner;
+  /** Klucz publiczny serwera do podpisu poleceń (przypinany przez Workery). */
+  deviceServerPublicKey: Buffer;
 }
 
 /** Składa zależności aplikacji: broker z narzędziami, runtime, hub zdarzeń, kolejkę. */
 export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App {
   const broker = new ToolBroker().register(memoryCreateTool).register(householdNotifyTool);
+  for (const t of DEVICE_TOOLS) broker.register(t);
+  const signing = deviceSigningKey(config);
+  const hub = new DeviceHub(signing.key, (deviceId, ownerUserId, online) => {
+    // Status urządzenia jest prywatny dla właściciela.
+    void db.owner
+      .query<{ household_id: string }>('SELECT household_id FROM devices WHERE id = $1', [deviceId])
+      .then((r) =>
+        r.rows[0]
+          ? emitEvent(db.owner, {
+              householdId: r.rows[0].household_id,
+              ownerUserId,
+              visibility: 'private',
+              type: 'device.status',
+              payload: { deviceId, online },
+            })
+          : undefined,
+      )
+      .catch(() => undefined);
+  });
+  const devices = new DeviceBroker(db, hub);
   const events = new EventHub(db);
   const loaded = opts.modelsConfig
     ? { config: opts.modelsConfig, error: null }
@@ -56,6 +82,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     gateway,
     modelsConfigError: loaded.error,
     broker,
+    devices,
     events,
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',
@@ -69,5 +96,5 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     .registerKind('demo.workflow', demoWorkflowKind(opts.demoStepMs ?? 400));
   if (config.queueEnabled) deps.kickQueue = () => runner.kick();
   deps.queueStatus = () => (runner.isRunning ? 'running' : 'disabled');
-  return { deps, runner };
+  return { deps, runner, deviceServerPublicKey: signing.publicRaw };
 }
