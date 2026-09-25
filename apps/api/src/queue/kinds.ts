@@ -267,6 +267,8 @@ export function formatToolResult(tool: string, out: Record<string, unknown>): st
           : `${m.name}: ${m.busy?.length ? m.busy.map((b) => `zajęte ${b.start} – ${b.end}`).join('; ') : 'wolne w tym zakresie'}`,
       )
       .join('\n');
+  } else if (typeof out.reminderId === 'string') {
+    body = '';
   } else if (Array.isArray(out.messages)) {
     body = (out.messages as Array<{ id: string; from: string; subject: string }>)
       .map((m) => `[${m.id}] ${m.from}: ${m.subject}`)

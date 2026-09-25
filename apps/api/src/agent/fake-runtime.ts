@@ -107,6 +107,27 @@ export class FakeAgentRuntime implements AgentRuntime {
       });
       lines.push('Szukam w poczcie.');
     }
+    const remind =
+      /(?:^|\n)\s*przypomnij (?:mi|nam)\s+(za\s+(\d{1,4})\s*(min|minut|minuty|godz|godzin|godziny|h)|(\d{4}-\d{2}-\d{2}T\S+))\s*:\s*(.+)$/im.exec(
+        text,
+      );
+    if (remind?.[5]) {
+      const now = Date.now();
+      let due: string | null = remind[4] ?? null;
+      if (!due && remind[2] && remind[3]) {
+        const n = Number(remind[2]);
+        const ms = remind[3].startsWith('m') ? n * 60_000 : n * 3_600_000;
+        due = new Date(now + ms).toISOString();
+      }
+      if (due) {
+        toolCalls.push({
+          tool: 'reminder.create',
+          params: { text: remind[5].trim(), dueAt: due },
+          reason: 'prośba o przypomnienie',
+        });
+        lines.push(`Ustawiam przypomnienie: „${remind[5].trim()}”.`);
+      }
+    }
     // Celowo bez filtrowania po allowedCapabilities — granicę wyznacza broker.
     void allowedCapabilities;
 

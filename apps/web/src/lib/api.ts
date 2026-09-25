@@ -112,6 +112,17 @@ export interface LocalEvent {
   endsAt: string;
 }
 
+export interface Reminder {
+  id: string;
+  visibility: 'private' | 'shared';
+  text: string;
+  dueAt: string;
+  status: 'scheduled' | 'fired' | 'cancelled';
+  isMine: boolean;
+  ownerName: string;
+  firedAt: string | null;
+}
+
 export interface ModelStatus {
   mode: 'configured' | 'demo';
   providers: Array<{ name: string; kind: string; configured: boolean; reason: string | null }>;
@@ -181,6 +192,11 @@ export const api = {
   addLocalEvent: (e: { title: string; startsAt: string; endsAt: string }) =>
     post<{ id: string }>('/calendar/local-events', e),
   deleteLocalEvent: (id: string) => request<void>('DELETE', `/calendar/local-events/${id}`),
+
+  reminders: (space: Space) => get<{ items: Reminder[] }>(`/reminders${qs({ space })}`),
+  addReminder: (r: { text: string; dueAt: string; space: Space }) =>
+    post<{ id: string }>('/reminders', r),
+  cancelReminder: (id: string) => request<void>('DELETE', `/reminders/${id}`),
 
   devices: () => get<{ items: Device[]; serverPublicKey: string }>('/devices'),
   pairingCode: () => post<{ code: string; expiresAt: string }>('/devices/pairing-codes'),

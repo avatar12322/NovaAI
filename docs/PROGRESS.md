@@ -115,6 +115,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   - `pnpm test:e2e` → 12/12 (dodany `devices.spec.ts`: kod z UI → symulator → grant z formularza → `pliki:` w czacie → odłączenie).
 
 ### M5 (2026-09-25)
+
 - `apps/api/src/connectors/`: `types.ts`, `vault.ts`, `google.ts`, `service.ts`, `tools.ts` (calendar.freebusy,
   mail.search/read/send), `routes.ts` (`GET /api/connections`, `POST /api/connections/:provider/start`,
   `GET /api/connections/:provider/callback`, `DELETE /api/connections/:provider`,
@@ -130,6 +131,20 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   przy nieznanym wyniku, NovaAI bez poczty, „instrukcje” w mailu bez efektów, header injection, webhook Slack:
   podpis, okno czasowe, challenge, deduplikacja); web 3/3; `pnpm test:e2e` → 12/12.
 
+### M6 (2026-09-25)
+- `apps/api/src/reminders/` (`service.ts`, `routes.ts`, `tool.ts`), migracja `0008_reminders.sql`;
+  API `GET /api/reminders?space=`, `POST /api/reminders`, `DELETE /api/reminders/:id`; narzędzie `reminder.create`;
+  czat demo: `przypomnij mi za 10 minut: …`, `przypomnij nam za 2 godz: …` (NovaAI ⇒ wspólne).
+- UI: „Dom” → Przypomnienia (dodawanie, anulowanie, status „dostarczone”); czat: przycisk dyktowania (opt-in)
+  i odczytu odpowiedzi.
+- Znaleziony i poprawiony błąd UI: automatyczne otwarcie ostatniej rozmowy na desktopie mogło nadpisać
+  nawigację wykonaną w trakcie ładowania listy (źródło sporadycznych błędów e2e) — teraz tylko gdy trasa
+  nadal wskazuje listę, przez `location.replace`.
+- Polecenia i wyniki: `pnpm test` → api 136/136 (w tym `reminders.test.ts` 9: prywatne tylko do właściciela,
+  wspólne do obojga, anulowanie i brak anulowania cudzego, działanie przy zablokowanym budżecie bez `usage_records`,
+  odebrane członkostwo ⇒ brak dostarczenia, restart kolejki, brak duplikatów, walidacja terminu, komendy z czatu);
+  `pnpm test:e2e` → 14/14 w 3 kolejnych przebiegach (dodany `reminders.spec.ts`).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -144,6 +159,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 ## Następne 3 zadania
 
-1. M6: deterministyczne przypomnienia (prywatne/wspólne) w kolejce, powiadomienia bez treści prywatnej dla drugiej osoby.
-2. M6: dyktowanie głosowe w przeglądarce (opt-in z ostrzeżeniem o przetwarzaniu mowy) i odczyt odpowiedzi.
-3. M5: Microsoft Graph (Outlook/Calendar) według tego samego kontraktu; mapowanie zdarzeń Slack.
+1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klient OAuth Google,
+   Worker na Windows wg `workers/windows/README.md` (w tym test junction).
+2. Passkeys/WebAuthn (`@simplewebauthn/server`) zamiast logowania testowego + bezpieczny fallback wdrożeniowy (D-007).
+3. Bundel produkcyjny API (esbuild) i konfiguracja wdrożenia (TLS, reverse proxy, kopie zapasowe Postgres).

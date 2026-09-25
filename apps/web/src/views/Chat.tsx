@@ -9,11 +9,12 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { Icon } from '../components/Icon';
+import { DictationButton, SpeakButton } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { formatMoney, timeAgo, timeOfDay } from '../lib/format';
-import { href, navigate } from '../lib/router';
+import { href, navigate, parseRoute } from '../lib/router';
 
 interface Props {
   me: MeResponse;
@@ -37,7 +38,8 @@ export function ChatView({ me, space, conversationId }: Props) {
   useEffect(loadList, [loadList]);
   useEventEffect((e) => e.type === 'message.created', loadList);
 
-  // Desktop: automatycznie otwórz najnowszą rozmowę.
+  // Desktop: automatycznie otwórz najnowszą rozmowę — tylko jeśli użytkownik nadal jest na liście tej przestrzeni
+  // (bez nadpisywania nawigacji, która nastąpiła w trakcie ładowania) i bez nowego wpisu w historii.
   useEffect(() => {
     if (
       !conversationId &&
@@ -45,7 +47,10 @@ export function ChatView({ me, space, conversationId }: Props) {
       list.length > 0 &&
       window.matchMedia('(min-width: 900px)').matches
     ) {
-      navigate({ view: 'chat', space, id: list[0]!.id });
+      const current = parseRoute(window.location.hash);
+      if (current.view === 'chat' && current.space === space && current.id === null) {
+        window.location.replace(href({ view: 'chat', space, id: list[0]!.id }));
+      }
     }
   }, [conversationId, list, space]);
 
@@ -306,6 +311,7 @@ function ConversationPane({
             space === 'shared' ? 'Napisz do NovaAI (widoczne dla domowników)…' : 'Napisz wiadomość…'
           }
         />
+        <DictationButton onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))} />
         <button
           type="submit"
           className="btn btn-primary"
@@ -359,6 +365,7 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
         )}
       </header>
       <div className="msg-body">{m.content}</div>
+      {m.role === 'assistant' && <SpeakButton text={m.content} />}
       {proposed.some((p) => p.approval) && (
         <p className="msg-note">
           <Icon name="shield" size={14} /> Akcja czeka na Twoją zgodę —{' '}

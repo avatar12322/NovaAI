@@ -8,6 +8,8 @@ import { ConnectionService } from './connectors/service';
 import { CONNECTOR_TOOLS } from './connectors/tools';
 import { vaultFromEnv } from './connectors/vault';
 import { DeviceBroker } from './devices/broker';
+import { reminderFireKind } from './reminders/service';
+import { reminderCreateTool } from './reminders/tool';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
@@ -48,6 +50,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   const broker = new ToolBroker().register(memoryCreateTool).register(householdNotifyTool);
   for (const t of DEVICE_TOOLS) broker.register(t);
   for (const t of CONNECTOR_TOOLS) broker.register(t);
+  broker.register(reminderCreateTool);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(
     db,
@@ -129,7 +132,8 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     retryBaseMs: opts.retryBaseMs,
   })
     .registerKind('agent.turn', agentTurnKind)
-    .registerKind('demo.workflow', demoWorkflowKind(opts.demoStepMs ?? 400));
+    .registerKind('demo.workflow', demoWorkflowKind(opts.demoStepMs ?? 400))
+    .registerKind('reminder.fire', reminderFireKind);
   if (config.queueEnabled) deps.kickQueue = () => runner.kick();
   deps.queueStatus = () => (runner.isRunning ? 'running' : 'disabled');
   return { deps, runner, deviceServerPublicKey: signing.publicRaw };

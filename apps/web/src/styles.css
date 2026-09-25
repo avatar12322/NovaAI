@@ -883,6 +883,10 @@ label {
 .panel .grant-form:has(input[type='datetime-local']) {
   grid-template-columns: 1fr 190px 190px auto;
 }
+.reminder-form {
+  grid-template-columns: 1fr 190px 170px auto;
+  margin-bottom: var(--space-2);
+}
 .pairing-code {
   font-size: var(--fs-lg);
   letter-spacing: 1px;
@@ -991,7 +995,8 @@ label {
   }
   .grid-2,
   .budget-form,
-  .grant-form {
+  .grant-form,
+  .panel .grant-form:has(input[type='datetime-local']) {
     grid-template-columns: 1fr;
   }
   .memory-actions {

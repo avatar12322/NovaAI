@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { TASK_STATUS_PL, timeAgo } from '../lib/format';
 import { href } from '../lib/router';
+import { RemindersPanel } from './Reminders';
 
 /** Dom: domownicy, wiadomości od domowników, wspólne zadania. */
 export function HomeView({ me }: { me: MeResponse }) {
@@ -41,6 +42,7 @@ export function HomeView({ me }: { me: MeResponse }) {
         </a>
       </header>
       {error && <ErrorNote error={error} onRetry={load} />}
+      <RemindersPanel />
       <div className="grid-2">
         <div>
           <h2 className="h-sub">Wiadomości</h2>

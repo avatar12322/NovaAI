@@ -184,13 +184,14 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   kompilatora C mingw (`pnpm worker:check-windows`).
 
 ## D-019 Integracje: kontrakt Connector, sejf tokenów, Google jako pierwszy dostawca
+
 - `Connector` (`apps/api/src/connectors/types.ts`): capabilities, connect (authorizeUrl/exchangeCode),
   disconnect (revoke), refresh, zdolności opcjonalne (freeBusy, mailSearch/Read/Send). Brak konfiguracji ⇒
   `configured: false` z powodem; UI pokazuje „niedostępne”, a narzędzia nie są oferowane modelowi.
 - Sejf (`vault.ts`): AES-256-GCM, klucz HKDF z `NOVA_SECRET_KEY`, AAD = `użytkownik|dostawca|id połączenia`
   (podmiana rekordów wykrywana), identyfikator klucza przy szyfrogramie; rotacja: nowy `NOVA_SECRET_KEY(_ID)`
-  + `NOVA_SECRET_KEYS_OLD`, potem `pnpm --filter @nova/api db:rotate-keys`. Rola `nova_app` nie ma prawa odczytu
-  kolumny z szyfrogramem.
+  - `NOVA_SECRET_KEYS_OLD`, potem `pnpm --filter @nova/api db:rotate-keys`. Rola `nova_app` nie ma prawa odczytu
+    kolumny z szyfrogramem.
 - OAuth: `state` (256 bit, jednorazowy, 10 min, w bazie skrót) + PKCE S256 (weryfikator zaszyfrowany w bazie).
   Callback nie wymaga ciasteczka (SameSite=Strict nie jest wysyłane z domeny dostawcy) — użytkownika wiąże `state`.
 - Google (zweryfikowane 2026-09-25 w oficjalnej dokumentacji): auth `https://accounts.google.com/o/oauth2/v2/auth`,
@@ -210,3 +211,18 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   deduplikacja po `event_id` (`webhook_deliveries`). Mapowanie zdarzeń na użytkowników/zadania — nie zaimplementowano.
 - Microsoft 365 i Slack (OAuth): oznaczone jako niezaimplementowane; Google Pub/Sub push (JWT OIDC) i odnawianie
   subskrypcji (watch/Graph) — nie zaimplementowano.
+
+## D-020 Proaktywność (M6): przypomnienia w trwałej kolejce, prywatność i koszt przed akcją
+- Przypomnienie = rekord `reminders` + zadanie `reminder.fire` z `run_after = due_at` w tej samej kolejce co
+  reszta (przeżywa restart, lease, odzysk). Dostarczenie jest deterministyczne: bez modelu, bez poczty,
+  więc działa także przy zablokowanym budżecie (test).
+- Prywatne przypomnienie trafia wyłącznie do właściciela; wspólne — do aktywnych członków domu. Przed
+  dostarczeniem kolejka ładuje świeże członkostwa: po odebraniu członkostwa autora nic nie jest wysyłane.
+  Powiadomienia mają klucz idempotencji `reminder:<id>:<odbiorca>` (brak duplikatów po ponowieniu).
+- Limity: maks. 50 aktywnych przypomnień na osobę, termin od „teraz” (tolerancja 60 s) do 1 roku.
+- Agent: `reminder.create` — prywatny agent tworzy przypomnienia prywatne, NovaAI wspólne; bez zgody (dotyczy
+  wyłącznie autora lub przestrzeni wspólnej, w której padła prośba).
+- Powiadomienia push (Web Push/VAPID) — nie zaimplementowano; powiadomienia są w aplikacji (SSE + lista w „Dom”).
+- Głos: dyktowanie przez Web Speech API przeglądarki (opt-in z jawną informacją, że w Chrome/Edge mowa jest
+  przetwarzana na serwerach dostawcy przeglądarki) i odczyt odpowiedzi przez `speechSynthesis`. Brak nagrań
+  po stronie serwera i brak kosztów modeli. Transkrypcja serwerowa (płatna) — nie zaimplementowano.

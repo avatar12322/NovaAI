@@ -90,6 +90,7 @@ describe('rozmowa przez model', () => {
       'calendar.freebusy',
       'household.notify',
       'memory.create',
+      'reminder.create',
     ]);
   });
 
@@ -106,7 +107,11 @@ describe('rozmowa przez model', () => {
     expect(everything).not.toContain('ALFA-PRYWATNE');
     expect(everything).not.toContain('PRYWATNA-HISTORIA');
     expect(call.system).toContain('WSPÓLNE: zakupy');
-    expect(call.tools.map((x) => x.name).sort()).toEqual(['calendar.freebusy', 'memory.create']);
+    expect(call.tools.map((x) => x.name).sort()).toEqual([
+      'calendar.freebusy',
+      'memory.create',
+      'reminder.create',
+    ]);
     expect(call.messages[call.messages.length - 1]!.content).toBe('[Alfa (test)] co planujemy?');
   });
 

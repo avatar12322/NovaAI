@@ -10,6 +10,7 @@ import { LOG_REDACT_PATHS } from './lib/redact';
 import { approvalRoutes } from './modules/approvals';
 import { budgetRoutes } from './modules/budget';
 import { connectorRoutes } from './connectors/routes';
+import { reminderRoutes } from './reminders/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -116,6 +117,7 @@ export async function buildServer(
       if (opts.deviceServerPublicKey)
         await api.register(deviceRoutes(deps, opts.deviceServerPublicKey));
       await api.register(connectorRoutes(deps));
+      await api.register(reminderRoutes(deps));
     },
     { prefix: '/api' },
   );

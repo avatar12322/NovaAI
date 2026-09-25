@@ -22,6 +22,8 @@ const PATHS: Record<string, string> = {
   device: 'M4 5h16v11H4zM9 20h6M12 16v4',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  mic: 'M12 4a3 3 0 00-3 3v5a3 3 0 006 0V7a3 3 0 00-3-3zM6 11a6 6 0 0012 0M12 17v3',
+  speaker: 'M5 9h3l4-4v14l-4-4H5zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11',
 };
 
 export function Icon({
