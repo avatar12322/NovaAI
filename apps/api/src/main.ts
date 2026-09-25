@@ -1,4 +1,5 @@
 import { loadDotEnv, parseConfig } from './config';
+import { FakeAgentRuntime } from './agent/fake-runtime';
 import { createDb } from './db/pool';
 import { buildServer } from './server';
 import { VERSION } from './version';
@@ -7,7 +8,10 @@ async function main(): Promise<void> {
   loadDotEnv();
   const config = parseConfig(process.env);
   const db = createDb(config.databaseUrlApp, config.databaseUrlOwner);
-  const app = await buildServer({ config, db, version: VERSION }, { logger: true });
+  const app = await buildServer(
+    { config, db, version: VERSION, runtime: new FakeAgentRuntime() },
+    { logger: true },
+  );
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

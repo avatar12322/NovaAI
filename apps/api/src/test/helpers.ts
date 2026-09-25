@@ -1,5 +1,6 @@
 import type { DevUserKey } from '@nova/contracts';
 import type { FastifyInstance, InjectOptions } from 'fastify';
+import { FakeAgentRuntime } from '../agent/fake-runtime';
 import { parseConfig, type AppConfig } from '../config';
 import { createDb, type Db } from '../db/pool';
 import { seedDev, type SeedResult } from '../db/seed';
@@ -40,7 +41,7 @@ export async function createTestApp(
   const db = createDb(config.databaseUrlApp, config.databaseUrlOwner);
   await truncateAll(db);
   const seed = await seedDev(db, config.env);
-  const base: AppDeps = { config, db, version: 'test' };
+  const base: AppDeps = { config, db, version: 'test', runtime: new FakeAgentRuntime() };
   const deps = extend ? extend(base) : base;
   const app = await buildServer(deps);
   return {

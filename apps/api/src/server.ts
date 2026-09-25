@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import { LIMITS } from '@nova/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { resolveSession, SESSION_COOKIE, type AuthContext } from './auth/session';
+import { runChatTurn } from './agent/turn';
 import { authRoutes } from './auth/routes';
 import type { AppDeps } from './deps';
 import { HttpError } from './lib/errors';
@@ -98,7 +99,12 @@ export async function buildServer(
     async (api) => {
       await api.register(healthRoutes(deps));
       await api.register(authRoutes(deps));
-      await api.register(conversationRoutes(deps));
+      await api.register(
+        conversationRoutes(deps, async ({ auth, conversation, message, requestId }) => {
+          await runChatTurn(deps, auth, conversation.id, message.content, requestId);
+          return { taskId: null };
+        }),
+      );
       await api.register(memoryRoutes(deps));
     },
     { prefix: '/api' },

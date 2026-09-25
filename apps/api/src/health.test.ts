@@ -50,7 +50,7 @@ describe('M0: healthcheck i konfiguracja', () => {
     const cfg = parseConfig({ ...TEST_ENV, NOVA_ENV: 'production', NOVA_DEV_LOGIN: 'false' });
     expect(cfg.devLogin).toBe(false);
     const { buildServer } = await import('./server');
-    const app = await buildServer({ config: cfg, db: t.db, version: 'test' });
+    const app = await buildServer({ ...t.deps, config: cfg });
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/dev-login',
