@@ -65,7 +65,7 @@ export class SoftAuthenticator {
     const flags = 0x01 | (uv ? 0x04 : 0) | (attested ? 0x40 : 0);
     const counter = Buffer.alloc(4);
     counter.writeUInt32BE(this.counter);
-    const parts = [sha(rpId), Buffer.from([flags]), counter];
+    const parts: Buffer[] = [sha(rpId), Buffer.from([flags]), counter];
     if (attested) {
       const len = Buffer.alloc(2);
       len.writeUInt16BE(this.credentialId.length);
