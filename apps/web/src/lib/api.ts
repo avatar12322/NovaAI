@@ -1,4 +1,6 @@
 import type {
+  Device,
+  GrantCapability,
   Approval,
   ApprovalPage,
   Conversation,
@@ -144,4 +146,12 @@ export const api = {
     paidCallsEnabled: boolean;
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
+
+  devices: () => get<{ items: Device[]; serverPublicKey: string }>('/devices'),
+  pairingCode: () => post<{ code: string; expiresAt: string }>('/devices/pairing-codes'),
+  addGrant: (deviceId: string, capability: GrantCapability, root: string) =>
+    post<{ id: string }>(`/devices/${deviceId}/grants`, { capability, root }),
+  revokeGrant: (deviceId: string, grantId: string) =>
+    request<void>('DELETE', `/devices/${deviceId}/grants/${grantId}`),
+  revokeDevice: (deviceId: string) => post<{ ok: boolean }>(`/devices/${deviceId}/revoke`),
 };

@@ -24,7 +24,11 @@
     "format:check": "prettier --check .",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "test:e2e": "pnpm --filter @nova/web test:e2e",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "worker:build": "cargo build --manifest-path workers/windows/Cargo.toml",
+    "worker:test": "cargo fmt --manifest-path workers/windows/Cargo.toml --check && cargo clippy --manifest-path workers/windows/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path workers/windows/Cargo.toml",
+    "worker:check-windows": "cargo check --manifest-path workers/windows/Cargo.toml --target x86_64-pc-windows-gnu --all-targets --no-default-features",
+    "check:all": "pnpm check && pnpm worker:test && pnpm test:e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

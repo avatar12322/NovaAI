@@ -1,0 +1,14 @@
+# Konfiguracja NovaAI Worker (Windows). Skopiuj jako worker.toml obok programu.
+# Serwer może jedynie ZAWĘZIĆ dostęp (granty w aplikacji) — nigdy nie rozszerzy go poza te katalogi.
+
+server = "https://nova.example.com"
+name = "Laptop"
+# state_dir = 'C:\Users\TWOJA_NAZWA\AppData\Local\NovaWorker'   # domyślnie %LOCALAPPDATA%\NovaWorker
+
+[[roots]]
+path = 'C:\Users\TWOJA_NAZWA\Projekty'
+capabilities = ["device.files.read", "device.git.read"]
+
+[[roots]]
+path = 'C:\Users\TWOJA_NAZWA\Projekty\nova-testy'
+capabilities = ["device.files.read", "device.files.write"]

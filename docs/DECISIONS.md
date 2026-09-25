@@ -157,3 +157,28 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   Adapter przetestowany kontraktowo na mocku; **nie uruchomiony przeciwko prawdziwemu Hermesowi** (brak
   instalacji i kluczy w tej sesji).
 - Honcho (pamięć epizodyczna): nie zaimplementowano; lokalna trwała pamięć w Postgres działa bez niego.
+
+## D-018 Worker: protokół v1, dwa klucze, dwie warstwy walidacji ścieżek
+
+- Połączenie wyłącznie wychodzące (WebSocket `/api/device-link/connect`, TLS wymagane poza localhost —
+  sprawdzane w Workerze). Parowanie: jednorazowy kod 8 znaków (40 bitów) ważny 10 min, przechowywany jako
+  SHA-256; limiter 10 nieudanych prób/min/IP. Urządzenie generuje własny klucz Ed25519; serwer zapisuje klucz
+  publiczny. Serwer podpisuje polecenia i granty kluczem wyprowadzonym HKDF z `NOVA_SECRET_KEY`
+  (stały między restartami; Worker przypina go przy parowaniu). W dev bez sekretu — jawnie niebezpieczny klucz dev.
+- Uwierzytelnienie połączenia: challenge (nonce) → `hello` podpisane kluczem urządzenia → `welcome` + podpisane granty.
+- Polecenie: `v, commandId, deviceId, taskId, capability, params, idempotencyKey, issuedAt, deadline`
+  podpisane przez serwer; wynik podpisany przez urządzenie i dopasowany do oczekującego polecenia i klucza.
+  Podpis obejmuje dokładne bajty `payload` (string JSON) — brak problemów z kanonikalizacją między TS i Rust.
+- Warstwa 1 (DeviceBroker, przed wysyłką): właściciel, kontekst (NovaAI bez urządzeń), aktywny grant zdolności,
+  leksykalnie katalog (także reguły Windows: ADS, CON/NUL, UNC, `..`). Warstwa 2 (Worker): lokalna polityka
+  z `worker.toml` ∩ podpisane granty, ścieżka kanoniczna (realpath/`dunce::canonicalize` — symlinki i junctions),
+  zakaz zapisu przez link/reparse point. Serwer może tylko zawęzić dostęp.
+- Zapis: zawsze przez zgodę z diffem (jsdiff) i zamrożonym `baseSha256`; Worker odmawia przy zmianie pliku,
+  robi kopię zapasową w katalogu stanu (poza udostępnionym katalogiem) i atomową zamianę (tmp + rename).
+- Wyniki narzędzi urządzeń mają klasyfikację `private` — zapisywane wyłącznie w prywatnej rozmowie właściciela.
+- Symulator TS (`apps/api/src/devices/simulator.ts`) jest implementacją referencyjną używaną w testach i e2e;
+  Worker Rust przechodzi ten sam scenariusz w teście interoperacyjności (`rust-worker.test.ts`).
+- Ograniczenia: hub połączeń jest w pamięci procesu (jedna instancja API); klucz urządzenia na Windows bez DPAPI;
+  brak procesów/aplikacji/PowerShell/zrzutów/UI Automation (kolejne kroki sekcji 6 specyfikacji).
+- TLS w Workerze jako cecha `tls` (domyślna) — pozwala sprawdzić kompilację kodu `cfg(windows)` z Linuksa bez
+  kompilatora C mingw (`pnpm worker:check-windows`).

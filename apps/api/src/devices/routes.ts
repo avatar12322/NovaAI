@@ -137,13 +137,11 @@ export const deviceRoutes =
         outcome: 'ok',
         correlationId: req.id,
       });
-      return reply
-        .status(201)
-        .send({
-          code,
-          expiresAt: expiresAt.toISOString(),
-          protocolVersion: WORKER_PROTOCOL_VERSION,
-        });
+      return reply.status(201).send({
+        code,
+        expiresAt: expiresAt.toISOString(),
+        protocolVersion: WORKER_PROTOCOL_VERSION,
+      });
     });
 
     app.post<{ Params: { id: string } }>('/devices/:id/grants', async (req, reply) => {

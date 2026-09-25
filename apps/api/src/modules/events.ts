@@ -49,6 +49,8 @@ export const eventRoutes =
       );
       // Nowe połączenie (bez Last-Event-ID/after) zaczyna od bieżącego końca strumienia —
       // klient ładuje stan przez API, a strumień niesie tylko nowe zdarzenia.
+      // LISTEN musi być aktywny, zanim ustalimy punkt startowy — inaczej NOTIFY z tej chwili by przepadły.
+      await deps.events.ready();
       let lastId = resumeFrom;
       if (resumeFrom === 0) {
         const r = await deps.db.owner.query<{ max: number | null }>(

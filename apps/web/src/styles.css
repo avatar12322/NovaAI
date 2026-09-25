@@ -853,6 +853,41 @@ label {
   align-items: end;
 }
 
+/* ---------- urządzenia ---------- */
+.devices,
+.grants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.device {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.grants li {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border);
+}
+.grant-form {
+  display: grid;
+  grid-template-columns: 1fr 200px auto;
+  gap: var(--space-2);
+}
+.pairing-code {
+  font-size: var(--fs-lg);
+  letter-spacing: 1px;
+}
+.pairing code {
+  overflow-wrap: anywhere;
+}
+
 /* ---------- szerokości pośrednie ---------- */
 @media (max-width: 1180px) {
   .shell {
@@ -952,7 +987,8 @@ label {
     grid-column: 1 / -1;
   }
   .grid-2,
-  .budget-form {
+  .budget-form,
+  .grant-form {
     grid-template-columns: 1fr;
   }
   .memory-actions {

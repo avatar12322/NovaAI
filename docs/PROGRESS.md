@@ -87,14 +87,44 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   `infra/config/models.example.json` do `infra/config/models.local.json`, uzupełnij ceny z oficjalnego cennika,
   kurs `fx.USD` i `verifiedAt`, ustaw `NOVA_MODELS_CONFIG=infra/config/models.local.json`.
 
+### M4 (2026-09-25)
+
+- Kontrakt protokołu: `packages/contracts/src/worker.ts`; migracja `0006_devices.sql` (devices, pairing codes,
+  device_grants, device_commands, RLS tylko dla właściciela).
+- API: `apps/api/src/devices/` — `keys.ts` (Ed25519, HKDF, kody), `paths.ts` (walidacja leksykalna Windows/POSIX),
+  `hub.ts` (połączenia, podpisy, oczekujące polecenia), `broker.ts` (autoryzacja przed wysyłką, dziennik, audyt),
+  `tools.ts` (list/read/write/git jako narzędzia brokera; zapis ze zgodą i diffem), `routes.ts`
+  (`GET /api/devices`, `POST /api/devices/pairing-codes`, `POST|DELETE /api/devices/:id/grants[/:grantId]`,
+  `POST /api/devices/:id/revoke`, `POST /api/device-link/pair`, WS `/api/device-link/connect`), `simulator.ts`.
+- Worker Rust (`workers/windows`): `protocol.rs`, `policy.rs`, `fsops.rs`, `git.rs`, `state.rs`, `executor.rs`,
+  `client.rs`, CLI `pair | run | check`; README z instrukcją testu ręcznego na Windows.
+- UI: Ustawienia → Urządzenia (kod parowania z instrukcją, status online na żywo, granty, cofanie, odłączanie).
+  Czat demo: `pliki: <ścieżka>`, `przeczytaj: <ścieżka>`, `git status: <repo>`, `zapisz <ścieżka>: <treść>`.
+- Polecenia i wyniki:
+  - `pnpm test` → api 108/108, w tym `devices.test.ts` 16 (parowanie, kod jednorazowy, wygasły kod, limiter 429,
+    hello obcym kluczem ⇒ 4401, odłączenie ⇒ 4403 i brak ponownego połączenia, cudze urządzenie odrzucone przed
+    wysyłką, brak grantu, ścieżka poza grantem, `..`, cofnięcie grantu i urządzenia przed kolejnym poleceniem,
+    symlink pliku i katalogu poza korzeń odrzucony przez Workera, zdolność spoza lokalnej polityki, katalog spoza
+    lokalnych korzeni, polecenie z obcym podpisem, termin miniony, zapis ze zgodą + diff + kopia + brak plików tmp,
+    `base_changed`, idempotentny zapis, wynik w rozmowie, NovaAI bez narzędzi urządzeń, git status/diff),
+    `paths.test.ts` 5, `rust-worker.test.ts` 5 (prawdziwa binarka Rust ↔ API: parowanie, podpisy, lista/odczyt,
+    symlink, zapis z kopią i `base_changed`, odłączenie kończy proces).
+  - `pnpm worker:test` → `cargo fmt --check` OK, `cargo clippy -D warnings` OK, `cargo test` 18/18.
+  - `pnpm worker:check-windows` → `cargo check --target x86_64-pc-windows-gnu` OK (kod `cfg(windows)` kompiluje się),
+    clippy dla targetu Windows OK. **Nie uruchomiono na Windows** (brak systemu) — w tym test junction.
+  - `pnpm test:e2e` → 12/12 (dodany `devices.spec.ts`: kod z UI → symulator → grant z formularza → `pliki:` w czacie → odłączenie).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
+- Brak systemu Windows w sesji: Worker Rust sprawdzony na Linuksie (testy + interop z API) i kompilacyjnie dla
+  `x86_64-pc-windows-gnu` (bez TLS — brak kompilatora mingw; nie instalowałem pakietów systemowych). Test ręczny:
+  `workers/windows/README.md`.
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
 
 ## Następne 3 zadania
 
-1. M4: protokół Workera (podpisy Ed25519), parowanie krótkim kodem, DeviceBroker, symulator + testy negatywne.
-2. M4: rdzeń Rust (walidacja ścieżek, odmowa symlink/junction, odczyt/lista/zapis z diff i kopią, git status/diff).
-3. M5: kontrakt Connector, szyfrowanie tokenów, stan „not configured”, webhooki z deduplikacją.
+1. M5: kontrakt Connector, szyfrowanie tokenów (AES-256-GCM + rotacja), stan „not configured”, OAuth PKCE (Google) bez realnych kluczy.
+2. M5: webhooki/push z weryfikacją nadawcy, deduplikacją i odnawianiem subskrypcji; free/busy grant dla NovaAI.
+3. M6: deterministyczne przypomnienia i bezpieczne powiadomienia (priorytet prywatności i budżetu).

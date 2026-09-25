@@ -211,6 +211,23 @@ function ConversationPane({
     },
   );
 
+  // Zabezpieczenie na wypadek zgubionego zdarzenia SSE: odpytuj status tury co 2 s.
+  useEffect(() => {
+    if (!thinking) return;
+    const iv = setInterval(() => {
+      api
+        .task(thinking)
+        .then((t) => {
+          if (!['queued', 'running'].includes(t.status)) {
+            setThinking(null);
+            load();
+          }
+        })
+        .catch(() => undefined);
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [thinking, load]);
+
   const send = async (ev?: FormEvent) => {
     ev?.preventDefault();
     const content = draft.trim();
