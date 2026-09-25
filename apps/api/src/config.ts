@@ -31,6 +31,11 @@ const EnvSchema = z.object({
     .min(1)
     .max(24 * 90)
     .default(24 * 14),
+  NOVA_SECRET_KEYS_OLD: z.string().optional().default(''),
+  NOVA_PUBLIC_URL: z.string().optional().default(''),
+  GOOGLE_CLIENT_ID: z.string().optional().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+  SLACK_SIGNING_SECRET: z.string().optional().default(''),
 });
 
 export type AppConfig = {
@@ -48,6 +53,11 @@ export type AppConfig = {
   queueLeaseMs: number;
   sessionTtlMs: number;
   secureCookies: boolean;
+  secretKeysOld: string;
+  /** Publiczny adres aplikacji (redirect OAuth). Domyślnie NOVA_WEB_ORIGIN. */
+  publicUrl: string;
+  google: { clientId: string; clientSecret: string };
+  slackSigningSecret: string;
 };
 
 export class ConfigError extends Error {}
@@ -87,5 +97,9 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     queueLeaseMs: e.NOVA_QUEUE_LEASE_MS,
     sessionTtlMs: e.NOVA_SESSION_TTL_HOURS * 3600_000,
     secureCookies: e.NOVA_ENV === 'production',
+    secretKeysOld: e.NOVA_SECRET_KEYS_OLD,
+    publicUrl: (e.NOVA_PUBLIC_URL || e.NOVA_WEB_ORIGIN).replace(/\/$/, ''),
+    google: { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET },
+    slackSigningSecret: e.SLACK_SIGNING_SECRET,
   };
 }

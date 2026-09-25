@@ -114,17 +114,36 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
     clippy dla targetu Windows OK. **Nie uruchomiono na Windows** (brak systemu) — w tym test junction.
   - `pnpm test:e2e` → 12/12 (dodany `devices.spec.ts`: kod z UI → symulator → grant z formularza → `pliki:` w czacie → odłączenie).
 
+### M5 (2026-09-25)
+- `apps/api/src/connectors/`: `types.ts`, `vault.ts`, `google.ts`, `service.ts`, `tools.ts` (calendar.freebusy,
+  mail.search/read/send), `routes.ts` (`GET /api/connections`, `POST /api/connections/:provider/start`,
+  `GET /api/connections/:provider/callback`, `DELETE /api/connections/:provider`,
+  `GET|POST|DELETE /api/calendar/freebusy-grant`, `GET|POST /api/calendar/local-events`, `DELETE /api/calendar/local-events/:id`,
+  `POST /api/webhooks/slack`). Migracja `0007_connections.sql`. CLI `db:rotate-keys`.
+- UI: Ustawienia → Integracje (status/łączenie/odłączanie), Kalendarz (grant free/busy dla NovaAI, kalendarz lokalny).
+  Czat demo: `zajętość: <od> <do>`, `szukaj maili: …`, `przeczytaj maila: <id>`, `wyślij mail do <adres>: <temat> | <treść>`.
+- Polecenia i wyniki: `pnpm test` → api 127/127, w tym `vault.test.ts` 5 (szyfrowanie, AAD, modyfikacja, rotacja,
+  długość klucza) i `connectors.test.ts` 14 (not configured z powodem, URL autoryzacji z minimalnym zakresem i PKCE,
+  wymiana kodu z weryfikatorem, tokeny zaszyfrowane i niedostępne dla roli aplikacji, izolacja Alfa/Beta, audyt bez
+  tokenów, jednorazowy state, odmowa użytkownika, odświeżanie, invalid_grant ⇒ reauth, odwołanie, rotacja,
+  free/busy bez grantu/z grantem/po cofnięciu bez tytułów, źródło Google, mail ze zgodą i RFC 2822, brak ponowienia
+  przy nieznanym wyniku, NovaAI bez poczty, „instrukcje” w mailu bez efektów, header injection, webhook Slack:
+  podpis, okno czasowe, challenge, deduplikacja); web 3/3; `pnpm test:e2e` → 12/12.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
 - Brak systemu Windows w sesji: Worker Rust sprawdzony na Linuksie (testy + interop z API) i kompilacyjnie dla
   `x86_64-pc-windows-gnu` (bez TLS — brak kompilatora mingw; nie instalowałem pakietów systemowych). Test ręczny:
   `workers/windows/README.md`.
+- Brak kont OAuth (Google Cloud client, Microsoft, Slack) — integracje sprawdzone wyłącznie na lokalnych mockach.
+  Do uruchomienia: klient OAuth „Web application”, redirect `<NOVA_PUBLIC_URL>/api/connections/google/callback`,
+  `GOOGLE_CLIENT_ID/SECRET`, `NOVA_SECRET_KEY`; weryfikacja zakresów Gmail przez Google przed udostępnieniem.
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
 
 ## Następne 3 zadania
 
-1. M5: kontrakt Connector, szyfrowanie tokenów (AES-256-GCM + rotacja), stan „not configured”, OAuth PKCE (Google) bez realnych kluczy.
-2. M5: webhooki/push z weryfikacją nadawcy, deduplikacją i odnawianiem subskrypcji; free/busy grant dla NovaAI.
-3. M6: deterministyczne przypomnienia i bezpieczne powiadomienia (priorytet prywatności i budżetu).
+1. M6: deterministyczne przypomnienia (prywatne/wspólne) w kolejce, powiadomienia bez treści prywatnej dla drugiej osoby.
+2. M6: dyktowanie głosowe w przeglądarce (opt-in z ostrzeżeniem o przetwarzaniu mowy) i odczyt odpowiedzi.
+3. M5: Microsoft Graph (Outlook/Calendar) według tego samego kontraktu; mapowanie zdarzeń Slack.

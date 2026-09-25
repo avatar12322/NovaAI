@@ -3,6 +3,10 @@ import type { AgentRuntime } from './agent/runtime';
 import type { AppConfig } from './config';
 import type { Db } from './db/pool';
 import type { AppDeps } from './deps';
+import { GoogleConnector, type GoogleEndpoints } from './connectors/google';
+import { ConnectionService } from './connectors/service';
+import { CONNECTOR_TOOLS } from './connectors/tools';
+import { vaultFromEnv } from './connectors/vault';
 import { DeviceBroker } from './devices/broker';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
@@ -24,6 +28,8 @@ export interface AppOptions {
   /** Podmiana dostawców (testy kontraktowe / fake). */
   providerOverrides?: Record<string, ModelProvider>;
   env?: NodeJS.ProcessEnv;
+  /** Adresy Google (testy kontraktowe na lokalnym mocku). */
+  googleEndpoints?: GoogleEndpoints;
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -41,6 +47,35 @@ export interface App {
 export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App {
   const broker = new ToolBroker().register(memoryCreateTool).register(householdNotifyTool);
   for (const t of DEVICE_TOOLS) broker.register(t);
+  for (const t of CONNECTOR_TOOLS) broker.register(t);
+  const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
+  const connections = new ConnectionService(
+    db,
+    config,
+    vault,
+    new Map([
+      [
+        'google',
+        new GoogleConnector(
+          config.google.clientId,
+          config.google.clientSecret,
+          opts.googleEndpoints,
+        ),
+      ],
+    ]),
+    [
+      {
+        provider: 'microsoft',
+        title: 'Microsoft 365 (Outlook, Teams)',
+        reason: 'nie zaimplementowano w tej wersji',
+      },
+      {
+        provider: 'slack',
+        title: 'Slack',
+        reason: 'nie zaimplementowano (tylko weryfikacja webhooków)',
+      },
+    ],
+  );
   const signing = deviceSigningKey(config);
   const hub = new DeviceHub(signing.key, (deviceId, ownerUserId, online) => {
     // Status urządzenia jest prywatny dla właściciela.
@@ -83,6 +118,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     modelsConfigError: loaded.error,
     broker,
     devices,
+    connections,
     events,
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',

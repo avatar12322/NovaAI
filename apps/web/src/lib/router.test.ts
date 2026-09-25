@@ -10,6 +10,9 @@ describe('router', () => {
     expect(parseRoute('')).toEqual({ view: 'chat', space: 'private', id: null });
     expect(href({ view: 'chat', space: 'private', id })).toBe(`#/chat/private/${id}`);
   });
+  it('ignoruje parametry zapytania w hashu (powrót z OAuth)', () => {
+    expect(parseRoute('#/settings?integration=ok')).toEqual({ view: 'settings' });
+  });
   it('odrzuca identyfikatory niebędące UUID', () => {
     expect(parseRoute('#/tasks/../../etc')).toEqual({ view: 'tasks', id: null });
   });

@@ -9,6 +9,7 @@ import { HttpError } from './lib/errors';
 import { LOG_REDACT_PATHS } from './lib/redact';
 import { approvalRoutes } from './modules/approvals';
 import { budgetRoutes } from './modules/budget';
+import { connectorRoutes } from './connectors/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -59,7 +60,8 @@ export async function buildServer(
     if (
       MUTATING.has(req.method) &&
       req.url.startsWith('/api/') &&
-      !req.url.startsWith('/api/device-link/')
+      !req.url.startsWith('/api/device-link/') &&
+      !req.url.startsWith('/api/webhooks/')
     ) {
       if (req.headers['x-nova-csrf'] !== '1') {
         throw new HttpError(403, 'csrf', 'Brak nagłówka x-nova-csrf');
@@ -113,6 +115,7 @@ export async function buildServer(
       await api.register(budgetRoutes(deps));
       if (opts.deviceServerPublicKey)
         await api.register(deviceRoutes(deps, opts.deviceServerPublicKey));
+      await api.register(connectorRoutes(deps));
     },
     { prefix: '/api' },
   );

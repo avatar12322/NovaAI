@@ -46,7 +46,7 @@ export class FakeAgentRuntime implements AgentRuntime {
       });
       lines.push(`Proponuję wysłać wiadomość: „${notify[2].trim()}” (wymaga Twojej zgody).`);
     }
-    const device = /(?:^|\n)\s*(pliki|przeczytaj|git status|git diff)[:\s]+(\S.*)$/im.exec(text);
+    const device = /(?:^|\n)\s*(pliki|przeczytaj|git status|git diff):\s*(\S.*)$/im.exec(text);
     if (device?.[1] && device[2]) {
       const kind = device[1].toLowerCase();
       const target = device[2].trim();
@@ -70,6 +70,42 @@ export class FakeAgentRuntime implements AgentRuntime {
         reason: 'prośba o zapis pliku',
       });
       lines.push(`Proponuję zapis pliku ${write[1]} (wymaga Twojej zgody z podglądem zmian).`);
+    }
+    const busy = /(?:^|\n)\s*zajętość:\s*(\S+)\s+(\S+)\s*$/im.exec(text);
+    if (busy?.[1] && busy[2]) {
+      toolCalls.push({
+        tool: 'calendar.freebusy',
+        params: { from: busy[1], to: busy[2] },
+        reason: 'sprawdzenie zajętości',
+      });
+      lines.push('Sprawdzam zajętość w kalendarzach, które zostały udostępnione.');
+    }
+    const mailSend = /(?:^|\n)\s*wyślij mail do\s+(\S+?):\s*([^|\n]+)\|\s*([\s\S]+)$/im.exec(text);
+    if (mailSend?.[1] && mailSend[2] && mailSend[3]) {
+      toolCalls.push({
+        tool: 'mail.send',
+        params: { to: mailSend[1], subject: mailSend[2].trim(), body: mailSend[3].trim() },
+        reason: 'prośba o wysłanie e-maila',
+      });
+      lines.push(`Proponuję wysłać e-mail do ${mailSend[1]} (wymaga Twojej zgody).`);
+    }
+    const mailRead = /(?:^|\n)\s*przeczytaj maila:\s*(\S+)\s*$/im.exec(text);
+    if (mailRead?.[1]) {
+      toolCalls.push({
+        tool: 'mail.read',
+        params: { messageId: mailRead[1] },
+        reason: 'odczyt e-maila',
+      });
+      lines.push('Odczytuję wiadomość.');
+    }
+    const mailSearch = /(?:^|\n)\s*szukaj maili:\s*(.+)$/im.exec(text);
+    if (mailSearch?.[1]) {
+      toolCalls.push({
+        tool: 'mail.search',
+        params: { query: mailSearch[1].trim(), max: 10 },
+        reason: 'wyszukiwanie e-maili',
+      });
+      lines.push('Szukam w poczcie.');
     }
     // Celowo bez filtrowania po allowedCapabilities — granicę wyznacza broker.
     void allowedCapabilities;

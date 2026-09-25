@@ -41,6 +41,11 @@ export interface ToolDef<P extends Record<string, unknown> = Record<string, unkn
    * w prywatnej rozmowie właściciela. Brak = wynik bez danych wrażliwych.
    */
   resultVisibility?: 'private';
+  /**
+   * Efekt zewnętrzny bez idempotencji u dostawcy (np. wysyłka e-maila). Jeśli poprzednia próba z tym
+   * kluczem została przerwana w trakcie, broker NIE ponawia automatycznie (wynik nieznany => nowa zgoda).
+   */
+  nonIdempotentExternal?: boolean;
   params: z.ZodType<P>;
   requiresApproval(p: P, ctx: ToolContext): boolean;
   /** Rozwiązanie i zamrożenie parametrów przed zgodą (np. wskazanie odbiorcy). */

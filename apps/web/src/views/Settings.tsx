@@ -6,6 +6,7 @@ import { api, ApiError, type BudgetStatus, type ModelStatus } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { formatMoney } from '../lib/format';
 import { DevicesPanel } from './Devices';
+import { CalendarPanel, IntegrationsPanel } from './Integrations';
 
 type Theme = 'system' | 'light' | 'dark';
 
@@ -39,6 +40,8 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
       <ServiceStatus />
       <BudgetPanel />
       <DevicesPanel />
+      <IntegrationsPanel />
+      <CalendarPanel />
       <section className="panel">
         <h2 className="h-sub">Wygląd</h2>
         <div className="space-switch" role="radiogroup" aria-label="Motyw">

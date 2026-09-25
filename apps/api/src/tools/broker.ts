@@ -229,6 +229,17 @@ export class ToolBroker {
         await this.audit(ctx, def.name, 'tool.execute', 'ok', params, { idempotentReplay: true });
         return { summary: p.result_summary ?? '', output: { replay: true } };
       }
+      if (def.nonIdempotentExternal) {
+        // Nie wiemy, czy efekt nastąpił — nie ryzykujemy duplikatu (np. drugiego e-maila).
+        await db.owner.query(
+          `UPDATE tool_calls SET status = 'failed', result_summary = 'outcome_unknown', finished_at = now() WHERE id = $1`,
+          [p.id],
+        );
+        await this.audit(ctx, def.name, 'tool.execute', 'deny', params, {
+          reason: 'outcome_unknown',
+        });
+        throw new ToolDenied('outcome_unknown_needs_review');
+      }
       // Poprzednia próba przerwana (np. restart) — narzędzia są idempotentne względem klucza.
       callId = p.id;
       await db.owner.query(`UPDATE tool_calls SET status = 'running' WHERE id = $1`, [callId]);

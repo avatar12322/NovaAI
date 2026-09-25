@@ -14,7 +14,7 @@ export type Route =
 const UUID = /^[0-9a-f-]{36}$/i;
 
 export function parseRoute(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const parts = hash.replace(/^#\/?/, '').split('?')[0]!.split('/').filter(Boolean);
   const [a, b, c] = parts;
   switch (a) {
     case 'chat':

@@ -11,6 +11,7 @@
     "db:migrate": "tsx src/db/cli.ts migrate",
     "db:seed": "tsx src/db/cli.ts seed",
     "db:reset-e2e": "tsx src/db/cli.ts reset-e2e",
+    "db:rotate-keys": "tsx src/db/cli.ts rotate-keys",
     "start:e2e": "tsx src/db/cli.ts reset-e2e && tsx src/main.ts",
     "test": "vitest run"
   },

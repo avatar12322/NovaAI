@@ -16,6 +16,12 @@ async function main(): Promise<void> {
       await migrate(db.owner);
       const r = await seedDev(db, config.env);
       console.log(`Seed dev: dom ${r.householdId}, użytkownicy alfa/beta`);
+    } else if (cmd === 'rotate-keys') {
+      const { createApp } = await import('../app');
+      const { deps } = createApp(config, db);
+      const n = await deps.connections.rotate();
+      await deps.events.stop();
+      console.log(`Ponownie zaszyfrowano tokeny: ${n}`);
     } else if (cmd === 'reset-e2e') {
       // Czysta baza dla testów e2e: dozwolone wyłącznie dla baz *_e2e poza produkcją.
       const dbName = new URL(config.databaseUrlOwner).pathname.slice(1);
@@ -29,7 +35,7 @@ async function main(): Promise<void> {
       await seedDev(db, config.env);
       console.log(`Zresetowano ${dbName}`);
     } else {
-      console.error('Użycie: cli.ts migrate|seed|reset-e2e');
+      console.error('Użycie: cli.ts migrate|seed|reset-e2e|rotate-keys');
       process.exitCode = 2;
     }
   } finally {

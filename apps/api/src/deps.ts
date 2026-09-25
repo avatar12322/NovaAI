@@ -1,6 +1,7 @@
 import type { AgentRuntime } from './agent/runtime';
 import type { AppConfig } from './config';
 import type { Db } from './db/pool';
+import type { ConnectionService } from './connectors/service';
 import type { DeviceBroker } from './devices/broker';
 import type { EventHub } from './events';
 import type { ModelGateway } from './model/gateway';
@@ -17,6 +18,7 @@ export interface AppDeps {
   modelsConfigError: string | null;
   broker: ToolBroker;
   devices: DeviceBroker;
+  connections: ConnectionService;
   events: EventHub;
   /** Budzenie kolejki po utworzeniu zadania (no-op, gdy kolejka wyłączona). */
   kickQueue: () => void;

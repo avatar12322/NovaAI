@@ -91,6 +91,27 @@ export interface BudgetStatus {
   }>;
 }
 
+export interface ConnectionInfo {
+  provider: 'google' | 'microsoft' | 'slack';
+  title: string;
+  capabilities: string[];
+  configured: boolean;
+  reason: string | null;
+  connection: {
+    status: string;
+    scopes: string[];
+    updatedAt: string;
+    lastError: string | null;
+  } | null;
+}
+
+export interface LocalEvent {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+}
+
 export interface ModelStatus {
   mode: 'configured' | 'demo';
   providers: Array<{ name: string; kind: string; configured: boolean; reason: string | null }>;
@@ -146,6 +167,20 @@ export const api = {
     paidCallsEnabled: boolean;
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
+
+  connections: () => get<{ items: ConnectionInfo[] }>('/connections'),
+  startConnection: (provider: string, capabilities: string[]) =>
+    post<{ url: string }>(`/connections/${provider}/start`, { capabilities }),
+  disconnect: (provider: string) => request<void>('DELETE', `/connections/${provider}`),
+  freeBusyGrant: () => get<{ active: boolean }>('/calendar/freebusy-grant'),
+  setFreeBusyGrant: (on: boolean) =>
+    on
+      ? post<{ active: boolean }>('/calendar/freebusy-grant')
+      : request<void>('DELETE', '/calendar/freebusy-grant'),
+  localEvents: () => get<{ items: LocalEvent[] }>('/calendar/local-events'),
+  addLocalEvent: (e: { title: string; startsAt: string; endsAt: string }) =>
+    post<{ id: string }>('/calendar/local-events', e),
+  deleteLocalEvent: (id: string) => request<void>('DELETE', `/calendar/local-events/${id}`),
 
   devices: () => get<{ items: Device[]; serverPublicKey: string }>('/devices'),
   pairingCode: () => post<{ code: string; expiresAt: string }>('/devices/pairing-codes'),

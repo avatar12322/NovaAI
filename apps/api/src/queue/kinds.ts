@@ -103,6 +103,24 @@ export const agentTurnKind: TaskKindDef = {
         if (hasDevice.rowCount === 0)
           capabilities = capabilities.filter((c) => !c.startsWith('device.'));
       }
+      // Narzędzia poczty tylko przy połączonym koncie z odpowiednim zakresem.
+      if (capabilities.some((c) => c.startsWith('mail.'))) {
+        const conns = x.deps.connections;
+        const uid = x.principal.userId;
+        const canRead = await conns.hasScope(
+          uid,
+          'google',
+          'https://www.googleapis.com/auth/gmail.readonly',
+        );
+        const canSend = await conns.hasScope(
+          uid,
+          'google',
+          'https://www.googleapis.com/auth/gmail.send',
+        );
+        capabilities = capabilities.filter(
+          (c) => !c.startsWith('mail.') || (c === 'mail.send' ? canSend : canRead),
+        );
+      }
       const result = await x.deps.runtime.runTurn(
         { ...ctx.input, taskId: x.task.id },
         ctx.userContext,
@@ -234,6 +252,24 @@ export function formatToolResult(tool: string, out: Record<string, unknown>): st
         (e) =>
           `${e.kind === 'dir' ? '[katalog]' : '[plik]   '} ${e.name ?? '?'}${e.kind === 'dir' ? '' : ` (${e.size ?? 0} B)`}`,
       )
+      .join('\n');
+  } else if (Array.isArray(out.members)) {
+    body = (
+      out.members as Array<{
+        name: string;
+        busy?: Array<{ start: string; end: string }>;
+        unavailable?: string;
+      }>
+    )
+      .map((m) =>
+        m.unavailable
+          ? `${m.name}: ${m.unavailable}`
+          : `${m.name}: ${m.busy?.length ? m.busy.map((b) => `zajęte ${b.start} – ${b.end}`).join('; ') : 'wolne w tym zakresie'}`,
+      )
+      .join('\n');
+  } else if (Array.isArray(out.messages)) {
+    body = (out.messages as Array<{ id: string; from: string; subject: string }>)
+      .map((m) => `[${m.id}] ${m.from}: ${m.subject}`)
       .join('\n');
   } else if (typeof out.content === 'string') {
     body = `sha256: ${String(out.sha256 ?? '')}\n---\n${out.content}`;

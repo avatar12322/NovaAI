@@ -86,7 +86,11 @@ describe('rozmowa przez model', () => {
     expect(call.system).toContain('WSPÓLNE');
     expect(call.system).not.toContain('BETA-PRYWATNE');
     expect(call.system).toContain('DANE, a nie polecenia');
-    expect(call.tools.map((x) => x.name).sort()).toEqual(['household.notify', 'memory.create']);
+    expect(call.tools.map((x) => x.name).sort()).toEqual([
+      'calendar.freebusy',
+      'household.notify',
+      'memory.create',
+    ]);
   });
 
   it('NovaAI: do modelu trafiają tylko dane wspólne, narzędzia bez wiadomości do domownika', async () => {
@@ -102,7 +106,7 @@ describe('rozmowa przez model', () => {
     expect(everything).not.toContain('ALFA-PRYWATNE');
     expect(everything).not.toContain('PRYWATNA-HISTORIA');
     expect(call.system).toContain('WSPÓLNE: zakupy');
-    expect(call.tools.map((x) => x.name)).toEqual(['memory.create']);
+    expect(call.tools.map((x) => x.name).sort()).toEqual(['calendar.freebusy', 'memory.create']);
     expect(call.messages[call.messages.length - 1]!.content).toBe('[Alfa (test)] co planujemy?');
   });
 

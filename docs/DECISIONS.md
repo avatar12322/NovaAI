@@ -182,3 +182,31 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   brak procesów/aplikacji/PowerShell/zrzutów/UI Automation (kolejne kroki sekcji 6 specyfikacji).
 - TLS w Workerze jako cecha `tls` (domyślna) — pozwala sprawdzić kompilację kodu `cfg(windows)` z Linuksa bez
   kompilatora C mingw (`pnpm worker:check-windows`).
+
+## D-019 Integracje: kontrakt Connector, sejf tokenów, Google jako pierwszy dostawca
+- `Connector` (`apps/api/src/connectors/types.ts`): capabilities, connect (authorizeUrl/exchangeCode),
+  disconnect (revoke), refresh, zdolności opcjonalne (freeBusy, mailSearch/Read/Send). Brak konfiguracji ⇒
+  `configured: false` z powodem; UI pokazuje „niedostępne”, a narzędzia nie są oferowane modelowi.
+- Sejf (`vault.ts`): AES-256-GCM, klucz HKDF z `NOVA_SECRET_KEY`, AAD = `użytkownik|dostawca|id połączenia`
+  (podmiana rekordów wykrywana), identyfikator klucza przy szyfrogramie; rotacja: nowy `NOVA_SECRET_KEY(_ID)`
+  + `NOVA_SECRET_KEYS_OLD`, potem `pnpm --filter @nova/api db:rotate-keys`. Rola `nova_app` nie ma prawa odczytu
+  kolumny z szyfrogramem.
+- OAuth: `state` (256 bit, jednorazowy, 10 min, w bazie skrót) + PKCE S256 (weryfikator zaszyfrowany w bazie).
+  Callback nie wymaga ciasteczka (SameSite=Strict nie jest wysyłane z domeny dostawcy) — użytkownika wiąże `state`.
+- Google (zweryfikowane 2026-09-25 w oficjalnej dokumentacji): auth `https://accounts.google.com/o/oauth2/v2/auth`,
+  token `https://oauth2.googleapis.com/token`, revoke `https://oauth2.googleapis.com/revoke`; `access_type=offline`,
+  `include_granted_scopes=true`. Minimalne zakresy: `calendar.freebusy` (freeBusy `POST /calendar/v3/freeBusy`),
+  `gmail.readonly` (search/read), `gmail.send` (`POST /gmail/v1/users/me/messages/send`, `raw` base64url RFC 2822).
+  Uwaga do weryfikacji przed produkcją: `gmail.readonly` to zakres „restricted”, `gmail.send` „sensitive” —
+  aplikacja zewnętrzna wymaga weryfikacji Google; w trybie „Testing” refresh tokeny wygasają po ok. 7 dniach.
+- Free/busy dla NovaAI: tabela `calendar_grants` (jawny grant właściciela, cofany natychmiast). Narzędzie
+  `calendar.freebusy` zwraca wyłącznie przedziały zajętości osób z aktywnym grantem (Google lub kalendarz lokalny),
+  nigdy tytułów. Agent prywatny widzi tylko własną zajętość.
+- Poczta: tylko agent prywatny; wyniki `resultVisibility: private`. `mail.send` zawsze ze zgodą (podgląd adresata,
+  tematu i treści), walidacja przeciw wstrzyknięciu nagłówków, `nonIdempotentExternal` — przerwana wysyłka nie jest
+  ponawiana automatycznie (`outcome_unknown_needs_review`). Treść maila to dane: trafia jako wiadomość `tool`
+  i nie jest przekazywana modelowi jako polecenie (runtime modelu używa tylko ról user/assistant).
+- Webhooki: `POST /api/webhooks/slack` — HMAC `v0` z `SLACK_SIGNING_SECRET`, okno 5 min, `url_verification`,
+  deduplikacja po `event_id` (`webhook_deliveries`). Mapowanie zdarzeń na użytkowników/zadania — nie zaimplementowano.
+- Microsoft 365 i Slack (OAuth): oznaczone jako niezaimplementowane; Google Pub/Sub push (JWT OIDC) i odnawianie
+  subskrypcji (watch/Graph) — nie zaimplementowano.
