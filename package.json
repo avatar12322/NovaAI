@@ -1,0 +1,38 @@
+{
+  "name": "novaai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NovaAI — prywatna aplikacja asystenta dla dwóch osób z przestrzenią wspólną",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "type": "module",
+  "scripts": {
+    "db:start": "bash scripts/pg-local.sh start",
+    "db:stop": "bash scripts/pg-local.sh stop",
+    "db:status": "bash scripts/pg-local.sh status",
+    "db:migrate": "pnpm --filter @nova/api db:migrate",
+    "db:seed": "pnpm --filter @nova/api db:seed",
+    "dev": "pnpm -r --parallel --filter @nova/api --filter @nova/web dev",
+    "dev:api": "pnpm --filter @nova/api dev",
+    "dev:web": "pnpm --filter @nova/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "test:e2e": "pnpm --filter @nova/web test:e2e",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.19.0",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

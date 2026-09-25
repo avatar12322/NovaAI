@@ -1,0 +1,82 @@
+/*
+ * Tokeny NovaAI: paleta neutralna + jeden akcent, promień 6–10 px, IBM Plex Sans/Mono.
+ * Bez gradientów i efektów szkła. Kontrast tekstu >= 4.5:1 w obu motywach.
+ */
+:root {
+  color-scheme: light dark;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 10px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #efefec;
+  --border: #d9d9d4;
+  --text: #1c1d1f;
+  --text-muted: #5b5d63;
+  --accent: #2f5bd3;
+  --accent-text: #ffffff;
+  --accent-soft: #e5ecfb;
+  --ok: #1d7a46;
+  --warn: #8a5a00;
+  --danger: #b3261e;
+  --danger-soft: #fbe9e7;
+  --warn-soft: #fff4dc;
+  --focus: #2f5bd3;
+  --shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #141517;
+    --surface: #1c1d20;
+    --surface-2: #25272b;
+    --border: #34363b;
+    --text: #e8e8e6;
+    --text-muted: #a3a5ab;
+    --accent: #7c9bff;
+    --accent-text: #0f1320;
+    --accent-soft: #232b44;
+    --ok: #5cc98a;
+    --warn: #e0b04a;
+    --danger: #ff8a80;
+    --danger-soft: #3a1f1d;
+    --warn-soft: #3a2f16;
+    --focus: #9db4ff;
+    --shadow: none;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #141517;
+  --surface: #1c1d20;
+  --surface-2: #25272b;
+  --border: #34363b;
+  --text: #e8e8e6;
+  --text-muted: #a3a5ab;
+  --accent: #7c9bff;
+  --accent-text: #0f1320;
+  --accent-soft: #232b44;
+  --ok: #5cc98a;
+  --warn: #e0b04a;
+  --danger: #ff8a80;
+  --danger-soft: #3a1f1d;
+  --warn-soft: #3a2f16;
+  --focus: #9db4ff;
+  --shadow: none;
+}

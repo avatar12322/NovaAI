@@ -1,0 +1,14 @@
+{
+  "name": "@nova/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "echo \"@nova/ui: brak testów jednostkowych (pokrycie przez e2e web)\""
+  }
+}

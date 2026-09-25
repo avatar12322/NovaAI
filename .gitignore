@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+.data/
+*.log
+.env
+.env.*
+!.env.example
+workers/windows/target/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/e2e-screens/
+.DS_Store
+*.tsbuildinfo
