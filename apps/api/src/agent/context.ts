@@ -1,6 +1,6 @@
 import { decide, scopeFor, type ContextKind } from '@nova/permissions';
 import { writeAudit } from '../audit';
-import type { AuthContext } from '../auth/session';
+import type { Principal } from '../principal';
 import { withUserTx, type Db } from '../db/pool';
 import { notFound } from '../lib/errors';
 import type { AgentTurnInput, AgentUserContext, ContextMemory, ContextMessage } from './runtime';
@@ -30,7 +30,7 @@ export interface BuiltContext {
  */
 export async function buildTurnContext(
   db: Db,
-  auth: AuthContext,
+  auth: Principal,
   conversationId: string,
   userMessage: string,
   correlationId: string,

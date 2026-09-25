@@ -10,6 +10,9 @@ import type {
  * Deterministyczny runtime do testów i trybu demo. Bez sieci i bez kosztów.
  * Odpowiedź jawnie oznacza tryb demo. Prosta „retrieval” po słowach kluczowych pokazuje,
  * które pamięci były w kontekście — dzięki temu testy izolacji mogą to sprawdzić.
+ *
+ * Propozycje narzędzi są generowane NIEZALEŻNIE od `allowedCapabilities` — tak jak model, który
+ * może „wymyślić” narzędzie. Granicą bezpieczeństwa jest broker, nie runtime.
  */
 export class FakeAgentRuntime implements AgentRuntime {
   readonly name = 'fake';
@@ -24,15 +27,27 @@ export class FakeAgentRuntime implements AgentRuntime {
     const toolCalls: ProposedToolCall[] = [];
     const lines: string[] = [];
 
-    const remember = /^(zapamiętaj|zapamietaj|remember)[:\s]+(.+)$/is.exec(text);
-    if (remember?.[2] && allowedCapabilities.includes('memory.create')) {
+    const remember = /(?:^|\n)\s*(zapamiętaj|zapamietaj|remember)[:\s]+(.+)$/im.exec(text);
+    if (remember?.[2]) {
       toolCalls.push({
         tool: 'memory.create',
         params: { content: remember[2].trim() },
         reason: 'prośba o zapamiętanie',
       });
-      lines.push(`Zaproponowano zapisanie w pamięci: „${remember[2].trim()}”.`);
+      lines.push(`Proponuję zapisać w pamięci: „${remember[2].trim()}”.`);
     }
+    const notify =
+      /(?:^|\n)\s*(napisz|powiadom|wyślij|wyslij)(?: do [^:\n]{1,40})?:\s*(.+)$/im.exec(text);
+    if (notify?.[2]) {
+      toolCalls.push({
+        tool: 'household.notify',
+        params: { message: notify[2].trim() },
+        reason: 'prośba o wiadomość',
+      });
+      lines.push(`Proponuję wysłać wiadomość: „${notify[2].trim()}” (wymaga Twojej zgody).`);
+    }
+    // Celowo bez filtrowania po allowedCapabilities — granicę wyznacza broker.
+    void allowedCapabilities;
 
     if (/co pamiętasz|co pamietasz|what do you remember/.test(lower)) {
       if (input.memories.length === 0)

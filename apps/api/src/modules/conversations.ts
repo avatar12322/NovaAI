@@ -13,6 +13,8 @@ import type pg from 'pg';
 import { actorFor, authorize, requireAuth } from '../access';
 import { writeAudit } from '../audit';
 import { withUserTx } from '../db/pool';
+import { emitEvent } from '../events';
+import { createTask } from '../queue/tasks';
 import type { AppDeps } from '../deps';
 import { decodeCursor, pageResult } from '../lib/cursor';
 import { forbidden, notFound } from '../lib/errors';
@@ -116,6 +118,37 @@ export type MessageHandler = (args: {
   message: Message;
   requestId: string;
 }) => Promise<{ taskId: string | null }>;
+
+/** Tura agenta jako trwałe zadanie w kolejce (odporność na restart, postęp w Activity Strip). */
+export const enqueueAgentTurn: MessageHandler = async ({
+  deps,
+  auth,
+  conversation,
+  message,
+  requestId,
+}) => {
+  const taskId = await withUserTx(deps.db, { userId: auth.userId, scope: 'user' }, async (c) => {
+    await emitEvent(c, {
+      householdId: auth.householdId!,
+      ownerUserId: auth.userId,
+      visibility: conversation.visibility,
+      type: 'message.created',
+      payload: { conversationId: conversation.id, messageId: message.id, role: 'user' },
+    });
+    return createTask(c, {
+      householdId: auth.householdId!,
+      visibility: conversation.visibility,
+      conversationId: conversation.id,
+      kind: 'agent.turn',
+      title: `Odpowiedź: ${conversation.agent.name}`,
+      input: { messageId: message.id },
+      steps: [{ key: 'reply', title: 'Odpowiedź asystenta', kind: 'model' }],
+      requestId,
+    });
+  });
+  deps.kickQueue();
+  return { taskId };
+};
 
 export const conversationRoutes =
   (deps: AppDeps, onUserMessage?: MessageHandler): FastifyPluginAsync =>

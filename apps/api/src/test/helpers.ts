@@ -1,10 +1,11 @@
 import type { DevUserKey } from '@nova/contracts';
 import type { FastifyInstance, InjectOptions } from 'fastify';
-import { FakeAgentRuntime } from '../agent/fake-runtime';
+import { createApp, type AppOptions } from '../app';
 import { parseConfig, type AppConfig } from '../config';
 import { createDb, type Db } from '../db/pool';
 import { seedDev, type SeedResult } from '../db/seed';
 import type { AppDeps } from '../deps';
+import type { TaskRunner } from '../queue/runner';
 import { buildServer } from '../server';
 import { TEST_ENV } from './env';
 
@@ -14,6 +15,9 @@ export interface TestApp {
   config: AppConfig;
   seed: SeedResult;
   deps: AppDeps;
+  runner: TaskRunner;
+  /** Przetwarza kolejkę do opróżnienia (testy nie uruchamiają pętli w tle). */
+  drain(): Promise<number>;
   close(): Promise<void>;
 }
 
@@ -35,14 +39,18 @@ export async function truncateAll(db: Db): Promise<void> {
 
 export async function createTestApp(
   over: Record<string, string> = {},
-  extend?: (deps: AppDeps) => AppDeps,
+  opts: AppOptions = {},
 ): Promise<TestApp> {
   const config = testConfig(over);
   const db = createDb(config.databaseUrlApp, config.databaseUrlOwner);
   await truncateAll(db);
   const seed = await seedDev(db, config.env);
-  const base: AppDeps = { config, db, version: 'test', runtime: new FakeAgentRuntime() };
-  const deps = extend ? extend(base) : base;
+  const { deps, runner } = createApp(config, db, {
+    version: 'test',
+    demoStepMs: 2,
+    retryBaseMs: 1,
+    ...opts,
+  });
   const app = await buildServer(deps);
   return {
     app,
@@ -50,8 +58,12 @@ export async function createTestApp(
     config,
     seed,
     deps,
+    runner,
+    drain: () => runner.drain(),
     async close() {
       await app.close();
+      await runner.stop();
+      await deps.events.stop();
       await db.close();
     },
   };

@@ -146,8 +146,10 @@ describe('rozmowy: Alfa i Beta nie czytają swoich prywatnych danych', () => {
 
   it('stronicowanie wiadomości działa kursorem', async () => {
     const conv = await newConversation(alfa, 'private');
-    for (let i = 0; i < 3; i++)
+    for (let i = 0; i < 3; i++) {
       await alfa.post(`/api/conversations/${conv.id}/messages`, { content: `m${i}` });
+      await t.drain();
+    }
     // 3 wiadomości użytkownika + 3 odpowiedzi agenta
     const p1 = await alfa.get(`/api/conversations/${conv.id}/messages?limit=4`);
     expect(p1.body.items).toHaveLength(4);
@@ -231,6 +233,8 @@ describe('konteksty agentów: prywatny, prywatny, NovaAI', () => {
   async function ask(c: Client, convId: string, content = 'co pamiętasz?') {
     const r = await c.post(`/api/conversations/${convId}/messages`, { content });
     expect(r.status).toBe(201);
+    expect(r.body.taskId).toBeTruthy();
+    await t.drain();
     const msgs = await c.get(`/api/conversations/${convId}/messages?limit=100`);
     const last = msgs.body.items[msgs.body.items.length - 1];
     expect(last.role).toBe('assistant');

@@ -80,6 +80,8 @@ export const ACTIONS = [
   'connection.manage',
   'budget.read',
   'budget.manage',
+  'household.notify',
+  'reminder.create',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -220,4 +222,20 @@ export function decideCreate(
  */
 export function scopeFor(context: ContextKind): 'user' | 'shared' {
   return context === 'household_agent' ? 'shared' : 'user';
+}
+
+/**
+ * Wiadomość do innego członka domu (narzędzie `household.notify`). Wymaga zgody nadawcy
+ * na dokładną treść — tu sprawdzamy wyłącznie, czy nadawca i odbiorca są w tym samym domu.
+ */
+export function decideHouseholdNotify(
+  actor: Actor,
+  target: { householdId: string; targetUserId: string; targetActiveMember: boolean },
+): Decision {
+  if (!actor.userId) return deny('no_actor');
+  if (actor.context === 'household_agent') return deny('household_agent_no_direct_messages');
+  if (!actor.activeHouseholdIds.has(target.householdId)) return deny('not_active_member');
+  if (!target.targetActiveMember) return deny('target_not_member');
+  if (target.targetUserId === actor.userId) return deny('target_is_self');
+  return allow('household_member');
 }

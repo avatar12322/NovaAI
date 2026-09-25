@@ -29,6 +29,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   - `pnpm --filter @nova/web build` → OK.
 
 ### M1 (2026-09-25)
+
 - API: `GET/POST /api/conversations`, `GET /api/conversations/:id`, `GET/POST /api/conversations/:id/messages`,
   `GET/POST /api/memories`, `PATCH/DELETE /api/memories/:id`, `POST /api/memories/:id/share|unshare`,
   `GET /api/me`, `POST /api/auth/dev-login|logout`, `GET /api/auth/dev-users`.

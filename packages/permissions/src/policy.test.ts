@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { decide, decideCreate, scopeFor, type Actor, type ResourceMeta } from './policy';
+import {
+  decide,
+  decideCreate,
+  decideHouseholdNotify,
+  scopeFor,
+  type Actor,
+  type ResourceMeta,
+} from './policy';
 
 const H = 'h-1';
 const OTHER_H = 'h-2';
@@ -178,5 +185,21 @@ describe('tworzenie i zakres', () => {
   });
   it('nieznany aktor => odmowa', () => {
     expect(decide(actor(''), 'conversation.read', res()).allow).toBe(false);
+  });
+});
+
+describe('wiadomości w domu', () => {
+  const t = { householdId: H, targetUserId: BETA, targetActiveMember: true };
+  it('członek domu może wysłać wiadomość drugiemu członkowi (zgoda wymagana osobno)', () => {
+    expect(decideHouseholdNotify(actor(ALFA), t).allow).toBe(true);
+    expect(decideHouseholdNotify(actor(ALFA, 'private_agent'), t).allow).toBe(true);
+  });
+  it('NovaAI, obcy dom, nieaktywny odbiorca i wysyłka do siebie są odrzucane', () => {
+    expect(decideHouseholdNotify(actor(ALFA, 'household_agent'), t).allow).toBe(false);
+    expect(decideHouseholdNotify(actor(ALFA, 'user', [OTHER_H]), t).allow).toBe(false);
+    expect(decideHouseholdNotify(actor(ALFA), { ...t, targetActiveMember: false }).allow).toBe(
+      false,
+    );
+    expect(decideHouseholdNotify(actor(ALFA), { ...t, targetUserId: ALFA }).allow).toBe(false);
   });
 });

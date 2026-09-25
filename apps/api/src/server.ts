@@ -3,14 +3,16 @@ import cookie from '@fastify/cookie';
 import { LIMITS } from '@nova/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { resolveSession, SESSION_COOKIE, type AuthContext } from './auth/session';
-import { runChatTurn } from './agent/turn';
 import { authRoutes } from './auth/routes';
 import type { AppDeps } from './deps';
 import { HttpError } from './lib/errors';
 import { LOG_REDACT_PATHS } from './lib/redact';
-import { conversationRoutes } from './modules/conversations';
+import { approvalRoutes } from './modules/approvals';
+import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
+import { eventRoutes } from './modules/events';
 import { healthRoutes } from './modules/health';
 import { memoryRoutes } from './modules/memories';
+import { taskRoutes } from './modules/tasks';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -99,13 +101,11 @@ export async function buildServer(
     async (api) => {
       await api.register(healthRoutes(deps));
       await api.register(authRoutes(deps));
-      await api.register(
-        conversationRoutes(deps, async ({ auth, conversation, message, requestId }) => {
-          await runChatTurn(deps, auth, conversation.id, message.content, requestId);
-          return { taskId: null };
-        }),
-      );
+      await api.register(conversationRoutes(deps, enqueueAgentTurn));
       await api.register(memoryRoutes(deps));
+      await api.register(taskRoutes(deps));
+      await api.register(approvalRoutes(deps));
+      await api.register(eventRoutes(deps));
     },
     { prefix: '/api' },
   );
