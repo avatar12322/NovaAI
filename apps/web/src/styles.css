@@ -674,6 +674,10 @@ label {
   color: var(--text-muted);
   margin-bottom: 2px;
 }
+.msg-cost {
+  margin-left: auto;
+  font-family: var(--font-mono);
+}
 .msg-body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

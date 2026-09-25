@@ -17,6 +17,7 @@ export const EventType = z.enum([
   'notification.created',
   'budget.warning',
   'budget.blocked',
+  'budget.changed',
   'device.status',
 ]);
 export type EventType = z.infer<typeof EventType>;

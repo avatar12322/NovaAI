@@ -74,6 +74,7 @@ export interface Client {
   get(url: string): Promise<{ status: number; body: any; headers: Record<string, unknown> }>;
   post(url: string, payload?: unknown): Promise<{ status: number; body: any }>;
   patch(url: string, payload?: unknown): Promise<{ status: number; body: any }>;
+  put(url: string, payload?: unknown): Promise<{ status: number; body: any }>;
   del(url: string): Promise<{ status: number; body: any }>;
 }
 
@@ -109,6 +110,7 @@ export function clientFor(app: FastifyInstance, cookie: string): Client {
     get: (url) => call({ method: 'GET', url }),
     post: (url, payload) => call({ method: 'POST', url, payload: (payload ?? {}) as object }),
     patch: (url, payload) => call({ method: 'PATCH', url, payload: (payload ?? {}) as object }),
+    put: (url, payload) => call({ method: 'PUT', url, payload: (payload ?? {}) as object }),
     del: (url) => call({ method: 'DELETE', url }),
   };
 }

@@ -51,7 +51,7 @@ export const agentTurnKind: TaskKindDef = {
       );
       await x.progress(30);
       const result = await x.deps.runtime.runTurn(
-        ctx.input,
+        { ...ctx.input, taskId: x.task.id },
         ctx.userContext,
         x.deps.broker.capabilitiesFor(ctx.contextKind),
       );
@@ -90,6 +90,8 @@ export const agentTurnKind: TaskKindDef = {
             meta: {
               runtime: result.runtime,
               demo: result.demo,
+              notice: result.notice ?? null,
+              usage: result.usage,
               agent: ctx.userContext.agentName,
               taskId: x.task.id,
               context: { messages: ctx.input.history.length, memories: ctx.input.memories.length },

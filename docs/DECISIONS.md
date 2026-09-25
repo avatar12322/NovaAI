@@ -119,3 +119,41 @@ Router hash (bez zależności), `EventSource` do SSE z resynchronizacją widokó
 service worker buforuje wyłącznie powłokę i zasoby `/assets/*` — nigdy `/api`. Desktop: nawigacja + treść +
 Activity Strip (≥1180 px); telefon (<900 px): górny pasek + dolna nawigacja Czat/Zadania/Dom/Pamięć.
 E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` resetowana przy starcie.
+
+## D-016 ModelGateway, cenniki z konfiguracji, budżet z rezerwacją
+
+- `AgentRuntime` (kontrakt) → `ModelAgentRuntime` (gdy jest dostępny model) albo `FakeAgentRuntime`
+  (jawny tryb demo). `ModelGateway.complete()` ukrywa dostawców: trasa per zdolność (`chat.simple` /
+  `chat.complex`, opcjonalnie per profil runtime), wymaganie prywatności (`dataPolicy`: kontekst prywatny ⇒
+  tylko `private_ok`), fallback przy błędach przejściowych.
+- **Nazwy modeli i ceny wyłącznie w pliku konfiguracyjnym** (`infra/config/models.example.json`,
+  `NOVA_MODELS_CONFIG`). Model płatny bez kompletnego cennika albo bez kursu waluty (`fx`, ustawiany przez
+  operatora) jest niedostępny — inaczej nie da się egzekwować budżetu. Przykładowa konfiguracja ma ceny `null`
+  ⇒ świeża instalacja działa w trybie demo, bez żadnych płatnych wywołań.
+- Koszt = tokeny × cena/MTok × kurs, w mikro-jednostkach waluty budżetu (bigint). Brak `usage` od dostawcy
+  ⇒ szacunek znaki/4 oznaczony `estimated=true` i pokazywany jako estymacja.
+- Budżet miesięczny per dom (`budgets`, strefa Europe/Warsaw): przed płatnym wywołaniem rezerwacja
+  najgorszego przypadku (wejście znaki/3 + pełne `max_tokens`) pod `pg_advisory_xact_lock` per dom; po odpowiedzi
+  rozliczenie rzeczywistym kosztem. Równoległe wywołania nie przekroczą twardego limitu (test).
+  Po twardym limicie/wyłączeniu płatnych wywołań: brak wywołania modelu, jawny komunikat w czacie, zdarzenie
+  `budget.blocked`; modele bezpłatne, dane lokalne, zadania i zgody działają dalej. Próg ostrzeżenia ⇒ jedno
+  zdarzenie `budget.warning`, a trasa `chat.complex` spada do `chat.simple`.
+- Limity ustawia każdy aktywny domownik (`PUT /api/budget`), zmiana audytowana i widoczna dla obojga.
+
+## D-017 Adapter Anthropic przez oficjalny SDK; Hermes jako endpoint OpenAI-compatible z warunkiem
+
+- Claude: `@anthropic-ai/sdk` (0.128), Messages API, narzędzia jako `tools` + `tool_choice: auto`, nazwy
+  narzędzi `memory.create` ⇄ `memory__create` (wymóg `^[a-zA-Z0-9_-]{1,64}$`), `output_config.effort` z konfiguracji,
+  `stop_reason: refusal` obsłużone jawnie. Typowane wyjątki SDK mapowane na `ProviderError(retryable)`.
+  Testy kontraktowe: SDK kierowany `baseURL` na lokalny serwer-mock (bez sieci i kosztów). Server-side
+  `fallbacks` (beta) nie są włączone — fallback realizuje trasa w konfiguracji.
+- Hermes (zweryfikowane 2026-09-25 w dokumentacji API server i profiles): `POST /v1/chat/completions`
+  zgodny z OpenAI, `Authorization: Bearer <API_SERVER_KEY>`, domyślnie `127.0.0.1:8642`, profil = model ID,
+  osobny klucz i port per profil (`~/.hermes/profiles/<p>/.env`). **Hermes wykonuje po swojej stronie własny
+  zestaw narzędzi (terminal, pliki, web, pamięć, skills)** — to omijałoby broker i ACL NovaAI. Dlatego dostawca
+  typu Hermes jest niedostępny, dopóki operator nie ustawi `hermes.toolsetsDisabledConfirmed: true` po
+  wyłączeniu toolsetów w `config.yaml` profilu. Trzy profile (`private-<user>`, `household`) mapują się przez
+  `profileRoutes`; nie należy wskazywać dwóch procesów na ten sam `HERMES_HOME` (ostrzeżenie z dokumentacji).
+  Adapter przetestowany kontraktowo na mocku; **nie uruchomiony przeciwko prawdziwemu Hermesowi** (brak
+  instalacji i kluczy w tej sesji).
+- Honcho (pamięć epizodyczna): nie zaimplementowano; lokalna trwała pamięć w Postgres działa bez niego.

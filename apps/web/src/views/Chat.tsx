@@ -12,7 +12,7 @@ import { Icon } from '../components/Icon';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
-import { timeAgo, timeOfDay } from '../lib/format';
+import { formatMoney, timeAgo, timeOfDay } from '../lib/format';
 import { href, navigate } from '../lib/router';
 
 interface Props {
@@ -307,6 +307,16 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
   const proposed =
     (m.meta.proposedTools as Array<{ tool: string; approval: boolean }> | undefined) ?? [];
   const denied = (m.meta.deniedTools as Array<{ tool: string; reason: string }> | undefined) ?? [];
+  const usage = m.meta.usage as
+    | {
+        cost: number;
+        currency?: string;
+        estimated: boolean;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    | null
+    | undefined;
   return (
     <article
       className={`msg ${m.role === 'assistant' ? 'msg-assistant' : mine ? 'msg-mine' : 'msg-other'}`}
@@ -319,6 +329,17 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
         </span>
         <time dateTime={m.createdAt}>{timeOfDay(m.createdAt)}</time>
         {m.meta.demo === true && <Badge tone="warn">demo</Badge>}
+        {m.meta.notice === 'budget_blocked' && <Badge tone="danger">limit budżetu</Badge>}
+        {m.meta.notice === 'model_unavailable' && <Badge tone="warn">model niedostępny</Badge>}
+        {usage && usage.cost > 0 && (
+          <span
+            className="msg-cost"
+            title={`${usage.inputTokens} tok. wej., ${usage.outputTokens} tok. wyj.`}
+          >
+            {formatMoney(usage.cost, usage.currency ?? 'PLN')}
+            {usage.estimated ? ' (est.)' : ''}
+          </span>
+        )}
       </header>
       <div className="msg-body">{m.content}</div>
       {proposed.some((p) => p.approval) && (

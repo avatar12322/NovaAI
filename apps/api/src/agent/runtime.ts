@@ -20,6 +20,8 @@ export interface ContextMemory {
 
 export interface AgentTurnInput {
   conversationId: string;
+  /** Zadanie kolejki, w ramach którego działa tura (do rozliczenia kosztów). */
+  taskId?: string | null;
   userMessage: string;
   history: ContextMessage[];
   memories: ContextMemory[];
@@ -48,6 +50,9 @@ export interface TurnUsage {
   outputTokens: number;
   /** true, gdy dostawca nie zwrócił wiarygodnych metadanych i liczby są estymacją. */
   estimated: boolean;
+  /** Koszt w walucie budżetu (0 dla demo/modeli bezpłatnych). */
+  cost?: number;
+  currency?: string;
 }
 
 export interface AgentTurnResult {
@@ -56,6 +61,8 @@ export interface AgentTurnResult {
   usage: TurnUsage | null;
   runtime: string;
   demo: boolean;
+  /** Powód odpowiedzi zastępczej (bez wywołania modelu lub po odmowie). */
+  notice?: 'budget_blocked' | 'model_unavailable' | 'provider_error' | 'refusal';
 }
 
 export interface AgentRuntime {

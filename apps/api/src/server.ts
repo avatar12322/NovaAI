@@ -8,6 +8,7 @@ import type { AppDeps } from './deps';
 import { HttpError } from './lib/errors';
 import { LOG_REDACT_PATHS } from './lib/redact';
 import { approvalRoutes } from './modules/approvals';
+import { budgetRoutes } from './modules/budget';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
 import { healthRoutes } from './modules/health';
@@ -106,6 +107,7 @@ export async function buildServer(
       await api.register(taskRoutes(deps));
       await api.register(approvalRoutes(deps));
       await api.register(eventRoutes(deps));
+      await api.register(budgetRoutes(deps));
     },
     { prefix: '/api' },
   );

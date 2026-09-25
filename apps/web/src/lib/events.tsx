@@ -29,6 +29,7 @@ const TYPES = [
   'notification.created',
   'budget.warning',
   'budget.blocked',
+  'budget.changed',
   'device.status',
 ];
 

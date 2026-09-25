@@ -22,6 +22,13 @@ export const healthRoutes =
         db,
         migrations,
         queue: deps.queueStatus(),
+        model: {
+          mode: deps.runtime.name === 'fake' ? 'demo' : 'configured',
+          providers: deps.gateway
+            .status()
+            .models.filter((m) => m.available)
+            .map((m) => m.key),
+        },
         devLogin: deps.config.devLogin,
         time: new Date().toISOString(),
       };

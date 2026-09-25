@@ -66,12 +66,35 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   `events.test.ts` 4: SSE na żywo z filtrowaniem RLS, wznowienie, start od końca, 401), web 2/2;
   `pnpm test:e2e` → 10/10 (3 kolejne przebiegi bez błędów).
 
+### M3 (2026-09-25)
+
+- `apps/api/src/model/`: `config.ts` (schemat konfiguracji), `gateway.ts` (routing, prywatność, koszt, fallback),
+  `budget.ts` (rezerwacje, limity, zdarzenia), `agent-runtime.ts` (prompt z zasadami „dane ≠ polecenia”,
+  narzędzia z brokera), `providers/anthropic.ts` (oficjalny SDK), `providers/openai-compat.ts` (Hermes),
+  `providers/fake.ts`. Migracja `0005_budget_usage.sql`.
+- API: `GET/PUT /api/budget`, `GET /api/model/status`; health raportuje tryb modelu. UI: panel budżetu
+  i stanu modeli w Ustawieniach, koszt/uwagi przy odpowiedziach w czacie.
+- Polecenia i wyniki: `pnpm test` → api 82/82, w tym `providers.contract.test.ts` 7 (kształt żądań SDK/Chat
+  Completions, mapowanie tool_use/tool_calls/usage, refusal, błędy 401/429/500 bez wycieku sekretu),
+  `gateway.test.ts` 14 (przykładowa konfiguracja ⇒ demo, brak cennika/kursu/klucza, Hermes bez potwierdzenia,
+  dataPolicy, koszt PLN i USD×kurs, estymacja, fallback, twardy limit przed wywołaniem, wyłączenie płatnych,
+  równoległe rezerwacje [1 ok / 2 zablokowane], jedno ostrzeżenie, API budżetu, status bez sekretów),
+  `model-chat.test.ts` 6 (odpowiedź z modelu + koszt w zadaniu, kontekst prywatny bez danych drugiej osoby,
+  NovaAI bez prywatnych danych i historii, odrzucenie narzędzia spoza kontekstu, walidacja parametrów,
+  blokada budżetu bez wywołania modelu, model shared_only nie dostaje rozmowy prywatnej);
+  `pnpm test:e2e` → 10/10.
+- Nie uruchomiono żadnego płatnego API. Realny klucz: ustaw `ANTHROPIC_API_KEY`, skopiuj
+  `infra/config/models.example.json` do `infra/config/models.local.json`, uzupełnij ceny z oficjalnego cennika,
+  kurs `fx.USD` i `verifiedAt`, ustaw `NOVA_MODELS_CONFIG=infra/config/models.local.json`.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
+- Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
+  (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
 
 ## Następne 3 zadania
 
-1. M3: ModelGateway + konfiguracja routingu, adapter Anthropic (SDK) i OpenAI-compatible (Hermes), testy kontraktowe na mocku.
-2. M3: budżet (usage_records, budgets, blokada płatnych wywołań), `GET/PUT /api/budget`, `GET /api/model/status`.
-3. M4: protokół Workera, parowanie, symulator, rdzeń Rust.
+1. M4: protokół Workera (podpisy Ed25519), parowanie krótkim kodem, DeviceBroker, symulator + testy negatywne.
+2. M4: rdzeń Rust (walidacja ścieżek, odmowa symlink/junction, odczyt/lista/zapis z diff i kopią, git status/diff).
+3. M5: kontrakt Connector, szyfrowanie tokenów, stan „not configured”, webhooki z deduplikacją.

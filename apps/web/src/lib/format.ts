@@ -44,6 +44,7 @@ export const EVENT_PL: Record<string, string> = {
   'notification.created': 'Powiadomienie',
   'budget.warning': 'Budżet: ostrzeżenie',
   'budget.blocked': 'Budżet: blokada',
+  'budget.changed': 'Budżet: zmiana ustawień',
   'device.status': 'Urządzenie',
 };
 

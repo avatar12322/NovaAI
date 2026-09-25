@@ -1,0 +1,70 @@
+{
+  "$comment": [
+    "Przykładowa konfiguracja routingu modeli NovaAI. Skopiuj do infra/config/models.local.json (ignorowany) i ustaw NOVA_MODELS_CONFIG.",
+    "Cenniki są celowo PUSTE (null): model płatny bez cennika jest niedostępny, bo budżet nie mógłby być egzekwowany.",
+    "Przed włączeniem uzupełnij ceny z aktualnej oficjalnej strony cennika dostawcy i wpisz verifiedAt (YYYY-MM-DD).",
+    "fx: kurs waluty cennika do waluty budżetu (np. USD->PLN) ustawiany przez Ciebie; null = model niedostępny.",
+    "Klucze API NIE trafiają do tego pliku — tylko nazwy zmiennych środowiskowych (apiKeyEnv).",
+    "Profil Hermesa: ustaw hermes.toolsetsDisabledConfirmed=true dopiero po wyłączeniu toolsetów w config.yaml profilu."
+  ],
+  "currency": "PLN",
+  "fx": { "USD": null },
+  "providers": {
+    "anthropic": { "kind": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY" },
+    "hermes-household": {
+      "kind": "openai_compatible",
+      "apiKeyEnv": "HERMES_HOUSEHOLD_API_KEY",
+      "baseUrlEnv": "HERMES_HOUSEHOLD_BASE_URL",
+      "hermes": { "toolsetsDisabledConfirmed": false }
+    }
+  },
+  "models": {
+    "claude-strong": {
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "maxTokens": 8000,
+      "effort": "medium",
+      "dataPolicy": "private_ok",
+      "pricing": {
+        "currency": "USD",
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "cacheReadPerMTok": null,
+        "cacheWritePerMTok": null,
+        "verifiedAt": null,
+        "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    },
+    "claude-fast": {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5",
+      "maxTokens": 4000,
+      "dataPolicy": "private_ok",
+      "pricing": {
+        "currency": "USD",
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "verifiedAt": null,
+        "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    },
+    "hermes-household": {
+      "provider": "hermes-household",
+      "model": "household",
+      "maxTokens": 4000,
+      "dataPolicy": "shared_only",
+      "pricing": {
+        "currency": "PLN",
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "verifiedAt": null
+      }
+    }
+  },
+  "routes": {
+    "chat.simple": ["claude-fast", "claude-strong"],
+    "chat.complex": ["claude-strong", "claude-fast"]
+  },
+  "profileRoutes": {},
+  "routing": { "complexMinChars": 1200, "complexMinHistory": 16 }
+}

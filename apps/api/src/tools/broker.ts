@@ -1,4 +1,6 @@
 import type { ContextKind } from '@nova/permissions';
+import { z } from 'zod';
+import type { ToolSpec } from '../model/types';
 import { writeAudit } from '../audit';
 import { canonicalJson, hashParams } from '../lib/crypto';
 import { redact } from '../lib/redact';
@@ -50,6 +52,18 @@ export class ToolBroker {
     return [...this.tools.values()]
       .filter((t) => t.contexts.includes(context))
       .map((t) => ({ name: t.name, title: t.title, requiresApproval: 'zależnie od parametrów' }));
+  }
+
+  /** Opisy narzędzi (JSON Schema z zod) dla modelu — tylko dla nazw już dozwolonych w kontekście. */
+  describe(names: readonly string[]): ToolSpec[] {
+    return names
+      .map((n) => this.tools.get(n))
+      .filter((t): t is ToolDef => !!t)
+      .map((t) => ({
+        name: t.name,
+        description: `${t.title}. Propozycja — serwer może wymagać zgody użytkownika przed wykonaniem.`,
+        inputSchema: z.toJSONSchema(t.params, { io: 'input' }) as Record<string, unknown>,
+      }));
   }
 
   capabilitiesFor(context: ContextKind): string[] {
