@@ -25,6 +25,11 @@ export interface AgentTurnInput {
   userMessage: string;
   history: ContextMessage[];
   memories: ContextMemory[];
+  /**
+   * Tura uzupełniająca po wykonaniu narzędzi: wiadomość użytkownika i wyniki są już w historii,
+   * model formułuje odpowiedź na ich podstawie i nie dostaje narzędzi (jedna runda, bez pętli).
+   */
+  followUp?: boolean;
 }
 
 export interface AgentUserContext {

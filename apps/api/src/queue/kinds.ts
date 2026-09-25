@@ -6,7 +6,8 @@ import { insertMessage } from '../modules/conversations';
 import { writeAudit } from '../audit';
 import { ToolDenied } from '../tools/types';
 import type { StepSpec } from './tasks';
-import type { RunnerDeps, TaskKindDef, TaskRow } from './runner';
+import type { AgentTurnResult } from '../agent/runtime';
+import type { RunnerDeps, StepExecution, TaskKindDef, TaskRow } from './runner';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -18,6 +19,68 @@ async function conversationContext(deps: RunnerDeps, task: TaskRow): Promise<Con
   );
   if (!r.rows[0]) throw new ToolDenied('conversation_gone');
   return r.rows[0].kind === 'household' ? 'household_agent' : 'private_agent';
+}
+
+/** Wiadomość użytkownika, od której zaczęła się tura — odczyt pod RLS kontekstu zadania. */
+async function loadUserMessage(x: StepExecution): Promise<string> {
+  const messageId = String(x.task.input.messageId ?? '');
+  const scope = x.context === 'household_agent' ? 'shared' : 'user';
+  const content = await withUserTx(x.deps.db, { userId: x.principal.userId, scope }, async (c) => {
+    const r = await c.query<{ content: string }>(
+      'SELECT content FROM messages WHERE id = $1 AND conversation_id = $2',
+      [messageId, x.task.conversation_id],
+    );
+    return r.rows[0]?.content ?? null;
+  });
+  if (content === null) throw new ToolDenied('message_not_visible');
+  return content;
+}
+
+type TurnContext = Awaited<ReturnType<typeof buildTurnContext>>;
+
+async function postAssistantMessage(
+  x: StepExecution,
+  ctx: TurnContext,
+  result: AgentTurnResult,
+  extraMeta: Record<string, unknown>,
+): Promise<{ id: string }> {
+  const message = await withUserTx(
+    x.deps.db,
+    { userId: x.principal.userId, scope: ctx.scope },
+    (c) =>
+      insertMessage(c, {
+        conversationId: x.task.conversation_id!,
+        role: 'assistant',
+        authorUserId: null,
+        content: result.reply,
+        meta: {
+          runtime: result.runtime,
+          demo: result.demo,
+          notice: result.notice ?? null,
+          usage: result.usage,
+          agent: ctx.userContext.agentName,
+          taskId: x.task.id,
+          context: { messages: ctx.input.history.length, memories: ctx.input.memories.length },
+          ...extraMeta,
+        },
+        requestId: x.task.request_id,
+      }),
+  );
+  await withUserTx(x.deps.db, { userId: x.principal.userId, scope: 'user' }, (c) =>
+    emitEvent(c, {
+      householdId: x.task.household_id,
+      ownerUserId: x.principal.userId,
+      visibility: x.task.visibility,
+      taskId: x.task.id,
+      type: 'message.created',
+      payload: {
+        conversationId: x.task.conversation_id,
+        messageId: message.id,
+        role: 'assistant',
+      },
+    }),
+  );
+  return message;
 }
 
 /**
@@ -70,20 +133,7 @@ export const agentTurnKind: TaskKindDef = {
   },
   steps: {
     reply: async (x) => {
-      const messageId = String(x.task.input.messageId ?? '');
-      const scope = x.context === 'household_agent' ? 'shared' : 'user';
-      const userMessage = await withUserTx(
-        x.deps.db,
-        { userId: x.principal.userId, scope },
-        async (c) => {
-          const r = await c.query<{ content: string }>(
-            'SELECT content FROM messages WHERE id = $1 AND conversation_id = $2',
-            [messageId, x.task.conversation_id],
-          );
-          return r.rows[0]?.content ?? null;
-        },
-      );
-      if (userMessage === null) throw new ToolDenied('message_not_visible');
+      const userMessage = await loadUserMessage(x);
 
       const ctx = await buildTurnContext(
         x.deps.db,
@@ -149,52 +199,49 @@ export const agentTurnKind: TaskKindDef = {
         }
       }
 
-      const message = await withUserTx(
-        x.deps.db,
-        { userId: x.principal.userId, scope: ctx.scope },
-        async (c) => {
-          const m = await insertMessage(c, {
-            conversationId: x.task.conversation_id!,
-            role: 'assistant',
-            authorUserId: null,
-            content: result.reply,
-            meta: {
-              runtime: result.runtime,
-              demo: result.demo,
-              notice: result.notice ?? null,
-              usage: result.usage,
-              agent: ctx.userContext.agentName,
-              taskId: x.task.id,
-              context: { messages: ctx.input.history.length, memories: ctx.input.memories.length },
-              proposedTools: newSteps.map((s) => ({ tool: s.tool, approval: s.requiresApproval })),
-              deniedTools: denied,
-            },
-            requestId: x.task.request_id,
-          });
-          return m;
-        },
-      );
-      await withUserTx(x.deps.db, { userId: x.principal.userId, scope: 'user' }, (c) =>
-        emitEvent(c, {
-          householdId: x.task.household_id,
-          ownerUserId: x.principal.userId,
-          visibility: x.task.visibility,
-          taskId: x.task.id,
-          type: 'message.created',
-          payload: {
-            conversationId: x.task.conversation_id,
-            messageId: message.id,
-            role: 'assistant',
-          },
-        }),
-      );
+      const message = await postAssistantMessage(x, ctx, result, {
+        proposedTools: newSteps.map((s) => ({ tool: s.tool, approval: s.requiresApproval })),
+        deniedTools: denied,
+      });
+      // Jedna tura uzupełniająca: po narzędziach bez zgody model odpowiada na podstawie ich wyników.
+      // Narzędzia wymagające zgody mogą czekać godzinami — wtedy wynik trafia do rozmowy bez komentarza.
+      if (!result.demo && newSteps.length && newSteps.every((s) => !s.requiresApproval)) {
+        newSteps.push({
+          key: 'followup',
+          title: 'Odpowiedź na podstawie wyników',
+          kind: 'model',
+          dependsOn: newSteps.map((s) => s.key),
+        });
+      }
       await x.appendSteps(newSteps);
       return {
         messageId: message.id,
-        proposedTools: newSteps.length,
+        proposedTools: newSteps.filter((s) => s.kind === 'tool').length,
         deniedTools: denied,
         usage: result.usage,
       };
+    },
+    followup: async (x) => {
+      const userMessage = await loadUserMessage(x);
+      const ctx = await buildTurnContext(
+        x.deps.db,
+        x.principal,
+        x.task.conversation_id!,
+        userMessage,
+        x.task.request_id ?? x.task.id,
+      );
+      // Wyniki mogły zostać wstrzymane (prywatny wynik w rozmowie wspólnej) — wtedy bez wywołania modelu.
+      if (ctx.input.history[ctx.input.history.length - 1]?.role !== 'tool') {
+        return { skipped: 'no_visible_tool_results' };
+      }
+      await x.progress(30);
+      const result = await x.deps.runtime.runTurn(
+        { ...ctx.input, taskId: x.task.id, followUp: true },
+        ctx.userContext,
+        [],
+      );
+      const message = await postAssistantMessage(x, ctx, result, { followUp: true });
+      return { messageId: message.id, usage: result.usage };
     },
   },
 };

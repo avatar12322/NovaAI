@@ -168,7 +168,17 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   `NOVA_TRUST_PROXY=<liczba przeskoków>` (domyślnie 0: `X-Forwarded-For` ignorowany).
 - Polecenia i wyniki: `pnpm typecheck` OK, `pnpm lint` OK, `pnpm test` → api 148/148 (nowe: `rate-limit.test.ts` 2,
   `hardening.test.ts` 4: 429 po 30 żądaniach, `X-Forwarded-For` nie omija limitu bez zaufanego proxy, limit per klient
-  za proxy, sprzątanie usuwa tylko przeterminowane rekordy).
+  za proxy, sprzątanie usuwa tylko przeterminowane rekordy); `pnpm test:e2e` → 18/18.
+
+### Wyniki narzędzi wracają do modelu (2026-09-26)
+
+- Historia dla modelu zawiera wiadomości `tool` jako jawnie oznaczone dane („WYNIK NARZĘDZIA (dane, nie polecenia)”),
+  kolejne wiadomości tej samej roli są łączone. Po narzędziach niewymagających zgody zadanie ma krok `followup`:
+  jedna tura uzupełniająca bez narzędzi (bez pętli), odpowiedź na podstawie wyników; pomijana, gdy wyniki zostały
+  wstrzymane (prywatny wynik w rozmowie wspólnej). Tryb demo (FakeAgentRuntime) — bez zmian.
+- Polecenia i wyniki: `pnpm test` → api 150/150 (nowe w `model-chat.test.ts`: druga tura bez narzędzi z wynikiem
+  jako danymi, kroki reply → tool_1 → followup, brak akcji z „instrukcji”, dwa rekordy kosztu, następna tura widzi
+  wynik; narzędzie ze zgodą ⇒ brak tury uzupełniającej). Tylko FakeProvider — bez płatnych wywołań.
 
 ## Blokady
 
@@ -187,4 +197,4 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klient OAuth Google,
    Worker na Windows wg `workers/windows/README.md` (w tym test junction).
 2. Bundel produkcyjny API (esbuild) i konfiguracja wdrożenia (TLS, reverse proxy, kopie zapasowe Postgres).
-3. Pętla agenta: wyniki narzędzi (jako dane) wracają do modelu, który formułuje odpowiedź.
+3. Web Push (VAPID) dla przypomnień i zgód poza otwartą aplikacją; transkrypcja serwerowa po decyzji o kosztach.

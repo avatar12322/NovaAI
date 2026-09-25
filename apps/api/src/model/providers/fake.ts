@@ -35,6 +35,8 @@ export class FakeProvider implements ModelProvider {
             cacheReadTokens: 0,
             cacheWriteTokens: 0,
           });
-    return { text, toolCalls: this.behavior.toolCalls ?? [], usage, stopReason: 'end_turn' };
+    // Jak prawdziwy model: bez udostępnionych narzędzi nie ma wywołań narzędzi.
+    const toolCalls = req.tools.length ? (this.behavior.toolCalls ?? []) : [];
+    return { text, toolCalls, usage, stopReason: 'end_turn' };
   }
 }
