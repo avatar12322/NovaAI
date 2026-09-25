@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { loadDotEnv, parseConfig } from './config';
 import { createDb } from './db/pool';
+import { startMaintenance } from './maintenance';
 import { buildServer } from './server';
 import { VERSION } from './version';
 
@@ -11,8 +12,10 @@ async function main(): Promise<void> {
   const { deps, runner, deviceServerPublicKey } = createApp(config, db, { version: VERSION });
   const app = await buildServer(deps, { logger: true, deviceServerPublicKey });
 
+  const stopMaintenance = startMaintenance(db);
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
+    stopMaintenance();
     await app.close();
     await runner.stop();
     await deps.events.stop();

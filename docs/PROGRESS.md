@@ -4,15 +4,17 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 ## Status etapów
 
-| Etap                     | Status      | Uwagi                                                                |
-| ------------------------ | ----------- | -------------------------------------------------------------------- |
-| M0 — szkielet            | gotowe      | workspace, API, web, Postgres lokalny/Compose, migracje, healthcheck |
-| M1 — izolacja            | w toku      |                                                                      |
-| M2 — UI i zadania        | niewykonane |                                                                      |
-| M3 — model i pamięć      | niewykonane |                                                                      |
-| M4 — Worker              | niewykonane |                                                                      |
-| M5 — integracje          | niewykonane |                                                                      |
-| M6 — głos i proaktywność | niewykonane |                                                                      |
+| Etap                     | Status    | Uwagi                                                                                                                     |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| M0 — szkielet            | gotowe    | workspace, API, web, Postgres lokalny, migracje, healthcheck; Compose nieprzetestowany (brak Dockera)                     |
+| M1 — izolacja            | gotowe    | sesje, polityka + RLS, rozmowy, pamięć, udostępnianie, audyt; testy izolacji Alfa/Beta                                    |
+| M2 — UI i zadania        | gotowe    | trwała kolejka, zgody, SSE, UI desktop/telefon, PWA; e2e                                                                  |
+| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, adaptery Anthropic/Hermes — tylko na mockach (brak kluczy); Honcho niezaimplementowany      |
+| M4 — Worker              | częściowe | protokół, symulator, Worker Rust (Linux + interop z API); na Windows tylko kompilacja, bez uruchomienia                   |
+| M5 — integracje          | częściowe | Google (kalendarz free/busy, Gmail) na mockach, Slack webhook; brak kont OAuth; Microsoft/Slack OAuth niezaimplementowane |
+| M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej       |
+| Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                |
+| Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                         |
 
 ## Dziennik
 
@@ -147,6 +149,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   `pnpm test:e2e` → 14/14 w 3 kolejnych przebiegach (dodany `reminders.spec.ts`).
 
 ### Passkeys i bootstrap produkcji (2026-09-26)
+
 - `apps/api/src/auth/passkeys.ts` (rejestracja, logowanie, lista/usuwanie, enrolment z linku),
   `apps/api/src/db/admin.ts` + CLI `admin create-household|enroll|disable-user`, migracja `0009_passkeys.sql`,
   `GET /api/auth/config`. UI: „Zaloguj kluczem dostępu”, widok `#/enroll/<token>`, klucze w Ustawieniach.
@@ -154,6 +157,18 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   `passkey`, powtórka odpowiedzi i wyzwania, zły origin przy rejestracji i logowaniu, brak UV, cofnięty licznik,
   nieznany klucz, cudzy klucz, link z CLI: jednorazowy i wygasający, nowy dom z agentami, konfiguracja RP w produkcji);
   `pnpm test:e2e` → 18/18 (dodany `passkeys.spec.ts` z wirtualnym uwierzytelniaczem Chromium i CLI).
+
+### Utwardzenie po przeglądzie bezpieczeństwa (2026-09-26)
+
+- Znalezione w przeglądzie i poprawione: (1) logi Fastify zapisywały pełny URL — w tym `code` i `state` z callbacku
+  OAuth → serializer żądań z `redactUrl`; (2) trasy bez sesji (`/api/auth/passkeys/login/*`, `/api/auth/enroll/*`,
+  `/api/device-link/pair`) nie miały limitu liczby żądań → 30/min na adres IP i trasę (`lib/rate-limit.ts`);
+  (3) brak sprzątania wygasłych wyzwań WebAuthn, stanów OAuth, kodów parowania, tokenów enrolmentu i starych sesji
+  → `maintenance.ts` (co godzinę w procesie API); (4) za reverse proxy limiter widziałby adres proxy →
+  `NOVA_TRUST_PROXY=<liczba przeskoków>` (domyślnie 0: `X-Forwarded-For` ignorowany).
+- Polecenia i wyniki: `pnpm typecheck` OK, `pnpm lint` OK, `pnpm test` → api 148/148 (nowe: `rate-limit.test.ts` 2,
+  `hardening.test.ts` 4: 429 po 30 żądaniach, `X-Forwarded-For` nie omija limitu bez zaufanego proxy, limit per klient
+  za proxy, sprzątanie usuwa tylko przeterminowane rekordy).
 
 ## Blokady
 

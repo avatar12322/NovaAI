@@ -39,6 +39,8 @@ const EnvSchema = z.object({
   NOVA_RP_ID: z.string().optional().default(''),
   NOVA_RP_NAME: z.string().optional().default('NovaAI'),
   NOVA_RP_ORIGINS: z.string().optional().default(''),
+  /** Za reverse proxy: liczba zaufanych przeskoków (np. 1) — poprawne req.ip dla limitów. */
+  NOVA_TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 export type AppConfig = {
@@ -63,6 +65,7 @@ export type AppConfig = {
   slackSigningSecret: string;
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
+  trustProxy: number;
 };
 
 export class ConfigError extends Error {}
@@ -114,5 +117,6 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
         .map((o) => o.trim().replace(/\/$/, ''))
         .filter(Boolean),
     },
+    trustProxy: e.NOVA_TRUST_PROXY,
   };
 }

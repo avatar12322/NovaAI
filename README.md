@@ -39,6 +39,7 @@ pnpm --filter @nova/api start
 ```
 
 Serwer musi działać za TLS (reverse proxy); ciasteczka sesji mają wtedy flagę `Secure`.
+Za proxy ustaw `NOVA_TRUST_PROXY=1` (liczba zaufanych przeskoków), aby limity żądań widziały adres klienta.
 
 ## Kontrole
 

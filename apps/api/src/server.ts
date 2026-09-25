@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import { LIMITS } from '@nova/contracts';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { resolveSession, SESSION_COOKIE, type AuthContext } from './auth/session';
 import { passkeyRoutes } from './auth/passkeys';
 import { authRoutes } from './auth/routes';
 import type { AppDeps } from './deps';
 import { HttpError } from './lib/errors';
+import { RateLimiter, redactUrl } from './lib/rate-limit';
 import { LOG_REDACT_PATHS } from './lib/redact';
 import { approvalRoutes } from './modules/approvals';
 import { budgetRoutes } from './modules/budget';
@@ -38,11 +39,22 @@ export async function buildServer(
   deps: AppDeps,
   opts: BuildOptions = {},
 ): Promise<FastifyInstance> {
+  // Nagłówki z sekretami (cookie, authorization) są redagowane w logach.
+  const logger: FastifyServerOptions['logger'] = opts.logger
+    ? {
+        level: 'info',
+        redact: LOG_REDACT_PATHS,
+        serializers: {
+          // Bez parametrów z sekretami w URL (np. ?code=&state= z callbacku OAuth).
+          req: (req) => ({ method: req.method, url: redactUrl(req.url), remoteAddress: req.ip }),
+        },
+      }
+    : false;
   const app = Fastify({
-    // Nagłówki z sekretami (cookie, authorization) są redagowane w logach.
-    logger: opts.logger ? { level: 'info', redact: LOG_REDACT_PATHS } : false,
+    logger,
     bodyLimit: LIMITS.bodyBytes,
-    trustProxy: false,
+    // Za reverse proxy: liczba zaufanych przeskoków (req.ip = adres klienta, nie proxy).
+    trustProxy: (_addr: string, hop: number) => hop < deps.config.trustProxy,
     genReqId: (req) => {
       const h = req.headers['x-request-id'];
       return typeof h === 'string' && REQUEST_ID_RE.test(h) ? h : randomUUID();
@@ -75,6 +87,21 @@ export async function buildServer(
     }
     const token = req.cookies[SESSION_COOKIE];
     if (token) req.auth = await resolveSession(deps.db, deps.config, token);
+  });
+
+  // Limity dla tras bez sesji (logowanie, enrolment, parowanie urządzeń).
+  const unauthLimiter = new RateLimiter(30, 60_000);
+  app.addHook('onRequest', async (req) => {
+    const path = req.url.split('?')[0] ?? '';
+    if (
+      req.method === 'POST' &&
+      (path.startsWith('/api/auth/passkeys/login/') ||
+        path.startsWith('/api/auth/enroll/') ||
+        path === '/api/device-link/pair')
+    ) {
+      if (!unauthLimiter.hit(`${req.ip}|${path}`))
+        throw new HttpError(429, 'rate_limited', 'Zbyt wiele żądań — spróbuj za chwilę');
+    }
   });
 
   app.setErrorHandler((err, req, reply) => {

@@ -228,6 +228,7 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   po stronie serwera i brak kosztów modeli. Transkrypcja serwerowa (płatna) — nie zaimplementowano.
 
 ## D-021 Passkeys (WebAuthn) i bootstrap produkcji bez logowania testowego
+
 - `@simplewebauthn/server` 14 / `@simplewebauthn/browser` 14. Klucze rezydentne (discoverable), wymagana
   weryfikacja użytkownika (UV), attestation `none`. RP ID = domena (`NOVA_RP_ID`, domyślnie host z
   `NOVA_WEB_ORIGIN`), originy `NOVA_RP_ORIGINS`. IP nie jest poprawnym RP ID — w dev używaj `http://localhost:5173`.
@@ -238,3 +239,14 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   jednorazowy link `<NOVA_PUBLIC_URL>/#/enroll/<token>`; token zużywany atomowo, działa raz. `admin disable-user`
   wyłącza konto i unieważnia sesje. W produkcji logowanie testowe jest niedostępne (D-007).
 - Testy: programowy uwierzytelniacz ES256 (CBOR) w testach API oraz wirtualny uwierzytelniacz Chromium (CDP) w e2e.
+
+## D-022 Utwardzenie: limity, redakcja logów, zaufane proxy, sprzątanie
+
+- Limiter w pamięci procesu (okno przesuwne, 30 żądań/min na IP i trasę) dla tras bez sesji. Wystarcza dla
+  jednej instancji API (założenie domowego wdrożenia); przy wielu instancjach trzeba go przenieść do Postgresa.
+  Parowanie urządzeń ma dodatkowo osobny limiter nieudanych prób (D-018).
+- `req.ip` bierze `X-Forwarded-For` pod uwagę tylko przy `NOVA_TRUST_PROXY>0` — inaczej klient mógłby podmienić
+  adres i ominąć limit.
+- Logi: nagłówki z sekretami (cookie, authorization) są redagowane, a URL żądania przechodzi przez `redactUrl` (code, state, token…).
+- Sprzątanie co godzinę: wyzwania WebAuthn, stany OAuth, niewykorzystane kody parowania i tokeny enrolmentu,
+  sesje wygasłe/unieważnione ponad 30 dni temu. Audyt nie jest sprzątany (retencja do decyzji właściciela).
