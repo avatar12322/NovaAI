@@ -9,7 +9,8 @@ export type Route =
   | { view: 'approvals' }
   | { view: 'memory'; space: 'private' | 'shared' }
   | { view: 'home' }
-  | { view: 'settings' };
+  | { view: 'settings' }
+  | { view: 'enroll'; token: string };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -33,6 +34,10 @@ export function parseRoute(hash: string): Route {
       return { view: 'home' };
     case 'settings':
       return { view: 'settings' };
+    case 'enroll':
+      return b && /^[A-Za-z0-9_-]{20,200}$/.test(b)
+        ? { view: 'enroll', token: b }
+        : { view: 'chat', space: 'private', id: null };
     default:
       return { view: 'chat', space: 'private', id: null };
   }
@@ -46,6 +51,8 @@ export function href(r: Route): string {
       return `#/tasks${r.id ? `/${r.id}` : ''}`;
     case 'memory':
       return `#/memory/${r.space}`;
+    case 'enroll':
+      return `#/enroll/${r.token}`;
     default:
       return `#/${r.view}`;
   }

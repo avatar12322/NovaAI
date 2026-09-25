@@ -44,6 +44,10 @@ export default defineConfig({
         NOVA_DEV_LOGIN: 'true',
         NOVA_QUEUE_ENABLED: 'true',
         NOVA_MODELS_CONFIG: '',
+        // WebAuthn wymaga domeny (nie IP) — testy passkeys używają http://localhost:5174.
+        NOVA_RP_ID: 'localhost',
+        NOVA_RP_ORIGINS: `http://localhost:${WEB_PORT}`,
+        NOVA_PUBLIC_URL: `http://localhost:${WEB_PORT}`,
       },
     },
     {

@@ -10,6 +10,7 @@ import { ChatView } from './views/Chat';
 import { HomeView } from './views/Home';
 import { LoginView } from './views/Login';
 import { MemoryView } from './views/Memory';
+import { EnrollView } from './views/Passkeys';
 import { SettingsView } from './views/Settings';
 import { TasksView } from './views/Tasks';
 
@@ -41,6 +42,7 @@ export function App() {
     setState({ kind: 'anon' });
   };
 
+  if (route.view === 'enroll') return <EnrollView token={route.token} onDone={load} />;
   if (state.kind === 'loading') {
     return (
       <div className="center-screen">

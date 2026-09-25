@@ -6,6 +6,7 @@ import { api, ApiError, type BudgetStatus, type ModelStatus } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { formatMoney } from '../lib/format';
 import { DevicesPanel } from './Devices';
+import { PasskeysPanel } from './Passkeys';
 import { CalendarPanel, IntegrationsPanel } from './Integrations';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -70,8 +71,9 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
           <dt>E-mail</dt>
           <dd>{me.user.email}</dd>
           <dt>Logowanie</dt>
-          <dd>{me.session.method === 'dev' ? 'konto testowe (dev)' : 'passkey'}</dd>
+          <dd>{me.session.method === 'dev' ? 'konto testowe (dev)' : 'klucz dostępu (passkey)'}</dd>
         </dl>
+        <PasskeysPanel />
         <button type="button" className="btn" onClick={onLogout}>
           <Icon name="logout" /> Wyloguj
         </button>

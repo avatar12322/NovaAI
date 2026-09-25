@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import { LIMITS } from '@nova/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { resolveSession, SESSION_COOKIE, type AuthContext } from './auth/session';
+import { passkeyRoutes } from './auth/passkeys';
 import { authRoutes } from './auth/routes';
 import type { AppDeps } from './deps';
 import { HttpError } from './lib/errors';
@@ -108,6 +109,7 @@ export async function buildServer(
     async (api) => {
       await api.register(healthRoutes(deps));
       await api.register(authRoutes(deps));
+      await api.register(passkeyRoutes(deps));
       await api.register(conversationRoutes(deps, enqueueAgentTurn));
       await api.register(memoryRoutes(deps));
       await api.register(taskRoutes(deps));

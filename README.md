@@ -27,6 +27,19 @@ pnpm dev                        # API http://127.0.0.1:4000, web http://127.0.0.
 
 Healthcheck: `curl http://127.0.0.1:4000/api/health`.
 
+## Produkcja: pierwsze uruchomienie (bez kont testowych)
+
+```bash
+# .env: NOVA_ENV=production, NOVA_DEV_LOGIN=false, NOVA_SECRET_KEY=<32 bajty base64>,
+#       NOVA_WEB_ORIGIN=https://twoja-domena, NOVA_RP_ID=twoja-domena, własne hasła ról Postgres
+pnpm db:migrate
+pnpm --filter @nova/api admin create-household "Nasz dom" osoba1@example.com:Imię1 osoba2@example.com:Imię2
+pnpm --filter @nova/api admin enroll osoba1@example.com   # jednorazowy link (15 min) do rejestracji passkey
+pnpm --filter @nova/api start
+```
+
+Serwer musi działać za TLS (reverse proxy); ciasteczka sesji mają wtedy flagę `Secure`.
+
 ## Kontrole
 
 ```bash
@@ -52,7 +65,7 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
 
 ## Jak używać (dev)
 
-1. Otwórz http://127.0.0.1:5173 i wybierz konto testowe (Alfa lub Beta — sztuczne konta, tylko dev).
+1. Otwórz http://localhost:5173 (passkeys wymagają domeny, nie IP) i wybierz konto testowe (Alfa lub Beta — sztuczne konta, tylko dev).
 2. **Czat** — prywatna rozmowa z asystentem; **NovaAI** — rozmowa wspólna. Bez skonfigurowanego modelu
    odpowiada deterministyczny tryb demo (oznaczony „demo”). Komendy demo: `zapamiętaj: …`, `co pamiętasz?`,
    `napisz do domownika: …` (utworzy zgodę).

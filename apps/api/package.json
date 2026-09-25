@@ -12,6 +12,7 @@
     "db:seed": "tsx src/db/cli.ts seed",
     "db:reset-e2e": "tsx src/db/cli.ts reset-e2e",
     "db:rotate-keys": "tsx src/db/cli.ts rotate-keys",
+    "admin": "tsx src/db/cli.ts",
     "start:e2e": "tsx src/db/cli.ts reset-e2e && tsx src/main.ts",
     "test": "vitest run"
   },
@@ -21,6 +22,7 @@
     "@fastify/websocket": "^11.3.1",
     "@nova/contracts": "workspace:*",
     "@nova/permissions": "workspace:*",
+    "@simplewebauthn/server": "^14.0.3",
     "diff": "^9.0.0",
     "fastify": "^5.12.5",
     "pg": "^8.23.0",

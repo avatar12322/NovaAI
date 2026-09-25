@@ -54,9 +54,8 @@ Desktop (Windows). Oba warianty wykonują `infra/db/init.sql` (role + bazy `nova
   trasa rejestrowana tylko gdy `NOVA_ENV ∈ {development,test}` i `NOVA_DEV_LOGIN=true`.
   `NOVA_DEV_LOGIN=true` przy `NOVA_ENV=production` zatrzymuje start (test w `health.test.ts`).
   Sesje `dev` i konta fixture są odrzucane w produkcji nawet przy istniejącym ciasteczku.
-- Docelowo passkeys/WebAuthn (`@simplewebauthn/server`). **Fallback wdrożeniowy** (do czasu passkeys):
-  jednorazowy link logowania generowany lokalnie przez administratora CLI — do zaprojektowania w M-auth;
-  w tej sesji niewdrożone (patrz PROGRESS → blokady).
+- Passkeys/WebAuthn — zaimplementowane (patrz D-021). **Fallback wdrożeniowy**: jednorazowy link rejestracji
+  klucza generowany lokalnie przez administratora w CLI (`admin enroll <email>`), 15 min, skrót w bazie.
 
 ## D-008 Trzy konteksty agentów
 
@@ -213,6 +212,7 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   subskrypcji (watch/Graph) — nie zaimplementowano.
 
 ## D-020 Proaktywność (M6): przypomnienia w trwałej kolejce, prywatność i koszt przed akcją
+
 - Przypomnienie = rekord `reminders` + zadanie `reminder.fire` z `run_after = due_at` w tej samej kolejce co
   reszta (przeżywa restart, lease, odzysk). Dostarczenie jest deterministyczne: bez modelu, bez poczty,
   więc działa także przy zablokowanym budżecie (test).
@@ -226,3 +226,15 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
 - Głos: dyktowanie przez Web Speech API przeglądarki (opt-in z jawną informacją, że w Chrome/Edge mowa jest
   przetwarzana na serwerach dostawcy przeglądarki) i odczyt odpowiedzi przez `speechSynthesis`. Brak nagrań
   po stronie serwera i brak kosztów modeli. Transkrypcja serwerowa (płatna) — nie zaimplementowano.
+
+## D-021 Passkeys (WebAuthn) i bootstrap produkcji bez logowania testowego
+- `@simplewebauthn/server` 14 / `@simplewebauthn/browser` 14. Klucze rezydentne (discoverable), wymagana
+  weryfikacja użytkownika (UV), attestation `none`. RP ID = domena (`NOVA_RP_ID`, domyślnie host z
+  `NOVA_WEB_ORIGIN`), originy `NOVA_RP_ORIGINS`. IP nie jest poprawnym RP ID — w dev używaj `http://localhost:5173`.
+- Wyzwania jednorazowe (5 min) zużywane atomowo przed weryfikacją; licznik podpisów aktualizowany (cofnięcie ⇒
+  odmowa); nieznany klucz, zły origin, brak UV ⇒ 401 + audyt.
+- Bootstrap: `pnpm --filter @nova/api admin create-household "Dom" email:Imię email:Imię` (pierwsza osoba =
+  właściciel; tworzy konta, członkostwa, prywatnych agentów i NovaAI), potem `admin enroll <email>` wypisuje
+  jednorazowy link `<NOVA_PUBLIC_URL>/#/enroll/<token>`; token zużywany atomowo, działa raz. `admin disable-user`
+  wyłącza konto i unieważnia sesje. W produkcji logowanie testowe jest niedostępne (D-007).
+- Testy: programowy uwierzytelniacz ES256 (CBOR) w testach API oraz wirtualny uwierzytelniacz Chromium (CDP) w e2e.

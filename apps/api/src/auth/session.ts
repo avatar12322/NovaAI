@@ -1,3 +1,4 @@
+import type { FastifyReply } from 'fastify';
 import type { AppConfig } from '../config';
 import type { Db } from '../db/pool';
 import { randomToken, sha256 } from '../lib/crypto';
@@ -95,4 +96,20 @@ export async function resolveSession(
     householdRole: primary?.role ?? null,
     activeHouseholdIds: new Set(memberships.rows.map((m) => m.household_id)),
   };
+}
+
+/** Ciasteczko sesji: HttpOnly, SameSite=Strict, Secure w produkcji. */
+export function setSessionCookie(
+  reply: FastifyReply,
+  config: AppConfig,
+  token: string,
+  expires: Date,
+): void {
+  reply.setCookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: config.secureCookies,
+    path: '/',
+    expires,
+  });
 }

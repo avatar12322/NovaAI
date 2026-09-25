@@ -6,19 +6,13 @@ import { DEV_USERS } from '../db/seed';
 import type { AppDeps } from '../deps';
 import { HttpError } from '../lib/errors';
 import { parse } from '../lib/validate';
-import { createSession, revokeSession, SESSION_COOKIE } from './session';
+import { createSession, revokeSession, SESSION_COOKIE, setSessionCookie } from './session';
 
 export const authRoutes =
   (deps: AppDeps): FastifyPluginAsync =>
   async (app) => {
     const setCookie = (reply: FastifyReply, token: string, expires: Date) =>
-      reply.setCookie(SESSION_COOKIE, token, {
-        httpOnly: true,
-        sameSite: 'strict',
-        secure: deps.config.secureCookies,
-        path: '/',
-        expires,
-      });
+      setSessionCookie(reply, deps.config, token, expires);
 
     // Logowanie testowe — trasa NIE jest rejestrowana poza dev/test (patrz config.devLogin).
     if (deps.config.devLogin) {
@@ -63,6 +57,13 @@ export const authRoutes =
         return { ok: true };
       });
     }
+
+    /** Metody logowania dostępne w tym środowisku (UI nie zgaduje). */
+    app.get('/auth/config', async () => ({
+      devLogin: deps.config.devLogin,
+      passkeys: true,
+      rpId: deps.config.webauthn.rpId,
+    }));
 
     app.post('/auth/logout', async (req, reply) => {
       if (req.auth) await revokeSession(deps.db, req.auth.sessionId);

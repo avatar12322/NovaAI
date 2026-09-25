@@ -36,6 +36,9 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
   SLACK_SIGNING_SECRET: z.string().optional().default(''),
+  NOVA_RP_ID: z.string().optional().default(''),
+  NOVA_RP_NAME: z.string().optional().default('NovaAI'),
+  NOVA_RP_ORIGINS: z.string().optional().default(''),
 });
 
 export type AppConfig = {
@@ -58,6 +61,8 @@ export type AppConfig = {
   publicUrl: string;
   google: { clientId: string; clientSecret: string };
   slackSigningSecret: string;
+  /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
+  webauthn: { rpId: string; rpName: string; origins: string[] };
 };
 
 export class ConfigError extends Error {}
@@ -101,5 +106,13 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     publicUrl: (e.NOVA_PUBLIC_URL || e.NOVA_WEB_ORIGIN).replace(/\/$/, ''),
     google: { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET },
     slackSigningSecret: e.SLACK_SIGNING_SECRET,
+    webauthn: {
+      rpId: e.NOVA_RP_ID || new URL(e.NOVA_WEB_ORIGIN).hostname,
+      rpName: e.NOVA_RP_NAME,
+      origins: (e.NOVA_RP_ORIGINS || e.NOVA_WEB_ORIGIN)
+        .split(',')
+        .map((o) => o.trim().replace(/\/$/, ''))
+        .filter(Boolean),
+    },
   };
 }

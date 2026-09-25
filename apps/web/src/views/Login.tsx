@@ -2,6 +2,7 @@ import type { DevUser } from '@nova/contracts';
 import { useEffect, useState } from 'react';
 import { ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
+import { PasskeyLoginButton } from './Passkeys';
 
 /**
  * Logowanie. W dev/test: wybór jednego z dwóch SZTUCZNYCH kont. Poza dev serwer nie udostępnia
@@ -50,10 +51,10 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: () => void }) {
           <h1>NovaAI</h1>
         </div>
         {error && <ErrorNote error={error} />}
+        <PasskeyLoginButton onLoggedIn={onLoggedIn} />
         {unavailable && (
-          <p className="note note-muted">
-            Logowanie kluczem dostępu (passkey) nie jest jeszcze dostępne w tej wersji. Logowanie
-            testowe jest wyłączone poza środowiskiem deweloperskim.
+          <p className="small muted">
+            Nie masz jeszcze klucza? Poproś administratora o jednorazowy link rejestracyjny.
           </p>
         )}
         {!users && !unavailable && !error && <Spinner />}

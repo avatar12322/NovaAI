@@ -1,4 +1,8 @@
 import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
+import type {
   Device,
   GrantCapability,
   Approval,
@@ -134,6 +138,37 @@ export const api = {
   devUsers: () => get<{ users: DevUser[]; notice: string }>('/auth/dev-users'),
   devLogin: (user: string) => post<{ ok: true }>('/auth/dev-login', { user }),
   logout: () => post<{ ok: true }>('/auth/logout'),
+  authConfig: () => get<{ devLogin: boolean; passkeys: boolean; rpId: string }>('/auth/config'),
+  passkeyLoginOptions: () =>
+    post<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON }>(
+      '/auth/passkeys/login/options',
+    ),
+  passkeyLoginVerify: (challengeId: string, response: unknown) =>
+    post<{ ok: true }>('/auth/passkeys/login/verify', { challengeId, response }),
+  passkeyRegisterOptions: () =>
+    post<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }>(
+      '/auth/passkeys/register/options',
+    ),
+  passkeyRegisterVerify: (challengeId: string, response: unknown, name?: string) =>
+    post<{ ok: true }>('/auth/passkeys/register/verify', { challengeId, response, name }),
+  passkeys: () =>
+    get<{
+      items: Array<{
+        id: string;
+        name: string;
+        createdAt: string;
+        lastUsedAt: string | null;
+        backedUp: boolean;
+      }>;
+    }>('/auth/passkeys'),
+  deletePasskey: (id: string) => request<void>('DELETE', `/auth/passkeys/${id}`),
+  enrollOptions: (token: string) =>
+    post<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }>(
+      '/auth/enroll/options',
+      { token },
+    ),
+  enrollVerify: (token: string, challengeId: string, response: unknown) =>
+    post<{ ok: true }>('/auth/enroll/verify', { token, challengeId, response }),
 
   conversations: (space: Space, cursor?: string) =>
     get<ConversationPage>(`/conversations${qs({ space, cursor })}`),

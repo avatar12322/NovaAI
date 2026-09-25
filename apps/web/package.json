@@ -16,6 +16,7 @@
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@nova/contracts": "workspace:*",
     "@nova/ui": "workspace:*",
+    "@simplewebauthn/browser": "^14.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

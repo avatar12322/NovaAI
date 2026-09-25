@@ -132,6 +132,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   podpis, okno czasowe, challenge, deduplikacja); web 3/3; `pnpm test:e2e` → 12/12.
 
 ### M6 (2026-09-25)
+
 - `apps/api/src/reminders/` (`service.ts`, `routes.ts`, `tool.ts`), migracja `0008_reminders.sql`;
   API `GET /api/reminders?space=`, `POST /api/reminders`, `DELETE /api/reminders/:id`; narzędzie `reminder.create`;
   czat demo: `przypomnij mi za 10 minut: …`, `przypomnij nam za 2 godz: …` (NovaAI ⇒ wspólne).
@@ -144,6 +145,15 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   wspólne do obojga, anulowanie i brak anulowania cudzego, działanie przy zablokowanym budżecie bez `usage_records`,
   odebrane członkostwo ⇒ brak dostarczenia, restart kolejki, brak duplikatów, walidacja terminu, komendy z czatu);
   `pnpm test:e2e` → 14/14 w 3 kolejnych przebiegach (dodany `reminders.spec.ts`).
+
+### Passkeys i bootstrap produkcji (2026-09-26)
+- `apps/api/src/auth/passkeys.ts` (rejestracja, logowanie, lista/usuwanie, enrolment z linku),
+  `apps/api/src/db/admin.ts` + CLI `admin create-household|enroll|disable-user`, migracja `0009_passkeys.sql`,
+  `GET /api/auth/config`. UI: „Zaloguj kluczem dostępu”, widok `#/enroll/<token>`, klucze w Ustawieniach.
+- Polecenia i wyniki: `pnpm test` → api 142/142 (w tym `passkeys.test.ts` 6: rejestracja + logowanie z sesją
+  `passkey`, powtórka odpowiedzi i wyzwania, zły origin przy rejestracji i logowaniu, brak UV, cofnięty licznik,
+  nieznany klucz, cudzy klucz, link z CLI: jednorazowy i wygasający, nowy dom z agentami, konfiguracja RP w produkcji);
+  `pnpm test:e2e` → 18/18 (dodany `passkeys.spec.ts` z wirtualnym uwierzytelniaczem Chromium i CLI).
 
 ## Blokady
 
@@ -161,5 +171,5 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klient OAuth Google,
    Worker na Windows wg `workers/windows/README.md` (w tym test junction).
-2. Passkeys/WebAuthn (`@simplewebauthn/server`) zamiast logowania testowego + bezpieczny fallback wdrożeniowy (D-007).
-3. Bundel produkcyjny API (esbuild) i konfiguracja wdrożenia (TLS, reverse proxy, kopie zapasowe Postgres).
+2. Bundel produkcyjny API (esbuild) i konfiguracja wdrożenia (TLS, reverse proxy, kopie zapasowe Postgres).
+3. Pętla agenta: wyniki narzędzi (jako dane) wracają do modelu, który formułuje odpowiedź.
