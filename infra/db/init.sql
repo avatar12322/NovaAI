@@ -24,3 +24,7 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'nova_test') \gexec
 
 GRANT CONNECT ON DATABASE nova_dev TO nova_app;
 GRANT CONNECT ON DATABASE nova_test TO nova_app;
+
+SELECT 'CREATE DATABASE nova_e2e OWNER nova_owner'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'nova_e2e') \gexec
+GRANT CONNECT ON DATABASE nova_e2e TO nova_app;

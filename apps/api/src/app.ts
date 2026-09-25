@@ -34,6 +34,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     broker,
     events,
     kickQueue: () => undefined,
+    queueStatus: () => 'disabled',
   };
   const runner = new TaskRunner(deps, {
     leaseMs: config.queueLeaseMs,
@@ -43,5 +44,6 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     .registerKind('agent.turn', agentTurnKind)
     .registerKind('demo.workflow', demoWorkflowKind(opts.demoStepMs ?? 400));
   if (config.queueEnabled) deps.kickQueue = () => runner.kick();
+  deps.queueStatus = () => (runner.isRunning ? 'running' : 'disabled');
   return { deps, runner };
 }

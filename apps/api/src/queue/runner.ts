@@ -100,6 +100,10 @@ export class TaskRunner {
     this.workerId = opts.workerId ?? `worker-${process.pid}-${randomUUID().slice(0, 8)}`;
   }
 
+  get isRunning(): boolean {
+    return this.running;
+  }
+
   registerKind(kind: string, def: TaskKindDef): this {
     this.kinds.set(kind, def);
     return this;
@@ -210,7 +214,7 @@ export class TaskRunner {
           visibility: t.visibility,
           taskId: t.id,
           type: 'task.status',
-          payload: { status: giveUp ? 'failed' : 'queued', recovered: true },
+          payload: { status: giveUp ? 'failed' : 'queued', recovered: true, title: t.title },
         });
         if (giveUp) failed++;
         else requeued++;
@@ -239,7 +243,7 @@ export class TaskRunner {
         visibility: t.visibility,
         taskId: t.id,
         type: 'task.status',
-        payload: { status: 'running' },
+        payload: { status: 'running', title: t.title },
       });
       return t;
     });
@@ -675,7 +679,11 @@ export class TaskRunner {
           visibility: task.visibility,
           taskId: task.id,
           type: 'task.status',
-          payload: { status: waiting ? 'waiting_approval' : 'failed', progress: progressOf(steps) },
+          payload: {
+            status: waiting ? 'waiting_approval' : 'failed',
+            progress: progressOf(steps),
+            title: task.title,
+          },
         });
       }
     });
@@ -709,7 +717,7 @@ export class TaskRunner {
           visibility: task.visibility,
           taskId: task.id,
           type: 'task.status',
-          payload: { status, error },
+          payload: { status, error, title: task.title },
         });
       }
     });

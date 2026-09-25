@@ -7,6 +7,20 @@ import './styles.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { applyTheme } from './views/Settings';
+
+try {
+  const t = localStorage.getItem('nova-theme');
+  if (t === 'light' || t === 'dark') applyTheme(t);
+} catch {
+  /* storage niedostępny */
+}
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+  });
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

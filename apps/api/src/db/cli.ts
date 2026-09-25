@@ -16,8 +16,20 @@ async function main(): Promise<void> {
       await migrate(db.owner);
       const r = await seedDev(db, config.env);
       console.log(`Seed dev: dom ${r.householdId}, użytkownicy alfa/beta`);
+    } else if (cmd === 'reset-e2e') {
+      // Czysta baza dla testów e2e: dozwolone wyłącznie dla baz *_e2e poza produkcją.
+      const dbName = new URL(config.databaseUrlOwner).pathname.slice(1);
+      if (config.env === 'production' || !dbName.endsWith('_e2e')) {
+        throw new Error('reset-e2e dozwolony tylko dla baz *_e2e poza produkcją');
+      }
+      await db.owner.query('DROP SCHEMA IF EXISTS public CASCADE');
+      await db.owner.query('CREATE SCHEMA public');
+      await db.owner.query('GRANT USAGE ON SCHEMA public TO nova_app');
+      await migrate(db.owner);
+      await seedDev(db, config.env);
+      console.log(`Zresetowano ${dbName}`);
     } else {
-      console.error('Użycie: cli.ts migrate|seed');
+      console.error('Użycie: cli.ts migrate|seed|reset-e2e');
       process.exitCode = 2;
     }
   } finally {

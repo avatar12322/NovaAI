@@ -118,6 +118,19 @@ describe('strumień zdarzeń SSE', () => {
     }
   });
 
+  it('nowe połączenie bez Last-Event-ID nie odtwarza historii, tylko nowe zdarzenia', async () => {
+    const old = await alfa.post('/api/tasks', { kind: 'demo.workflow', message: 'stare' });
+    const stream = await openStream(alfa.cookie, 0);
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      const fresh = await alfa.post('/api/tasks', { kind: 'demo.workflow', message: 'nowe' });
+      await stream.waitFor((x) => x.type === 'task.created' && x.taskId === fresh.body.id);
+      expect(stream.events.some((x) => x.taskId === old.body.id)).toBe(false);
+    } finally {
+      stream.close();
+    }
+  });
+
   it('bez sesji strumień jest niedostępny', async () => {
     const res = await fetch(`${base}/api/events/stream`);
     expect(res.status).toBe(401);

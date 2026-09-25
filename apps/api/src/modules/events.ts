@@ -43,10 +43,19 @@ export const eventRoutes =
       const auth = requireAuth(req);
       const lastHeader = req.headers['last-event-id'];
       const q = parse(ListEventsQuery, req.query);
-      let lastId = Math.max(
+      const resumeFrom = Math.max(
         q.after,
         typeof lastHeader === 'string' && /^\d+$/.test(lastHeader) ? Number(lastHeader) : 0,
       );
+      // Nowe połączenie (bez Last-Event-ID/after) zaczyna od bieżącego końca strumienia —
+      // klient ładuje stan przez API, a strumień niesie tylko nowe zdarzenia.
+      let lastId = resumeFrom;
+      if (resumeFrom === 0) {
+        const r = await deps.db.owner.query<{ max: number | null }>(
+          'SELECT max(id) AS max FROM events',
+        );
+        lastId = r.rows[0]?.max ?? 0;
+      }
       const token = req.cookies[SESSION_COOKIE] ?? '';
 
       reply.hijack();
@@ -71,8 +80,11 @@ export const eventRoutes =
         chain = chain
           .then(async () => {
             if (closed) return;
-            const items = await visibleEvents(auth.userId, lastId, 200);
-            items.forEach(write);
+            for (;;) {
+              const items = await visibleEvents(auth.userId, lastId, 200);
+              items.forEach(write);
+              if (items.length < 200 || closed) break;
+            }
           })
           .catch(() => undefined);
       };

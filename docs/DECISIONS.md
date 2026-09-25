@@ -74,3 +74,48 @@ bez treści. Prawo odczytu bez prawa operacji (np. Beta próbuje cofnąć udost�
 Bez biblioteki komponentów. `packages/ui/src/tokens.css`: neutralna paleta + jeden akcent, promień 6–10 px,
 motyw jasny/ciemny (systemowy lub wymuszony `data-theme`). Fonty IBM Plex Sans/Mono z pakietów
 `@fontsource` (licencja SIL OFL 1.1, serwowane lokalnie — bez zewnętrznego CDN).
+
+## D-011 Trwała kolejka zadań w Postgres (bez Redisa)
+
+- `tasks` + `task_steps`; claim przez `UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1)`,
+  dzierżawa `lease_expires_at` odnawiana heartbeatem co `lease/3`. Odzysk (`recover()`): wygasła dzierżawa ⇒
+  kroki `running` wracają do `pending`, zadanie do `queued`; po `max_attempts` utraconych dzierżaw ⇒ `failed`.
+- Kroki mają zależności (`depends_on`); pętla wykonuje każdy krok, którego zależności są `completed`,
+  więc niezależne kroki kończą się, gdy inny czeka na zgodę (`waiting_approval`).
+- Ponowienia kroków: wykładniczy backoff, maks. 3 próby; `ToolDenied` nie jest ponawiane.
+- Kolejka działa w procesie API (`NOVA_QUEUE_ENABLED`), bezpieczna dla wielu instancji (SKIP LOCKED).
+- Tura czatu to zadanie `agent.turn` — przeżywa restart, a UI widzi postęp.
+
+## D-012 Zgody: zamrożona akcja + skrót + idempotencja
+
+- `approvals.action` = dokładne parametry po `prepare()` (np. rozwiązany odbiorca), `action_hash` =
+  SHA-256 kanonicznego JSON `{tool, params}`. Klient zatwierdza, odsyłając skrót, który widział.
+- Rozstrzygnięcie: pojedynczy warunkowy `UPDATE … WHERE status='pending' AND expires_at > now() AND action_hash=$`
+  — wyścig dwóch decyzji wygrywa dokładnie jedna (test).
+- Wykonanie: `approved → executing` atomowo z weryfikacją skrótu względem bieżących parametrów kroku;
+  rozbieżność ⇒ `invalidated`. Broker ponownie sprawdza zgodę (`executing`), właściciela, zadanie (`running`)
+  i uprawnienia tuż przed efektem. Klucz idempotencji = `execution_id` zgody (UNIQUE w `tool_calls`
+  i w `notifications`) ⇒ powtórzenie po awarii nie duplikuje efektu.
+- Anulowanie zadania unieważnia zgody `pending/approved/executing`.
+
+## D-013 Zdarzenia: NOTIFY z samym ID + ponowny odczyt pod RLS odbiorcy
+
+Trigger `events_notify` wysyła `pg_notify('nova_events', id)`. Serwer SSE dla każdego ID pobiera zdarzenie
+w transakcji z kontekstem odbiorcy (RLS), więc prywatne zdarzenia drugiej osoby nie trafiają do strumienia,
+a odebranie członkostwa działa od razu. Świeże połączenie zaczyna od końca strumienia; wznowienie po
+`Last-Event-ID`. Payloady zawierają ID/statusy/tytuły, nigdy treści wiadomości/pamięci ani sekrety
+(dodatkowo `redact()`). Zgody emitują zdarzenia prywatne nawet dla wspólnych zadań.
+
+## D-014 Broker narzędzi jako granica, runtime jako niezaufany
+
+Model tylko proponuje `{tool, params}`. Broker: narzędzie musi być dozwolone w kontekście (np. NovaAI nie ma
+`household.notify`), parametry walidowane zod, autoryzacja zasobowa przy planowaniu i przy wykonaniu, audyt
+`tool.plan`/`tool.execute` (skrót parametrów, bez treści). `FakeAgentRuntime` celowo proponuje narzędzia
+niezależnie od `allowedCapabilities`, by testy sprawdzały broker (m.in. prompt injection w NovaAI).
+
+## D-015 PWA
+
+Router hash (bez zależności), `EventSource` do SSE z resynchronizacją widoków po (ponownym) połączeniu,
+service worker buforuje wyłącznie powłokę i zasoby `/assets/*` — nigdy `/api`. Desktop: nawigacja + treść +
+Activity Strip (≥1180 px); telefon (<900 px): górny pasek + dolna nawigacja Czat/Zadania/Dom/Pamięć.
+E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` resetowana przy starcie.

@@ -39,6 +39,28 @@ pnpm check          # wszystko powyżej
 
 Testy integracyjne API czyszczą i migrują od zera bazę `nova_test` (ochrona: tylko nazwy `*_test`).
 
+E2E (Playwright, desktop 1360×860 + Pixel 7):
+
+```bash
+pnpm db:start                          # Postgres musi działać (init.sql tworzy też nova_e2e)
+pnpm test:e2e                          # startuje API na :4100 (baza nova_e2e, reset) i Vite na :5174
+E2E_SCREENSHOTS=1 pnpm test:e2e        # dodatkowo odświeża zrzuty w docs/screens
+```
+
+Chromium: w środowisku z preinstalowanymi przeglądarkami (`PLAYWRIGHT_BROWSERS_PATH`) nic nie trzeba;
+lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
+
+## Jak używać (dev)
+
+1. Otwórz http://127.0.0.1:5173 i wybierz konto testowe (Alfa lub Beta — sztuczne konta, tylko dev).
+2. **Czat** — prywatna rozmowa z asystentem; **NovaAI** — rozmowa wspólna. Bez skonfigurowanego modelu
+   odpowiada deterministyczny tryb demo (oznaczony „demo”). Komendy demo: `zapamiętaj: …`, `co pamiętasz?`,
+   `napisz do domownika: …` (utworzy zgodę).
+3. **Zadania** — „Zadanie demonstracyjne” pokazuje postęp, kroki równoległe i zgodę na wysyłkę wiadomości.
+4. **Zgody** — podgląd dokładnej treści i odbiorcy; zatwierdzenie konkretnej wersji.
+5. **Pamięć** — wpisy prywatne/wspólne, `Udostępnij` / `Cofnij udostępnienie`.
+6. **Dom** — wiadomości od domownika, aktywne wspólne zadania. **Ustawienia** — stan usług, budżet, motyw.
+
 ## Struktura
 
 ```text

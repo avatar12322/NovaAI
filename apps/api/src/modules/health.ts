@@ -21,6 +21,7 @@ export const healthRoutes =
         version: deps.version,
         db,
         migrations,
+        queue: deps.queueStatus(),
         devLogin: deps.config.devLogin,
         time: new Date().toISOString(),
       };

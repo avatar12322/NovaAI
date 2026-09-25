@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "db:migrate": "tsx src/db/cli.ts migrate",
     "db:seed": "tsx src/db/cli.ts seed",
-    "db:reset-test": "tsx src/db/cli.ts reset-test",
+    "db:reset-e2e": "tsx src/db/cli.ts reset-e2e",
+    "start:e2e": "tsx src/db/cli.ts reset-e2e && tsx src/main.ts",
     "test": "vitest run"
   },
   "dependencies": {

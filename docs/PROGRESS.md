@@ -42,12 +42,36 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   pamięć `shared` bez grantu niewidoczna, konteksty agentów, odebranie członkostwa, RLS bez `WHERE`,
   `scope=shared`, brak kontekstu ⇒ 0 wierszy, RLS blokuje INSERT/UPDATE/DELETE cudzych, brak dostępu do sesji/audytu).
 
+### M2 (2026-09-25)
+
+- Kolejka (`apps/api/src/queue/runner.ts`): claim SKIP LOCKED, lease/heartbeat, odzysk, backoff, kroki z
+  zależnościami; rodzaje zadań `agent.turn` (tura czatu) i `demo.workflow` (jawne demo, bez modelu).
+- Zgody (`modules/approvals.ts`, `queue/approvals.ts`): zamrożona akcja + skrót, atomowe rozstrzygnięcie,
+  unieważnienie po zmianie parametrów, wygaśnięcie, idempotentne wykonanie.
+- Broker narzędzi (`tools/broker.ts`) + narzędzia `memory.create`, `household.notify` (zawsze ze zgodą).
+- API: `GET/POST /api/tasks`, `GET /api/tasks/:id`, `GET /api/tasks/:id/steps`, `POST /api/tasks/:id/cancel`,
+  `GET /api/approvals`, `GET /api/approvals/:id`, `POST /api/approvals/:id/approve|reject`,
+  `GET /api/events` (polling), `GET /api/events/stream` (SSE), `GET /api/notifications`, `POST /api/notifications/:id/read`.
+- UI (`apps/web`): logowanie testowe, czat prywatny i NovaAI, Zadania z krokami i postępem, Approval Center,
+  Pamięć z `Udostępnij`, Dom, Ustawienia (stan usług, motyw), Activity Strip, baner offline, skip-link,
+  PWA (manifest + service worker bez buforowania `/api`). Zrzuty: `docs/screens/{desktop,phone}-*.png`.
+- Błędy znalezione i poprawione: (1) SSE przy nowym połączeniu odtwarzał historię od ID 0 w porcjach po 200 —
+  przy dłuższej historii UI nie dostawał najnowszych zdarzeń (flaky e2e) → start od końca strumienia +
+  resync widoków po połączeniu + test; (2) niestabilny test fokusu klawiatury → deterministyczny punkt startowy.
+- Polecenia i wyniki: `pnpm test` → contracts 4/4, permissions 24/24, api 54/54 (w tym `queue.test.ts` 20:
+  kroki niezależne, zatwierdzenie jednorazowe, zły skrót 409, wyścig 3 decyzji [200,409,409], zmiana parametrów
+  ⇒ invalidated, odrzucenie, wygaśnięcie, idempotencja po „awarii”, izolacja zadań/zgód/zdarzeń, anulowanie
+  przy zgodzie / po zatwierdzeniu / w trakcie kroku, odzysk po utracie dzierżawy, failed po limicie,
+  „restart” serwera z zachowaniem sesji/rozmów/zadań/zgód, narzędzia z czatu, prompt injection w NovaAI;
+  `events.test.ts` 4: SSE na żywo z filtrowaniem RLS, wznowienie, start od końca, 401), web 2/2;
+  `pnpm test:e2e` → 10/10 (3 kolejne przebiegi bez błędów).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
 
 ## Następne 3 zadania
 
-1. M2: trwała kolejka zadań (lease/heartbeat/próby/odzysk) + kroki + zdarzenia SSE.
-2. M2: zgody z zamrożoną akcją i idempotentnym wykonaniem; tury czatu przez kolejkę.
-3. M2: UI PWA (logowanie dev, czat prywatny/wspólny, zadania + Activity Strip, zgody, pamięć, ustawienia).
+1. M3: ModelGateway + konfiguracja routingu, adapter Anthropic (SDK) i OpenAI-compatible (Hermes), testy kontraktowe na mocku.
+2. M3: budżet (usage_records, budgets, blokada płatnych wywołań), `GET/PUT /api/budget`, `GET /api/model/status`.
+3. M4: protokół Workera, parowanie, symulator, rdzeń Rust.

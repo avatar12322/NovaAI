@@ -14,4 +14,6 @@ export interface AppDeps {
   events: EventHub;
   /** Budzenie kolejki po utworzeniu zadania (no-op, gdy kolejka wyłączona). */
   kickQueue: () => void;
+  /** Stan pętli kolejki w tym procesie (do healthchecka). */
+  queueStatus: () => 'running' | 'disabled';
 }
