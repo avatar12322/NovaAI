@@ -159,7 +159,6 @@ export const ModelPricingInput = z.object({
 export type ModelPricingInput = z.infer<typeof ModelPricingInput>;
 
 const ModelFields = {
-  providerId: z.uuid(),
   name: ModelKey,
   model: z
     .string()
@@ -178,6 +177,14 @@ const ModelFields = {
 export const CreateHouseholdModel = z
   .object({
     ...ModelFields,
+    /** Dostawca dodany w aplikacji… */
+    providerId: z.uuid().optional(),
+    /** …albo dostawca z konfiguracji serwera (klucz w .env) — po nazwie. */
+    serverProvider: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_.-]{1,60}$/, 'Nieprawidłowy dostawca serwera')
+      .optional(),
     maxTokens: ModelFields.maxTokens.default(4000),
     dataPolicy: ModelFields.dataPolicy.default('private_ok'),
     useSimple: ModelFields.useSimple.default(true),
@@ -185,7 +192,8 @@ export const CreateHouseholdModel = z
     priority: ModelFields.priority.default(100),
     enabled: ModelFields.enabled.default(true),
   })
-  .refine((v) => v.useSimple || v.useComplex, 'Wybierz co najmniej jedno zastosowanie modelu');
+  .refine((v) => v.useSimple || v.useComplex, 'Wybierz co najmniej jedno zastosowanie modelu')
+  .refine((v) => !v.providerId !== !v.serverProvider, 'Wybierz dostawcę modelu');
 export type CreateHouseholdModel = z.infer<typeof CreateHouseholdModel>;
 
 export const UpdateHouseholdModel = z.object({
@@ -222,14 +230,20 @@ export interface ModelProviderInfo {
   reason: string | null;
   lastCheck: { at: string; ok: boolean; message: string | null } | null;
   modelCount: number;
+  /** Zastępuje (dla tego domu) dostawcę o tej samej nazwie z konfiguracji serwera. */
+  overridesServer: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface HouseholdModelInfo {
   id: string;
-  providerId: string;
+  /** null, gdy model korzysta z dostawcy z konfiguracji serwera (klucz w .env). */
+  providerId: string | null;
   providerName: string;
+  serverProvider: boolean;
+  /** Zastępuje (dla tego domu) model o tej samej nazwie z konfiguracji serwera. */
+  overridesServer: boolean;
   name: string;
   model: string;
   maxTokens: number;
@@ -257,6 +271,21 @@ export interface FileModelInfo {
   model: string;
   available: boolean;
   reason: string | null;
+  /** Dom ma model o tej samej nazwie — używany jest model z aplikacji. */
+  overridden: boolean;
+}
+
+/** Dostawca z pliku konfiguracyjnego serwera (klucz w zmiennej środowiskowej, np. z .env). */
+export interface ServerProviderInfo {
+  name: string;
+  kind: 'anthropic' | 'openai_compatible' | 'fake';
+  /** Nazwa zmiennej z kluczem (np. ANTHROPIC_API_KEY) — nigdy wartość. */
+  keyEnv: string | null;
+  /** Klucz wczytany i dostawca gotowy (bez zastąpienia przez aplikację). */
+  usable: boolean;
+  reason: string | null;
+  /** Dom dodał w aplikacji dostawcę o tej nazwie — używany jest ten z aplikacji. */
+  overridden: boolean;
 }
 
 export interface ModelsOverview {
@@ -270,8 +299,8 @@ export interface ModelsOverview {
   presets: readonly ModelProviderPreset[];
   providers: ModelProviderInfo[];
   models: HouseholdModelInfo[];
-  /** Dostawcy i modele z pliku konfiguracyjnego serwera (tylko do odczytu). */
-  fileProviders: string[];
+  /** Dostawcy i modele z pliku konfiguracyjnego serwera (tylko do odczytu; aplikacja ma pierwszeństwo). */
+  serverProviders: ServerProviderInfo[];
   fileModels: FileModelInfo[];
   fx: Array<{ currency: string; rate: number; updatedAt: string }>;
   /** Waluty cenników bez kursu do waluty budżetu (model niedostępny, dopóki nie podasz kursu). */

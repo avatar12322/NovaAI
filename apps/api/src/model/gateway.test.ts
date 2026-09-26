@@ -11,6 +11,7 @@ import {
   type GatewayRequest,
   type HouseholdOverlay,
 } from './gateway';
+import { AnthropicProvider } from './providers/anthropic';
 import { FakeProvider } from './providers/fake';
 
 /** M3 — ModelGateway: dostępność, routing, koszt, budżet (rezerwacje), fallback. */
@@ -171,9 +172,22 @@ describe('modele dodane w aplikacji (nakładka domu)', () => {
         enabled: true,
         error: 'nie można odszyfrować klucza',
       },
+      // Ta sama nazwa co w pliku: dostawca z aplikacji zastępuje go dla tego domu.
       paid: { kind: 'anthropic', baseUrl: null, apiKey: 'k', enabled: true },
+      // Wyłączony dostawca domu niczego nie zastępuje — zostaje dostawca z pliku.
+      cheap: { kind: 'anthropic', baseUrl: null, apiKey: 'k', enabled: false },
     },
     models: {
+      // Ta sama nazwa co model z pliku: model z aplikacji go zastępuje (także w trasach).
+      free: {
+        provider: 'home',
+        model: 'f',
+        maxTokens: 100,
+        dataPolicy: 'private_ok',
+        pricing: { currency: 'PLN', inputPerMTok: 0, outputPerMTok: 0 },
+        routes: ['chat.complex'],
+        priority: 5,
+      },
       homeB: {
         provider: 'home',
         model: 'b',
@@ -205,12 +219,12 @@ describe('modele dodane w aplikacji (nakładka domu)', () => {
     fx: { GBP: 5 },
   });
 
-  it('modele domu przed modelami z pliku (wg priorytetu); plik ma pierwszeństwo nazw; trasy profili — zapas', async () => {
+  it('ustawienia domu mają pierwszeństwo przed plikiem; modele domu przed modelami z pliku; trasy profili — zapas', async () => {
     const gw = new ModelGateway(
       t.db,
       cfg({ profileRoutes: { hermes: { 'chat.simple': ['free'] } } }),
       {},
-      { cheap: new FakeProvider(), paid: new FakeProvider(), shared: new FakeProvider() },
+      { shared: new FakeProvider() },
     );
     const seen: string[] = [];
     gw.useHouseholdSource({
@@ -220,40 +234,34 @@ describe('modele dodane w aplikacji (nakładka domu)', () => {
       },
     });
     const snap = await gw.snapshot(t.seed.householdId);
-    expect(snap.config.routes['chat.simple']).toEqual([
-      'viaBroken',
-      'homeA',
-      'homeB',
-      'paidPLN',
-      'free',
-    ]);
-    expect(snap.config.routes['chat.complex']).toEqual(['homeA']);
+    expect(snap.config.routes['chat.simple']).toEqual(['viaBroken', 'homeA', 'homeB', 'paidPLN']);
+    expect(snap.config.routes['chat.complex']).toEqual(['free', 'homeA']);
+    expect(snap.config.routes['chat.usd']).toEqual(['paidUSD']);
     expect(snap.config.profileRoutes.hermes!['chat.simple']).toEqual([
-      'free',
       'viaBroken',
       'homeA',
       'homeB',
     ]);
-    // Dostawca „paid” z pliku nie jest nadpisany przez dostawcę domu o tej samej nazwie.
-    expect(snap.providers.get('paid')).toBeInstanceOf(FakeProvider);
+    expect(snap.config.models.free).toMatchObject({ provider: 'home', model: 'f' });
+    // Dostawca „paid” z pliku zastąpiony dostawcą z aplikacji; wyłączony „cheap” — bez zmian.
+    expect(snap.providers.get('paid')).toBeInstanceOf(AnthropicProvider);
+    expect(snap.providers.get('cheap')).toBeInstanceOf(FakeProvider);
     expect(snap.availability('viaBroken')).toMatchObject({
       available: false,
       reason: 'nie można odszyfrować klucza',
     });
     expect(snap.availability('homeA').available).toBe(true); // kurs GBP z domu
-    expect(snap.candidates('chat.simple', 'x', true)).toEqual([
-      'homeA',
-      'homeB',
-      'paidPLN',
-      'free',
-    ]);
-    // Pamięć podręczna do czasu unieważnienia; bez domu — sam plik.
+    expect(snap.candidates('chat.simple', 'x', true)).toEqual(['homeA', 'homeB', 'paidPLN']);
+    // Plik bez zmian dla innych domów i dla stanu bez domu.
+    const base = await gw.snapshot(null);
+    expect(base.config.routes['chat.simple']).toEqual(['paidPLN', 'free']);
+    expect(base.providers.get('paid')).toBeInstanceOf(FakeProvider);
+    // Pamięć podręczna do czasu unieważnienia.
     await gw.snapshot(t.seed.householdId);
     expect(seen).toHaveLength(1);
     gw.invalidate(t.seed.householdId);
     await gw.snapshot(t.seed.householdId);
     expect(seen).toHaveLength(2);
-    expect((await gw.snapshot(null)).config.routes['chat.simple']).toEqual(['paidPLN', 'free']);
   });
 });
 

@@ -1,0 +1,23 @@
+{
+  "$comment": [
+    "Konfiguracja modeli wyłącznie dla testów e2e: jak infra/config/models.example.json (klucz w zmiennej, brak cennika).",
+    "Adres w domenie .test (nigdy nie istnieje) i klucz testowy — żadne wywołanie nie trafia do dostawcy."
+  ],
+  "currency": "PLN",
+  "providers": {
+    "anthropic": {
+      "kind": "anthropic",
+      "apiKeyEnv": "E2E_ANTHROPIC_API_KEY",
+      "baseUrl": "https://anthropic.e2e.test"
+    }
+  },
+  "models": {
+    "claude-fast": {
+      "provider": "anthropic",
+      "model": "claude-e2e",
+      "maxTokens": 1000,
+      "pricing": { "currency": "PLN", "inputPerMTok": null, "outputPerMTok": null }
+    }
+  },
+  "routes": { "chat.simple": ["claude-fast"], "chat.complex": ["claude-fast"] }
+}

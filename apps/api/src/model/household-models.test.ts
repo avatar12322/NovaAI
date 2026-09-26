@@ -22,6 +22,9 @@ interface Captured {
 }
 const KEY = 'mock-key-0123456789-abcdefWXYZ';
 const OTHER_KEY = 'mock-key-9999999999-zzzzzzzzzz';
+/** Klucz „z .env serwera” (konfiguracja z pliku) — inny niż wpisany w aplikacji. */
+const ENV_KEY = 'mock-env-key-5555555555-ENVKEY';
+const VALID = new Set([KEY, ENV_KEY]);
 let server: Server;
 let base: string;
 let captured: Captured[] = [];
@@ -44,7 +47,8 @@ beforeAll(async () => {
       };
       const anthropic = c.url.startsWith('/anthropic/');
       const okKey = anthropic
-        ? c.headers['x-api-key'] === KEY && c.headers['anthropic-version'] === '2023-06-01'
+        ? VALID.has(String(c.headers['x-api-key'])) &&
+          c.headers['anthropic-version'] === '2023-06-01'
         : c.headers.authorization === `Bearer ${KEY}`;
       if (!okKey) return send(401, { error: { message: 'invalid key' } });
       if (
@@ -59,6 +63,17 @@ beforeAll(async () => {
             { id: 'bad id with spaces' },
           ],
           has_more: false,
+        });
+      if (c.method === 'POST' && c.url === '/anthropic/v1/messages')
+        return send(200, {
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          model: c.body.model,
+          content: [{ type: 'text', text: 'Odpowiedź Claude (atrapa).' }],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 1000, output_tokens: 500 },
         });
       if (c.method === 'POST' && c.url === '/v1/chat/completions')
         return send(200, {
@@ -104,6 +119,7 @@ const addProvider = (c: Client, over: Record<string, unknown> = {}) =>
     apiKey: KEY,
     ...over,
   });
+const providerOf = (body: any, name: string) => body.providers.find((p: any) => p.name === name);
 const providerId = (body: any, name = 'mockai') =>
   body.providers.find((p: any) => p.name === name).id as string;
 const addModel = (c: Client, pid: string, over: Record<string, unknown> = {}) =>
@@ -302,9 +318,13 @@ describe('walidacja', () => {
     expect(spaced.status).toBe(400);
     expect(JSON.stringify(spaced.body)).not.toContain('klucz z spacjami');
     expect(spaced.body.error.details[0].message).toContain('spacji');
-    const taken = await addProvider(alfa, { name: 'filellm' });
-    expect(taken.status).toBe(409);
-    expect(taken.body.error.message).toContain('konfigurację serwera');
+    // Nazwa jak u dostawcy z pliku serwera jest dozwolona — dostawca z aplikacji go zastępuje (dla tego domu).
+    const same = await addProvider(alfa, { name: 'filellm' });
+    expect(same.status).toBe(200);
+    expect(providerOf(same.body, 'filellm').overridesServer).toBe(true);
+    expect(same.body.serverProviders).toEqual([
+      expect.objectContaining({ name: 'filellm', overridden: true }),
+    ]);
     expect((await addProvider(alfa)).status).toBe(200);
     const dup = await addProvider(alfa);
     expect(dup.status).toBe(409);
@@ -313,6 +333,13 @@ describe('walidacja', () => {
     expect(noUse.status).toBe(400);
     const noPrice = await addModel(alfa, pid, { pricing: { currency: 'USD' } });
     expect(noPrice.status).toBe(400);
+    const noProvider = await addModel(alfa, pid, { providerId: undefined });
+    expect(noProvider.status).toBe(400);
+    const unknownServer = await addModel(alfa, pid, {
+      providerId: undefined,
+      serverProvider: 'nieznany',
+    });
+    expect(unknownServer.status).toBe(404);
     const budgetCurrency = await alfa.put('/api/model/fx', { currency: 'PLN', rate: 1 });
     expect(budgetCurrency.status).toBe(400);
   });
@@ -458,5 +485,144 @@ describe('rozmowa przez dostawcę dodanego w aplikacji', () => {
     expect(captured.filter((c) => c.url === '/v1/chat/completions')).toHaveLength(0);
     const shared = await chat(alfa, 'shared', 'hej');
     expect(shared.content).toBe('Odpowiedź z modelu domu.');
+  });
+});
+
+describe('konfiguracja serwera (plik + klucz w .env) i aplikacja', () => {
+  it('klucz z .env bez cennika => czytelny stan; preset „anthropic” działa; model na kluczu serwera; aplikacja ma pierwszeństwo', async () => {
+    // Jak infra/config/models.example.json: dostawca „anthropic” (klucz ze zmiennej), model bez cennika.
+    const serverConfig = ModelsConfigSchema.parse({
+      currency: 'PLN',
+      fx: { USD: null },
+      providers: {
+        anthropic: {
+          kind: 'anthropic',
+          apiKeyEnv: 'MOCK_ANTHROPIC_API_KEY',
+          baseUrl: `${base}/anthropic`,
+        },
+        hermes: { kind: 'openai_compatible', apiKeyEnv: 'MOCK_HERMES_KEY', baseUrl: `${base}/v1` },
+      },
+      models: {
+        'claude-fast': {
+          provider: 'anthropic',
+          model: 'claude-haiku-test',
+          pricing: { currency: 'USD', inputPerMTok: null, outputPerMTok: null },
+        },
+        // Z cennikiem, ale bez kursu USD→PLN (poza trasami) — waluta trafia do „Kursy walut”.
+        'claude-usd': {
+          provider: 'anthropic',
+          model: 'claude-usd-test',
+          pricing: { currency: 'USD', inputPerMTok: 1, outputPerMTok: 2 },
+        },
+      },
+      routes: { 'chat.simple': ['claude-fast'], 'chat.complex': ['claude-fast'] },
+    });
+    const s = await createTestApp(
+      {},
+      { modelsConfig: serverConfig, env: { MOCK_ANTHROPIC_API_KEY: ENV_KEY } },
+    );
+    try {
+      const owner = await login(s.app, 'alfa');
+      const talk = async () => {
+        const conv = (await owner.post('/api/conversations', { space: 'private' })).body;
+        await owner.post(`/api/conversations/${conv.id}/messages`, { content: 'hej' });
+        await s.drain();
+        const msgs = (await owner.get(`/api/conversations/${conv.id}/messages`)).body.items;
+        return msgs[msgs.length - 1] as { content: string; meta: Record<string, any> };
+      };
+      const lastKey = () =>
+        captured.filter((c) => c.url === '/anthropic/v1/messages').at(-1)?.headers['x-api-key'];
+
+      // Stan: klucz z .env wczytany, ale model z pliku bez cennika — tryb demo z konkretnym powodem.
+      const view = (await owner.get('/api/model/providers')).body;
+      expect(view.mode).toBe('demo');
+      expect(view.serverProviders).toEqual([
+        {
+          name: 'anthropic',
+          kind: 'anthropic',
+          keyEnv: 'MOCK_ANTHROPIC_API_KEY',
+          usable: true,
+          reason: null,
+          overridden: false,
+        },
+        {
+          name: 'hermes',
+          kind: 'openai_compatible',
+          keyEnv: 'MOCK_HERMES_KEY',
+          usable: false,
+          reason: 'brak klucza (MOCK_HERMES_KEY)',
+          overridden: false,
+        },
+      ]);
+      expect(view.fileModels[0]).toMatchObject({
+        key: 'claude-fast',
+        available: false,
+        overridden: false,
+      });
+      expect(view.fileModels[0].reason).toContain('brak cennika');
+      expect(view.fileModels[1]).toMatchObject({ key: 'claude-usd', available: false });
+      expect(view.missingFx).toEqual(['USD']);
+      expect(JSON.stringify(view)).not.toContain(ENV_KEY);
+
+      // Model z cennikiem na dostawcy serwera (klucz z .env, bez ponownego wpisywania) — zastępuje „claude-fast”.
+      const added = await owner.post('/api/model/models', {
+        serverProvider: 'anthropic',
+        name: 'claude-fast',
+        model: 'claude-haiku-test',
+        pricing: { currency: 'PLN', inputPerMTok: 1, outputPerMTok: 2 },
+      });
+      expect(added.status).toBe(200);
+      expect(added.body.mode).toBe('configured');
+      expect(added.body.models[0]).toMatchObject({
+        providerId: null,
+        providerName: 'anthropic',
+        serverProvider: true,
+        overridesServer: true,
+        available: true,
+      });
+      expect(added.body.fileModels[0]).toMatchObject({ overridden: true, available: false });
+      let reply = await talk();
+      expect(reply.content).toBe('Odpowiedź Claude (atrapa).');
+      expect(lastKey()).toBe(ENV_KEY);
+      const cost = await s.db.owner.query(
+        `SELECT provider, cost_micros::int AS c FROM usage_records WHERE status = 'final'`,
+      );
+      expect(cost.rows).toEqual([{ provider: 'anthropic', c: 2000 }]); // 1000×1 + 500×2 zł / MTok
+
+      // Preset „anthropic” w aplikacji (ta sama nazwa co w pliku) — bez błędu; jego klucz ma pierwszeństwo.
+      const own = await owner.post('/api/model/providers', {
+        name: 'anthropic',
+        label: 'Anthropic (Claude)',
+        kind: 'anthropic',
+        baseUrl: `${base}/anthropic`,
+        apiKey: KEY,
+      });
+      expect(own.status).toBe(200);
+      expect(providerOf(own.body, 'anthropic')).toMatchObject({
+        overridesServer: true,
+        usable: true,
+      });
+      expect(own.body.serverProviders[0]).toMatchObject({ name: 'anthropic', overridden: true });
+      reply = await talk();
+      expect(reply.content).toBe('Odpowiedź Claude (atrapa).');
+      expect(lastKey()).toBe(KEY);
+
+      // Wyłączony dostawca z aplikacji => znów klucz serwera; usunięty => model na dostawcy serwera zostaje.
+      const pid = providerOf(own.body, 'anthropic').id;
+      const off = await owner.patch(`/api/model/providers/${pid}`, { enabled: false });
+      expect(providerOf(off.body, 'anthropic')).toMatchObject({
+        usable: false,
+        reason: 'wyłączony — używana konfiguracja serwera',
+      });
+      await talk();
+      expect(lastKey()).toBe(ENV_KEY);
+      const del = await owner.del(`/api/model/providers/${pid}`);
+      expect(del.body.models).toHaveLength(1);
+      expect(del.body.mode).toBe('configured');
+      await talk();
+      expect(lastKey()).toBe(ENV_KEY);
+    } finally {
+      await s.close();
+    }
   });
 });

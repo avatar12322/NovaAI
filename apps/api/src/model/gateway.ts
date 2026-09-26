@@ -241,60 +241,51 @@ export class ModelGateway {
     const providers = new Map(this.base.providers);
     const errors = new Map(this.base.providerErrors);
     const providerConfigs: ModelsConfig['providers'] = { ...this.config.providers };
-    for (const [name, p] of Object.entries(overlay.providers)) {
-      // Nazwy z pliku mają pierwszeństwo (walidacja przy dodawaniu nie dopuszcza kolizji).
-      if (this.config.providers[name]) continue;
-      providerConfigs[name] = { kind: 'openai_compatible', apiKeyEnv: '' };
-      if (this.overrides[name]) {
-        providers.set(name, this.overrides[name]);
-        continue;
-      }
-      if (!p.enabled) {
-        errors.set(name, 'dostawca wyłączony');
-        continue;
-      }
-      if (p.error) {
-        errors.set(name, p.error);
-        continue;
-      }
-      // Lokalny serwer modeli (np. Ollama) może działać bez klucza.
-      if (!p.apiKey && !isLocalBaseUrl(p.baseUrl)) {
-        errors.set(name, 'brak klucza API');
-        continue;
-      }
-      if (p.kind === 'anthropic') {
-        providers.set(
-          name,
-          new AnthropicProvider({ apiKey: p.apiKey ?? '', baseURL: p.baseUrl ?? undefined }),
-        );
-      } else if (p.baseUrl) {
-        providers.set(
-          name,
-          new OpenAiCompatProvider({ baseUrl: p.baseUrl, apiKey: p.apiKey ?? '', label: name }),
-        );
+    const put = (name: string, made: ModelProvider | string) => {
+      if (typeof made === 'string') {
+        providers.delete(name);
+        errors.set(name, made);
       } else {
-        errors.set(name, 'brak adresu serwera');
+        errors.delete(name);
+        providers.set(name, made);
       }
+    };
+    // Ustawienia domu mają pierwszeństwo: dostawca dodany w aplikacji zastępuje dostawcę z pliku o tej samej
+    // nazwie (tylko dla tego domu). Wyłączony dostawca domu niczego nie zastępuje.
+    for (const [name, p] of Object.entries(overlay.providers)) {
+      if (!p.enabled) {
+        if (!this.config.providers[name]) put(name, 'dostawca wyłączony');
+        continue;
+      }
+      providerConfigs[name] =
+        p.kind === 'anthropic'
+          ? { kind: 'anthropic', apiKeyEnv: '' }
+          : { kind: 'openai_compatible', apiKeyEnv: '' };
+      put(name, this.overrides[name] ?? householdProvider(name, p));
     }
+    // Model domu zastępuje model z pliku o tej samej nazwie; trasy: modele domu (wg priorytetu) przed modelami
+    // z pliku, a w trasach profili (Hermes) — na końcu, jako zapas (trasa profilu to wybór operatora).
     const models: ModelsConfig['models'] = { ...this.config.models };
-    // Trasy: modele domu (wg priorytetu) przed modelami z pliku; w trasach profili (Hermes) — po nich,
-    // jako zapas, bo trasa profilu to świadomy wybór operatora.
     const added: Record<string, string[]> = {};
     const ordered = Object.entries(overlay.models).sort(
       ([a, x], [b, y]) => x.priority - y.priority || a.localeCompare(b),
     );
     for (const [key, m] of ordered) {
-      if (this.config.models[key]) continue; // nazwy z pliku mają pierwszeństwo
       const { routes: modelRoutes, priority: _priority, ...model } = m;
       models[key] = model;
       for (const r of modelRoutes) (added[r] ??= []).push(key);
     }
-    const routes: ModelsConfig['routes'] = { ...this.config.routes };
+    const fromFile = (keys: string[]) => keys.filter((k) => !(k in overlay.models));
+    const routes: ModelsConfig['routes'] = {};
+    for (const [r, keys] of Object.entries(this.config.routes)) routes[r] = fromFile(keys);
     for (const [r, keys] of Object.entries(added)) routes[r] = [...keys, ...(routes[r] ?? [])];
     const profileRoutes: ModelsConfig['profileRoutes'] = {};
     for (const [profile, byCap] of Object.entries(this.config.profileRoutes)) {
       profileRoutes[profile] = Object.fromEntries(
-        Object.entries(byCap).map(([cap, keys]) => [cap, [...keys, ...(added[cap] ?? [])]]),
+        Object.entries(byCap).map(([cap, keys]) => [
+          cap,
+          [...fromFile(keys), ...(added[cap] ?? [])],
+        ]),
       );
     }
     const config: ModelsConfig = {
@@ -426,4 +417,18 @@ function makeProvider(
       return new OpenAiCompatProvider({ baseUrl, apiKey: key, label: name });
     }
   }
+}
+
+/** Dostawca dodany w aplikacji (klucz już odszyfrowany) albo powód niedostępności. */
+function householdProvider(
+  name: string,
+  p: HouseholdOverlay['providers'][string],
+): ModelProvider | string {
+  if (p.error) return p.error;
+  // Lokalny serwer modeli (np. Ollama) może działać bez klucza.
+  if (!p.apiKey && !isLocalBaseUrl(p.baseUrl)) return 'brak klucza API';
+  if (p.kind === 'anthropic')
+    return new AnthropicProvider({ apiKey: p.apiKey ?? '', baseURL: p.baseUrl ?? undefined });
+  if (!p.baseUrl) return 'brak adresu serwera';
+  return new OpenAiCompatProvider({ baseUrl: p.baseUrl, apiKey: p.apiKey ?? '', label: name });
 }

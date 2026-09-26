@@ -123,3 +123,46 @@ test('dostawca modeli: klucz tylko do zapisu, model z cennikiem, domownik tylko 
   await page.getByRole('button', { name: 'Usuń' }).last().click(); // kurs USD
   await expect(page.getByText('1 USD = 3,95 PLN')).toHaveCount(0);
 });
+
+test('klucz z .env serwera: stan „brak cennika”, preset bez błędu nazwy, cennik uzupełniony w aplikacji', async ({
+  page,
+}) => {
+  await loginAs(page, 'Alfa (test)');
+  await page.goto('/#/models');
+  // Klucz z pliku .env jest wczytany, ale model z pliku nie ma cennika — widać to wprost.
+  const server = page.locator('.server-config');
+  await expect(server.locator('.server-provider')).toContainText('klucz wczytany');
+  await expect(server.locator('.server-provider')).toContainText('E2E_ANTHROPIC_API_KEY');
+  await expect(page.locator('body')).not.toContainText('e2e-not-a-real-key');
+  const fileModel = server.locator('.file-model').filter({ hasText: 'claude-fast' });
+  await expect(fileModel.locator('.badge')).toHaveText('brak cennika');
+
+  // Preset „Anthropic” ma tę samą nazwę co dostawca z pliku — podpowiedź zamiast błędu.
+  await page.getByRole('button', { name: 'Dodaj dostawcę' }).click();
+  const pform = page.locator('.model-form').first();
+  await expect(pform.getByRole('note')).toContainText('Na serwerze jest już dostawca „anthropic”');
+  await pform.getByRole('button', { name: 'Anuluj' }).click();
+
+  // „Uzupełnij cennik”: dostawca z serwera (bez wpisywania klucza), nazwa i model z pliku.
+  await fileModel.getByRole('button', { name: 'Uzupełnij cennik' }).click();
+  const mform = page.locator('.model-form').first();
+  await expect(mform.getByLabel('Dostawca')).toHaveValue('s:anthropic');
+  await expect(mform.getByLabel('Nazwa w NovaAI')).toHaveValue('claude-fast');
+  await expect(mform.getByLabel('Identyfikator modelu u dostawcy')).toHaveValue('claude-e2e');
+  await mform.getByLabel('Waluta cennika').fill('PLN');
+  await mform.getByLabel('Cena wejścia (za 1 mln tokenów)').fill('1');
+  await mform.getByLabel('Cena wyjścia (za 1 mln tokenów)').fill('5');
+  await mform.getByRole('button', { name: 'Dodaj model' }).click();
+  const model = page.locator('.model-item').filter({ hasText: 'claude-fast' });
+  await expect(model).toContainText('anthropic (klucz z serwera)/claude-e2e');
+  await expect(model).toContainText('zastępuje model z pliku serwera');
+  await expect(page.getByLabel('Stan asystenta')).toContainText('odpowiada prawdziwy model');
+  await expect(fileModel.locator('.badge')).toHaveText('zastąpiony modelem z aplikacji');
+  await shot(page, '18-models-server-key');
+
+  // Sprzątanie od razu (bez żadnej rozmowy): usunięcie modelu przywraca tryb demo.
+  page.once('dialog', (d) => void d.accept());
+  await model.getByRole('button', { name: 'Usuń' }).click();
+  await expect(page.getByLabel('Stan asystenta')).toContainText('tryb demo');
+  await expect(fileModel.locator('.badge')).toHaveText('brak cennika');
+});

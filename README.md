@@ -105,8 +105,9 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
 ## Integracje (opcjonalnie, własne konta)
 
 **Modele** — najprościej w aplikacji: **Modele AI i klucze API** (wymaga `NOVA_SECRET_KEY`). Alternatywa dla
-operatora serwera: `infra/config/models.example.json` → `models.local.json` + klucze w `.env` (nazwy z pliku mają
-pierwszeństwo). Klucze tworzy się w konsolach dostawców: platform.claude.com/settings/keys (Anthropic),
+operatora serwera: `infra/config/models.example.json` → `models.local.json` + klucze w `.env`. Przykładowy plik
+celowo nie ma cennika — sam klucz w `.env` nie wystarczy: w **Modele AI** przy modelu z pliku kliknij „Uzupełnij
+cennik” (klucza z `.env` nie trzeba wpisywać ponownie). Ustawienia z aplikacji mają pierwszeństwo przed plikiem. Klucze tworzy się w konsolach dostawców: platform.claude.com/settings/keys (Anthropic),
 platform.openai.com/api-keys (OpenAI), aistudio.google.com/apikey (Gemini). Każde wywołanie modelu jest płatne
 według cennika dostawcy — ustaw limit w Ustawienia → Koszt modeli. Szczegóły: `docs/DECISIONS.md` D-030.
 

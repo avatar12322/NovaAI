@@ -474,6 +474,29 @@ Gałąź `claude/novaai-model-providers` od `claude/novaai-services-costs`. Decy
 - Niesprawdzone: prawdziwe klucze Anthropic, OpenAI i Gemini (lista modeli i rozmowa) — świadomie bez płatnych API;
   warstwa zgodności Gemini jest w wersji beta.
 
+### Poprawka: klucz z `.env` „nie działa”, preset Anthropic „nazwa zajęta” (2026-09-26)
+
+- Zgłoszenie: klucze dodane do `.env`, a asystent dalej w trybie demo; dodanie Claude w aplikacji kończyło się
+  błędem „Nazwa „anthropic” jest używana przez konfigurację serwera”.
+- Przyczyny: (1) klucz z `.env` był wczytany, ale modele z `models.example.json` celowo nie mają cennika, więc są
+  niedostępne — strona pokazywała tylko „brak cennika (uzupełnij konfigurację)” bez wskazania, co zrobić;
+  (2) reguła „nazwy z pliku mają pierwszeństwo” blokowała domyślną nazwę presetu `anthropic`.
+- Naprawa: ustawienia domu mają pierwszeństwo przed plikiem (dostawca i model o tej samej nazwie zastępują plik
+  tylko dla tego domu; wyłączony dostawca domu przywraca konfigurację serwera); model w aplikacji może korzystać
+  z dostawcy z serwera — klucz zostaje w `.env` (migracja `0015`); sekcja „Z konfiguracji serwera (.env)” pokazuje
+  „klucz wczytany” / brak klucza (nazwa zmiennej, nigdy wartość) i „brak cennika” z przyciskiem „Uzupełnij cennik”;
+  formularz dostawcy podpowiada, że dostawca o tej nazwie już jest na serwerze; waluty bez kursu także dla modeli
+  z pliku. D-030 uzupełnione.
+- Testy: nowy test API odtwarzający zgłoszenie (plik jak `models.example.json`, klucz w zmiennej): stan „brak
+  cennika” i brak kursu, model na kluczu serwera (wywołanie atrapy z kluczem ze zmiennej), preset `anthropic`
+  bez błędu (przed poprawką 409) i pierwszeństwo jego klucza, wyłączenie ⇒ znów klucz serwera, usunięcie ⇒ model
+  na dostawcy serwera zostaje; test bramy (zastąpienie dostawcy i modelu, trasy, wyłączony dostawca). e2e na
+  konfiguracji jak domyślny `.env` (adres `.test`, klucz testowy): „klucz wczytany”, „brak cennika”, podpowiedź
+  w formularzu, „Uzupełnij cennik”, tryb demo po usunięciu — bez żadnej rozmowy z modelem.
+  Zrzut: `docs/screens/*-18-models-server-key.png`.
+- Polecenia i wyniki: `pnpm check` → contracts 6/6, permissions 29/29, api 273/273, web 6/6; `pnpm test:e2e` →
+  36/36; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

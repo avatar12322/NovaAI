@@ -1,8 +1,10 @@
 import type {
+  FileModelInfo,
   HouseholdModelInfo,
   ModelProviderInfo,
   ModelProviderPreset,
   ModelsOverview,
+  ServerProviderInfo,
 } from '@nova/contracts';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
@@ -13,9 +15,10 @@ import { api, errorText } from '../lib/api';
  * „Modele AI i klucze API”: dostawcy (Anthropic, OpenAI, Gemini, inni zgodni z OpenAI), modele z cennikiem
  * i kursy walut. Klucz jest tylko wysyłany — serwer szyfruje go i nigdy nie odsyła (widać ostatnie 4 znaki).
  */
-const KIND_PL: Record<ModelProviderInfo['kind'], string> = {
+const KIND_PL: Record<ServerProviderInfo['kind'], string> = {
   anthropic: 'Anthropic API',
   openai_compatible: 'zgodny z OpenAI',
+  fake: 'demo (bez sieci)',
 };
 
 /** „1,5” → 1.5; puste → null; niepoprawne → NaN. */
@@ -40,7 +43,8 @@ export function ModelsView() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [addingProvider, setAddingProvider] = useState(false);
-  const [addingModel, setAddingModel] = useState(false);
+  /** Otwarty formularz nowego modelu (z ewentualnie wypełnionymi polami, np. „Uzupełnij cennik”). */
+  const [modelDraft, setModelDraft] = useState<Partial<ModelDraft> | null>(null);
   /** Modele zwrócone przez „Sprawdź klucz” — podpowiedzi w formularzu modelu. */
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
 
@@ -76,6 +80,17 @@ export function ModelsView() {
     );
 
   const manage = data.canManage;
+  const canAddModel = data.providers.length > 0 || data.serverProviders.some((p) => !p.overridden);
+  /** „Uzupełnij cennik” dla modelu z pliku: formularz z dostawcą, nazwą i identyfikatorem modelu. */
+  const fillPricing = (m: FileModelInfo) => {
+    const own = data.providers.find((p) => p.enabled && p.name === m.provider);
+    setModelDraft({
+      provider: own ? `p:${own.id}` : `s:${m.provider}`,
+      name: m.key,
+      model: m.model,
+    });
+    document.getElementById('models-section')?.scrollIntoView({ block: 'start' });
+  };
   return (
     <div className="page models">
       <header className="section-head">
@@ -135,6 +150,7 @@ export function ModelsView() {
         {addingProvider && (
           <ProviderForm
             presets={data.presets}
+            serverProviders={data.serverProviders}
             vaultReady={data.vaultReady}
             onSaved={(d, name) => {
               setAddingProvider(false);
@@ -144,10 +160,12 @@ export function ModelsView() {
           />
         )}
         {data.providers.length === 0 && !addingProvider && (
-          <EmptyState title="Brak dostawców">
+          <EmptyState title="Brak dostawców w aplikacji">
             <p>
               {manage
-                ? 'Dodaj klucz API: Anthropic (Claude), OpenAI, Google Gemini albo inny serwer zgodny z OpenAI.'
+                ? data.serverProviders.some((p) => p.usable)
+                  ? 'Klucz z pliku .env serwera już działa (niżej) — wystarczy dodać model z cennikiem. Własny klucz możesz też dodać tutaj.'
+                  : 'Dodaj klucz API: Anthropic (Claude), OpenAI, Google Gemini albo inny serwer zgodny z OpenAI.'
                 : 'Właściciel domu nie dodał jeszcze żadnego dostawcy.'}
             </p>
           </EmptyState>
@@ -167,14 +185,18 @@ export function ModelsView() {
         </ul>
       </section>
 
-      <section className="panel">
+      {(data.serverProviders.length > 0 || data.fileModels.length > 0) && (
+        <ServerConfigPanel data={data} manage={manage} onFillPricing={fillPricing} />
+      )}
+
+      <section className="panel" id="models-section">
         <div className="row between">
           <h2 className="h-sub">Modele</h2>
-          {manage && data.providers.length > 0 && (
+          {manage && canAddModel && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              onClick={() => setAddingModel(!addingModel)}
+              onClick={() => setModelDraft(modelDraft ? null : {})}
             >
               <Icon name="plus" /> Dodaj model
             </button>
@@ -184,20 +206,25 @@ export function ModelsView() {
           Ceny wpisz z oficjalnego cennika dostawcy (za milion tokenów). NovaAI liczy z nich koszt
           każdej odpowiedzi i pilnuje budżetu — model bez cennika nie jest używany.
         </p>
-        {addingModel && (
+        {modelDraft && (
           <ModelForm
+            key={JSON.stringify(modelDraft)}
             data={data}
             suggestions={suggestions}
+            prefill={modelDraft}
             onSaved={(d) => {
-              setAddingModel(false);
+              setModelDraft(null);
               apply(d, 'Dodano model.');
             }}
-            onCancel={() => setAddingModel(false)}
+            onCancel={() => setModelDraft(null)}
           />
         )}
-        {data.models.length === 0 && !addingModel && (
+        {data.models.length === 0 && !modelDraft && (
           <EmptyState title="Brak modeli">
-            <p>Po dodaniu dostawcy dodaj model (np. identyfikator z listy „Sprawdź klucz”).</p>
+            <p>
+              Dodaj model z cennikiem — u dostawcy dodanego w aplikacji albo na kluczu z serwera
+              (np. identyfikator z listy „Sprawdź klucz”).
+            </p>
           </EmptyState>
         )}
         <ul className="devices">
@@ -216,43 +243,19 @@ export function ModelsView() {
       </section>
 
       <FxPanel data={data} manage={manage} onChanged={apply} onError={setError} />
-
-      {(data.fileProviders.length > 0 || data.fileModels.length > 0) && (
-        <section className="panel">
-          <h2 className="h-sub">Z konfiguracji serwera</h2>
-          <p className="small muted">
-            Modele z pliku <code>models.local.json</code> i kluczy w zmiennych środowiskowych —
-            zmienia je administrator serwera. Nazwy z pliku mają pierwszeństwo.
-          </p>
-          <ul className="devices">
-            {data.fileModels.map((m) => (
-              <li key={m.key} className="device">
-                <div className="row between">
-                  <span className="mono">
-                    {m.key} ({m.provider}/{m.model})
-                  </span>
-                  {m.available ? (
-                    <Badge tone="ok">dostępny</Badge>
-                  ) : (
-                    <Badge>niedostępny: {m.reason}</Badge>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
 
 function ProviderForm({
   presets,
+  serverProviders,
   vaultReady,
   onSaved,
   onCancel,
 }: {
   presets: readonly ModelProviderPreset[];
+  serverProviders: ServerProviderInfo[];
   vaultReady: boolean;
   onSaved: (d: ModelsOverview, name: string) => void;
   onCancel: () => void;
@@ -279,6 +282,7 @@ function ProviderForm({
   };
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
     setF((cur) => ({ ...cur, [k]: e.target.value }));
+  const onServer = serverProviders.find((p) => p.name === f.name.trim());
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -326,6 +330,15 @@ function ProviderForm({
           </a>
         )}
       </p>
+      {onServer && (
+        <p className="note note-muted wide" role="note">
+          Na serwerze jest już dostawca „{onServer.name}”
+          {onServer.keyEnv ? ` (klucz ze zmiennej ${onServer.keyEnv} w .env)` : ''}
+          {onServer.usable ? ' i działa' : ` — ${onServer.reason}`}. Nie musisz wpisywać klucza
+          drugi raz: anuluj i dodaj model na kluczu z serwera („Dodaj model”). Jeśli zapiszesz tu
+          własny klucz, dla Twojego domu będzie miał pierwszeństwo.
+        </p>
+      )}
       <label>
         Nazwa wyświetlana
         <input value={f.label} onChange={set('label')} required maxLength={80} />
@@ -460,6 +473,12 @@ function ProviderItem({
         ) : null}{' '}
         · modele: {p.modelCount}
       </p>
+      {p.overridesServer && p.enabled && (
+        <p className="small muted">
+          Zastępuje dostawcę „{p.name}” z konfiguracji serwera — dla Twojego domu używany jest klucz
+          wpisany tutaj.
+        </p>
+      )}
       <p className="small">
         Klucz API:{' '}
         {p.hasKey ? (
@@ -538,7 +557,8 @@ function ProviderItem({
 }
 
 type ModelDraft = {
-  providerId: string;
+  /** `p:<id>` — dostawca z aplikacji; `s:<nazwa>` — dostawca z konfiguracji serwera (klucz w .env). */
+  provider: string;
   model: string;
   name: string;
   nameTouched: boolean;
@@ -560,31 +580,49 @@ function ModelForm({
   data,
   suggestions,
   initial,
+  prefill,
   onSaved,
   onCancel,
 }: {
   data: ModelsOverview;
   suggestions: Record<string, string[]>;
   initial?: HouseholdModelInfo;
+  prefill?: Partial<ModelDraft>;
   onSaved: (d: ModelsOverview) => void;
   onCancel: () => void;
 }) {
-  const presetFor = (providerId: string) => {
-    const p = data.providers.find((x) => x.id === providerId);
-    return data.presets.find((x) => x.name && x.name === p?.name);
+  // Dostawcy do wyboru: z aplikacji oraz z serwera (o ile aplikacja ich nie zastępuje).
+  const options = [
+    ...data.providers.map((p) => ({ value: `p:${p.id}`, name: p.name, label: p.label })),
+    ...data.serverProviders
+      .filter((p) => !p.overridden)
+      .map((p) => ({
+        value: `s:${p.name}`,
+        name: p.name,
+        label: `${p.name} — klucz z serwera${p.keyEnv ? ` (${p.keyEnv})` : ''}${p.usable ? '' : ` — ${p.reason}`}`,
+      })),
+  ];
+  const presetFor = (value: string) => {
+    const name = options.find((o) => o.value === value)?.name;
+    return data.presets.find((x) => x.name && x.name === name);
   };
-  const firstProvider = initial?.providerId ?? data.providers[0]?.id ?? '';
+  const fromInitial = initial
+    ? initial.providerId
+      ? `p:${initial.providerId}`
+      : `s:${initial.providerName}`
+    : null;
+  const startProvider = prefill?.provider ?? fromInitial ?? options[0]?.value ?? '';
   const [f, setF] = useState<ModelDraft>(() => ({
-    providerId: firstProvider,
-    model: initial?.model ?? '',
-    name: initial?.name ?? '',
-    nameTouched: !!initial,
+    provider: startProvider,
+    model: prefill?.model ?? initial?.model ?? '',
+    name: prefill?.name ?? initial?.name ?? '',
+    nameTouched: !!initial || !!prefill?.name,
     currency: initial?.pricing.currency ?? 'USD',
     input: initial ? String(initial.pricing.inputPerMTok).replace('.', ',') : '',
     output: initial ? String(initial.pricing.outputPerMTok).replace('.', ',') : '',
     cacheRead: initial?.pricing.cacheReadPerMTok?.toString().replace('.', ',') ?? '',
     cacheWrite: initial?.pricing.cacheWritePerMTok?.toString().replace('.', ',') ?? '',
-    source: initial?.pricing.source ?? presetFor(firstProvider)?.pricingUrl ?? '',
+    source: initial?.pricing.source ?? presetFor(startProvider)?.pricingUrl ?? '',
     verifiedAt: initial?.pricing.verifiedAt ?? today(),
     maxTokens: String(initial?.maxTokens ?? 4000),
     useSimple: initial?.useSimple ?? true,
@@ -601,12 +639,13 @@ function ModelForm({
         const next = { ...cur, [k]: e.target.value } as ModelDraft;
         if (k === 'model' && !cur.nameTouched) next.name = keyFrom(e.target.value);
         if (k === 'name') next.nameTouched = true;
-        if (k === 'providerId' && !initial)
+        if (k === 'provider' && !initial)
           next.source = presetFor(e.target.value)?.pricingUrl ?? cur.source;
         return next;
       });
-  const pricingUrl = presetFor(f.providerId)?.pricingUrl;
-  const listId = `models-${f.providerId}`;
+  const pricingUrl = presetFor(f.provider)?.pricingUrl;
+  const providerId = f.provider.startsWith('p:') ? f.provider.slice(2) : null;
+  const listId = `models-${f.provider.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -651,7 +690,7 @@ function ModelForm({
           ? await api.updateHouseholdModel(initial.id, body)
           : await api.addHouseholdModel({
               ...body,
-              providerId: f.providerId,
+              ...(providerId ? { providerId } : { serverProvider: f.provider.slice(2) }),
               name: f.name.trim(),
             }),
       );
@@ -667,10 +706,10 @@ function ModelForm({
       {!initial && (
         <label>
           Dostawca
-          <select value={f.providerId} onChange={set('providerId')} required>
-            {data.providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
+          <select value={f.provider} onChange={set('provider')} required>
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
@@ -688,7 +727,7 @@ function ModelForm({
           placeholder="np. z listy „Sprawdź klucz”"
         />
         <datalist id={listId}>
-          {(suggestions[f.providerId] ?? []).map((id) => (
+          {(providerId ? (suggestions[providerId] ?? []) : []).map((id) => (
             <option key={id} value={id} />
           ))}
         </datalist>
@@ -840,7 +879,8 @@ function ModelItem({
         <span>
           <strong className="mono">{m.name}</strong>{' '}
           <span className="small muted">
-            {m.providerName}/{m.model}
+            {m.providerName}
+            {m.serverProvider ? ' (klucz z serwera)' : ''}/{m.model}
           </span>
         </span>
         {m.available ? <Badge tone="ok">używany</Badge> : <Badge tone="warn">{m.reason}</Badge>}
@@ -851,6 +891,7 @@ function ModelItem({
         {p.verifiedAt ? ` · cennik z ${p.verifiedAt}` : ' · cennik niezweryfikowany'} · {uses} ·
         priorytet {m.priority}
         {m.dataPolicy === 'shared_only' ? ' · tylko rozmowy wspólne' : ''}
+        {m.overridesServer ? ' · zastępuje model z pliku serwera' : ''}
       </p>
       {manage && !editing && (
         <div className="row service-actions">
@@ -988,6 +1029,80 @@ function FxPanel({
                   </>
                 )}
               </form>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Dostawcy i modele z pliku konfiguracyjnego serwera (klucze w .env) — stan i szybkie uzupełnienie cennika. */
+function ServerConfigPanel({
+  data,
+  manage,
+  onFillPricing,
+}: {
+  data: ModelsOverview;
+  manage: boolean;
+  onFillPricing: (m: FileModelInfo) => void;
+}) {
+  return (
+    <section className="panel server-config">
+      <h2 className="h-sub">Z konfiguracji serwera (.env)</h2>
+      <p className="small muted">
+        Dostawcy i modele z pliku <code>NOVA_MODELS_CONFIG</code> z kluczami w zmiennych
+        środowiskowych (plik <code>.env</code>, zmiana wymaga restartu serwera). Wartości kluczy nie
+        są tu pokazywane. To, co ustawisz w aplikacji, ma pierwszeństwo dla Twojego domu.
+      </p>
+      <ul className="devices">
+        {data.serverProviders.map((p) => (
+          <li key={p.name} className="device server-provider">
+            <div className="row between">
+              <strong className="mono">{p.name}</strong>
+              {p.overridden ? (
+                <Badge>zastąpiony dostawcą z aplikacji</Badge>
+              ) : p.usable ? (
+                <Badge tone="ok">klucz wczytany</Badge>
+              ) : (
+                <Badge tone="warn">{p.reason}</Badge>
+              )}
+            </div>
+            <p className="small muted">
+              {KIND_PL[p.kind]}
+              {p.keyEnv ? ` · klucz ze zmiennej ${p.keyEnv}` : ''}
+            </p>
+          </li>
+        ))}
+        {data.fileModels.map((m) => {
+          const noPrice = !m.available && !m.overridden && !!m.reason?.startsWith('brak cennika');
+          return (
+            <li key={m.key} className="device file-model">
+              <div className="row between">
+                <span className="mono">
+                  {m.key} ({m.provider}/{m.model})
+                </span>
+                {m.available ? (
+                  <Badge tone="ok">dostępny</Badge>
+                ) : m.overridden ? (
+                  <Badge>zastąpiony modelem z aplikacji</Badge>
+                ) : (
+                  <Badge tone="warn">{noPrice ? 'brak cennika' : `niedostępny: ${m.reason}`}</Badge>
+                )}
+              </div>
+              {noPrice && (
+                <div className="row between small">
+                  <span className="muted">
+                    Plik nie ma cennika, więc model nie jest używany (budżet). Wpisz ceny tutaj —
+                    klucza nie trzeba podawać ponownie.
+                  </span>
+                  {manage && (
+                    <button type="button" className="btn btn-sm" onClick={() => onFillPricing(m)}>
+                      Uzupełnij cennik
+                    </button>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}

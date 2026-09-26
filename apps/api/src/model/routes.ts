@@ -47,8 +47,9 @@ interface ProviderRow {
 
 interface ModelRow {
   id: string;
-  provider_id: string;
+  provider_id: string | null;
   provider_name: string;
+  server_provider: boolean;
   name: string;
   model: string;
   max_tokens: number;
@@ -153,12 +154,13 @@ export const modelProviderRoutes =
           ).rows,
           models: (
             await c.query<ModelRow>(
-              `SELECT m.id, m.provider_id, p.name AS provider_name, m.name, m.model, m.max_tokens,
+              `SELECT m.id, m.provider_id, COALESCE(p.name, m.server_provider) AS provider_name,
+                      m.server_provider IS NOT NULL AS server_provider, m.name, m.model, m.max_tokens,
                       m.data_policy, m.price_currency, m.input_per_mtok::text, m.output_per_mtok::text,
                       m.cache_read_per_mtok::text, m.cache_write_per_mtok::text, m.pricing_source,
                       to_char(m.pricing_verified_at, 'YYYY-MM-DD') AS pricing_verified_at,
                       m.use_simple, m.use_complex, m.priority, m.enabled
-                 FROM household_models m JOIN model_providers p ON p.id = m.provider_id
+                 FROM household_models m LEFT JOIN model_providers p ON p.id = m.provider_id
                 WHERE m.household_id = $1 ORDER BY m.priority, m.name`,
               [householdId],
             )
@@ -172,13 +174,17 @@ export const modelProviderRoutes =
           ).rows,
         }),
       );
-      const [snap, base] = [await deps.gateway.snapshot(householdId), deps.gateway.status()];
-      const fileProviders = Object.keys(deps.gateway.config.providers);
-      const currency = deps.gateway.config.currency;
+      // snap: to, czego używa ten dom (plik + aplikacja); base: sam plik konfiguracyjny serwera.
+      const [snap, base] = await Promise.all([
+        deps.gateway.snapshot(householdId),
+        deps.gateway.snapshot(null),
+      ]);
+      const file = deps.gateway.config;
+      const currency = file.currency;
 
       const providerInfo = (p: ProviderRow): ModelProviderInfo => {
-        const shadowed = fileProviders.includes(p.name);
-        const usable = !shadowed && snap.providers.has(p.name);
+        const overridesServer = p.name in file.providers;
+        const usable = p.enabled && snap.providers.has(p.name);
         return {
           id: p.id,
           name: p.name,
@@ -191,8 +197,10 @@ export const modelProviderRoutes =
           usable,
           reason: usable
             ? null
-            : shadowed
-              ? 'nazwa zajęta przez konfigurację serwera'
+            : !p.enabled
+              ? overridesServer
+                ? 'wyłączony — używana konfiguracja serwera'
+                : 'dostawca wyłączony'
               : (snap.providerErrors.get(p.name) ?? 'dostawca niedostępny'),
           lastCheck: p.last_check_at
             ? {
@@ -202,18 +210,20 @@ export const modelProviderRoutes =
               }
             : null,
           modelCount: p.model_count,
+          overridesServer,
           createdAt: p.created_at,
           updatedAt: p.updated_at,
         };
       };
       const modelInfo = (m: ModelRow): HouseholdModelInfo => {
         const a = snap.availability(m.name);
-        const shadowed = m.name in deps.gateway.config.models;
-        const available = m.enabled && !shadowed && a.available;
+        const available = m.enabled && a.available;
         return {
           id: m.id,
           providerId: m.provider_id,
           providerName: m.provider_name,
+          serverProvider: m.server_provider,
+          overridesServer: m.name in file.models,
           name: m.name,
           model: m.model,
           maxTokens: m.max_tokens,
@@ -232,21 +242,20 @@ export const modelProviderRoutes =
           priority: m.priority,
           enabled: m.enabled,
           available,
-          reason: available
-            ? null
-            : !m.enabled
-              ? 'model wyłączony'
-              : shadowed
-                ? 'nazwa zajęta przez konfigurację serwera'
-                : a.reason,
+          reason: available ? null : !m.enabled ? 'model wyłączony' : a.reason,
         };
       };
+      // Waluty bez kursu: modele domu w innej walucie oraz każdy model (także z pliku), któremu brakuje tylko kursu.
       const missingFx = [
         ...new Set(
-          models
-            .filter((m) => m.enabled && m.price_currency !== currency)
-            .map((m) => m.price_currency)
-            .filter((c) => !snap.config.fx[c]),
+          [
+            ...models
+              .filter((m) => m.enabled && m.price_currency !== currency)
+              .map((m) => m.price_currency),
+            ...Object.entries(snap.config.models)
+              .filter(([key]) => snap.availability(key).reason?.startsWith('brak kursu'))
+              .map(([, m]) => m.pricing.currency),
+          ].filter((c) => !snap.config.fx[c]),
         ),
       ].sort();
       return {
@@ -257,14 +266,26 @@ export const modelProviderRoutes =
         presets: MODEL_PROVIDER_PRESETS,
         providers: providers.map(providerInfo),
         models: models.map(modelInfo),
-        fileProviders,
-        fileModels: base.models.map((m) => ({
-          key: m.key,
-          provider: m.provider,
-          model: m.model,
-          available: m.available,
-          reason: m.reason,
+        serverProviders: Object.entries(file.providers).map(([name, cfg]) => ({
+          name,
+          kind: cfg.kind,
+          keyEnv: cfg.kind === 'fake' ? null : cfg.apiKeyEnv,
+          usable: base.providers.has(name),
+          reason: base.providerErrors.get(name) ?? null,
+          overridden: providers.some((p) => p.enabled && p.name === name),
         })),
+        fileModels: Object.entries(file.models).map(([key, fm]) => {
+          const overridden = models.some((m) => m.enabled && m.name === key);
+          const a = snap.availability(key);
+          return {
+            key,
+            provider: fm.provider,
+            model: fm.model,
+            available: !overridden && a.available,
+            reason: overridden ? 'zastąpiony modelem z aplikacji' : a.reason,
+            overridden,
+          };
+        }),
         fx: fx.map((f) => ({
           currency: f.currency,
           rate: Number(f.rate),
@@ -284,11 +305,8 @@ export const modelProviderRoutes =
     app.post('/model/providers', async (req) => {
       const m = owner(req);
       const body = parse(CreateModelProvider, req.body);
-      if (deps.gateway.config.providers[body.name])
-        throw conflict(
-          'name_taken',
-          `Nazwa „${body.name}” jest używana przez konfigurację serwera — wybierz inną`,
-        );
+      // Nazwa jak u dostawcy z pliku serwera (np. „anthropic”) jest dozwolona: dla tego domu używany jest
+      // dostawca z aplikacji (DECISIONS D-030).
       checkBaseUrl(body.kind, body.baseUrl);
       const id = randomUUID();
       const enc = body.apiKey ? encryptKey(m.householdId, id, body.apiKey) : null;
@@ -460,27 +478,29 @@ export const modelProviderRoutes =
     app.post('/model/models', async (req) => {
       const m = owner(req);
       const body = parse(CreateHouseholdModel, req.body);
-      if (deps.gateway.config.models[body.name])
-        throw conflict(
-          'name_taken',
-          `Nazwa „${body.name}” jest używana przez konfigurację serwera — wybierz inną`,
+      // Nazwa jak w pliku serwera (np. „claude-fast”) jest dozwolona: dla tego domu model z aplikacji zastępuje
+      // model z pliku. Dostawca: dodany w aplikacji albo z konfiguracji serwera (klucz w .env).
+      if (body.providerId) {
+        const p = await deps.db.owner.query(
+          'SELECT 1 FROM model_providers WHERE id = $1 AND household_id = $2',
+          [body.providerId, m.householdId],
         );
-      const p = await deps.db.owner.query(
-        'SELECT 1 FROM model_providers WHERE id = $1 AND household_id = $2',
-        [body.providerId, m.householdId],
-      );
-      if (!p.rowCount) throw notFound('Dostawca');
+        if (!p.rowCount) throw notFound('Dostawca');
+      } else if (!body.serverProvider || !(body.serverProvider in deps.gateway.config.providers)) {
+        throw notFound('Dostawca');
+      }
       const id = randomUUID();
       await deps.db.owner
         .query(
-          `INSERT INTO household_models (id, household_id, provider_id, name, model, max_tokens, data_policy,
-             price_currency, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok,
-             pricing_source, pricing_verified_at, use_simple, use_complex, priority, enabled)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          `INSERT INTO household_models (id, household_id, provider_id, server_provider, name, model, max_tokens,
+             data_policy, price_currency, input_per_mtok, output_per_mtok, cache_read_per_mtok,
+             cache_write_per_mtok, pricing_source, pricing_verified_at, use_simple, use_complex, priority, enabled)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
           [
             id,
             m.householdId,
-            body.providerId,
+            body.providerId ?? null,
+            body.providerId ? null : body.serverProvider,
             body.name,
             body.model,
             body.maxTokens,
@@ -503,6 +523,7 @@ export const modelProviderRoutes =
       await audit(req, m, 'household_model.create', id, {
         name: body.name,
         model: body.model,
+        serverProvider: body.serverProvider ?? null,
         pricing: body.pricing,
       });
       return overview(m.auth, m.householdId);

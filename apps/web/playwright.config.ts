@@ -43,7 +43,9 @@ export default defineConfig({
         DATABASE_URL_OWNER: e2eDb('nova_owner', 'nova_owner_dev'),
         NOVA_DEV_LOGIN: 'true',
         NOVA_QUEUE_ENABLED: 'true',
-        NOVA_MODELS_CONFIG: '',
+        // Jak domyślny .env: dostawca z pliku z kluczem w zmiennej, model bez cennika (tryb demo). Adres .test.
+        NOVA_MODELS_CONFIG: 'apps/web/e2e/fixtures/models.e2e.json',
+        E2E_ANTHROPIC_API_KEY: 'e2e-not-a-real-key',
         // WebAuthn wymaga domeny (nie IP) — testy passkeys używają http://localhost:5174.
         NOVA_RP_ID: 'localhost',
         NOVA_RP_ORIGINS: `http://localhost:${WEB_PORT}`,

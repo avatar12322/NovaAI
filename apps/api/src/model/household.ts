@@ -60,12 +60,12 @@ export class DbHouseholdModels implements HouseholdModelSource {
         [householdId],
       ),
       this.db.owner.query<ModelRow>(
-        `SELECT m.name, m.model, p.name AS provider_name, m.max_tokens, m.data_policy, m.price_currency,
+        `SELECT m.name, m.model, COALESCE(p.name, m.server_provider) AS provider_name, m.max_tokens, m.data_policy, m.price_currency,
                 m.input_per_mtok::text, m.output_per_mtok::text, m.cache_read_per_mtok::text,
                 m.cache_write_per_mtok::text, m.pricing_source,
                 to_char(m.pricing_verified_at, 'YYYY-MM-DD') AS pricing_verified_at,
                 m.use_simple, m.use_complex, m.priority
-           FROM household_models m JOIN model_providers p ON p.id = m.provider_id
+           FROM household_models m LEFT JOIN model_providers p ON p.id = m.provider_id
           WHERE m.household_id = $1 AND m.enabled`,
         [householdId],
       ),
@@ -74,7 +74,7 @@ export class DbHouseholdModels implements HouseholdModelSource {
         [householdId],
       ),
     ]);
-    if (!providers.rows.length && !fx.rows.length) return null;
+    if (!providers.rows.length && !models.rows.length && !fx.rows.length) return null;
 
     const overlay: HouseholdOverlay = { providers: {}, models: {}, fx: {} };
     for (const p of providers.rows) {

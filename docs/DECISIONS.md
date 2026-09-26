@@ -503,8 +503,20 @@ płatnych wywołań.
   pod nazwą dostawcy, więc działa szacunek w „Usługi i koszty” (D-029).
 - Routing: modele domu (wg priorytetu, zaznaczone „krótkie pytania” → `chat.simple`, „złożone zadania” →
   `chat.complex`) przed modelami z pliku; w trasach profili (Hermes) — na końcu, jako zapas, bo trasa profilu to
-  świadomy wybór operatora. Nazwy z pliku mają pierwszeństwo; kolizja przy dodawaniu ⇒ 409. `dataPolicy`
-  („tylko wspólne”) działa jak w pliku.
+  świadomy wybór operatora. `dataPolicy` („tylko wspólne”) działa jak w pliku.
+- **Ustawienia domu mają pierwszeństwo przed plikiem** (poprawka po zgłoszeniu: preset „Anthropic” kończył się
+  błędem „nazwa zajęta”, bo domyślna konfiguracja z `models.example.json` ma dostawcę `anthropic`). Dostawca
+  dodany w aplikacji o nazwie jak w pliku zastępuje go — tylko dla tego domu, także dla modeli z pliku, które go
+  używają; wyłączony dostawca domu niczego nie zastępuje (wraca konfiguracja serwera). Model domu o nazwie jak
+  w pliku (np. `claude-fast`) zastępuje go łącznie z miejscem w trasach. Inne domy i stan bez sesji — bez zmian.
+  Uzasadnienie: właściciel domu świadomie ustawia to w aplikacji; wcześniejsza reguła „plik wygrywa” blokowała
+  najprostszy scenariusz bez korzyści dla bezpieczeństwa (i tak wybiera on dostawców dla swojego domu).
+- **Model w aplikacji na kluczu z `.env`** (migracja `0015`): model domu wskazuje dostawcę z aplikacji albo — po
+  nazwie — dostawcę z pliku serwera (`server_provider`, dokładnie jedno z dwóch). Klucz zostaje wyłącznie
+  w zmiennej środowiskowej; API pokazuje tylko nazwę zmiennej i to, czy klucz wczytano. Częsty przypadek: klucz
+  w `.env` działa, ale model z przykładowego pliku nie ma cennika — strona pokazuje „brak cennika” i przycisk
+  „Uzupełnij cennik”, który otwiera formularz z dostawcą, nazwą i identyfikatorem modelu z pliku. Waluty bez
+  kursu (także modeli z pliku) trafiają do „Kursy walut”.
 - Bez restartu: `ModelGateway.snapshot(dom)` łączy plik i dane domu (pamięć podręczna 30 s, unieważniana po każdej
   zmianie w tym procesie; inne instancje API widzą zmianę najpóźniej po 30 s). `AutoAgentRuntime` wybiera w każdej
   turze model albo jawny tryb demo — usunięcie ostatniego dostawcy przywraca demo. `/api/model/status`
