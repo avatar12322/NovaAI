@@ -8,6 +8,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Icon } from '../components/Icon';
 import { DictationButton, SpeakButton } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
@@ -137,7 +138,9 @@ export function ChatView({ me, space, conversationId }: Props) {
         )}
       </section>
       {conversationId ? (
-        <ConversationPane key={conversationId} id={conversationId} space={space} me={me} />
+        <ErrorBoundary resetKey={conversationId}>
+          <ConversationPane key={conversationId} id={conversationId} space={space} me={me} />
+        </ErrorBoundary>
       ) : (
         <section className="conv-empty">
           <EmptyState title="Wybierz lub utwórz rozmowę">
@@ -188,7 +191,11 @@ function ConversationPane({
       );
   }, [id]);
   useEffect(load, [load]);
-  useEffect(() => bottom.current?.scrollIntoView({ block: 'end' }), [messages, thinking]);
+  // Blok (bez zwracania wyniku): w nowszych przeglądarkach scrollIntoView zwraca Promise, a React traktuje
+  // wartość zwróconą z efektu jako funkcję sprzątającą — to wywracało widok („destroy is not a function”).
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: 'end' });
+  }, [messages, thinking]);
 
   useEventEffect(
     (e) => e.type === 'message.created' && e.payload.conversationId === id,

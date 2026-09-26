@@ -29,6 +29,22 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/web/src/**/*.tsx', 'apps/web/src/**/*.ts'],
+    rules: {
+      // Efekt Reacta może zwrócić wyłącznie funkcję sprzątającą. Skrócona strzałka zwraca wynik wyrażenia
+      // (np. Promise z scrollIntoView w nowszych przeglądarkach) i wywraca widok — TypeScript tego nie wykryje.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'CallExpression[callee.name=/^use(Layout)?Effect$/] > ArrowFunctionExpression[expression=true]:not([body.type="ArrowFunctionExpression"])',
+          message:
+            'useEffect: użyj bloku `() => { ... }` — efekt może zwrócić tylko funkcję sprzątającą.',
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.test.ts', '**/test/**/*.ts', '**/e2e/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',

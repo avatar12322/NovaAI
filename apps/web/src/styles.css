@@ -1319,3 +1319,15 @@ mark {
   padding-left: var(--space-2);
   overflow-wrap: anywhere;
 }
+.view-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-4);
+}
+.view-error pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--danger);
+}

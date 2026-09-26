@@ -365,6 +365,22 @@ odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26; źródła i decy
   zatwierdzanie aplikacji przez administratora, faktyczne dostarczanie zdarzeń `tokens_revoked`/`app_uninstalled`
   i ich ponowień, zachowanie przy włączonej rotacji tokenów.
 
+### Poprawka: czarny ekran po otwarciu nowej rozmowy (2026-09-26)
+
+- Zgłoszenie: lokalnie (`http://localhost:5173/#/chat/private/<id>`) nowa rozmowa dawała czarny ekran; w konsoli
+  „useEffect must not return anything besides a function” i „destroy is not a function” w `ConversationPane`.
+- Przyczyna: efekt przewijania był skróconą strzałką zwracającą wynik `scrollIntoView(...)`. W nowszych przeglądarkach
+  metoda zwraca Promise, a React traktuje wartość zwróconą z efektu jako funkcję sprzątającą — błąd odmontowywał całą
+  aplikację (w ciemnym motywie zostaje czarne tło). Testowy Chromium 141 zwraca jeszcze `undefined`, więc e2e tego nie
+  wykrywały.
+- Naprawa: efekt w bloku; granice błędów (`ErrorBoundary`) wokół całej aplikacji, widoku i panelu rozmowy — błąd
+  pokazuje czytelny komunikat, a nawigacja działa dalej; reguła ESLint zabrania skróconych strzałek w
+  `useEffect`/`useLayoutEffect` (sprawdzone: zgłasza dawny kod).
+- Testy: `apps/web/e2e/browser-compat.spec.ts` — symulacja `scrollIntoView` zwracającego Promise (przed poprawką
+  odtwarzał dokładnie ten błąd, po poprawce przechodzi) i błąd w widoku ⇒ komunikat zamiast pustego ekranu.
+  `pnpm check` → 4/4, 27/27, 240/240, 5/5; `pnpm test:e2e` → 30/30; `pnpm test:prod-smoke` → 1/1.
+- Niesprawdzone: przeglądarka zgłaszającego (wersja nieznana) — zachowanie odtworzone symulacją.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

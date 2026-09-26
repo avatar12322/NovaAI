@@ -1,5 +1,6 @@
 import type { MeResponse } from '@nova/contracts';
 import { useCallback, useEffect, useState } from 'react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Shell } from './components/Shell';
 import { ErrorNote, Spinner } from './components/ui';
 import { api, ApiError } from './lib/api';
@@ -67,16 +68,18 @@ export function App() {
   return (
     <EventsProvider>
       <Shell me={me} route={route} onLogout={logout}>
-        {route.view === 'chat' && (
-          <ChatView key={route.space} me={me} space={route.space} conversationId={route.id} />
-        )}
-        {route.view === 'tasks' && <TasksView me={me} taskId={route.id} />}
-        {route.view === 'approvals' && <ApprovalsView />}
-        {route.view === 'memory' && <MemoryView space={route.space} />}
-        {route.view === 'documents' && <DocumentsView key={route.space} space={route.space} />}
-        {route.view === 'document' && <DocumentView id={route.id} ord={route.ord} />}
-        {route.view === 'home' && <HomeView me={me} />}
-        {route.view === 'settings' && <SettingsView me={me} onLogout={logout} />}
+        <ErrorBoundary resetKey={JSON.stringify(route)}>
+          {route.view === 'chat' && (
+            <ChatView key={route.space} me={me} space={route.space} conversationId={route.id} />
+          )}
+          {route.view === 'tasks' && <TasksView me={me} taskId={route.id} />}
+          {route.view === 'approvals' && <ApprovalsView />}
+          {route.view === 'memory' && <MemoryView space={route.space} />}
+          {route.view === 'documents' && <DocumentsView key={route.space} space={route.space} />}
+          {route.view === 'document' && <DocumentView id={route.id} ord={route.ord} />}
+          {route.view === 'home' && <HomeView me={me} />}
+          {route.view === 'settings' && <SettingsView me={me} onLogout={logout} />}
+        </ErrorBoundary>
       </Shell>
     </EventsProvider>
   );
