@@ -81,7 +81,35 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
 5. **Pamięć** — wpisy prywatne/wspólne, `Udostępnij` / `Cofnij udostępnienie`. **Dokumenty** (Pamięć → Dokumenty):
    dodaj PDF, TXT lub Markdown (do 10 MB), poczekaj na status „gotowy” i zapytaj w czacie — odpowiedź pokaże
    „Źródła” z nazwą dokumentu i stroną/fragmentem. Prywatny dokument widzisz tylko Ty; wspólny — domownicy i NovaAI.
-6. **Dom** — wiadomości od domownika, aktywne wspólne zadania. **Ustawienia** — stan usług, budżet, motyw.
+6. **Dom** — wiadomości od domownika, aktywne wspólne zadania. **Ustawienia** — stan usług, budżet, motyw,
+   integracje (połącz / odłącz konto, wybór uprawnień).
+7. Po połączeniu konta pocztowego (tryb demo): `szukaj maili: faktura`, `przeczytaj maila: <id>`,
+   `wyślij mail do adres@example.test: Temat | Treść`, `szkic maila do adres@example.test: Temat | Treść` (Outlook),
+   `wydarzenia: 2026-10-01T00:00:00Z 2026-10-08T00:00:00Z`, `zajętość: <od> <do>`. Słowo `outlook` lub `gmail`
+   po poleceniu wskazuje konto, gdy połączone są oba (np. `szukaj maili outlook: faktura`). Wysyłka i szkic zawsze
+   czekają na zgodę w **Zgodach**.
+
+## Integracje (opcjonalnie, własne konta)
+
+Bez konfiguracji integracje są oznaczone jako „niedostępne”. Wymagany jest też `NOVA_SECRET_KEY` (szyfrowanie
+tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie widzi cudzej poczty.
+
+**Microsoft (Outlook: poczta i kalendarz)** — rejestracja aplikacji w centrum administracyjnym Microsoft Entra
+(App registrations → New registration):
+
+1. Obsługiwane konta: „dowolny katalog organizacji i osobiste konta Microsoft” (dla `MICROSOFT_TENANT=common`)
+   albo tylko Twoja organizacja (wtedy `MICROSOFT_TENANT=<ID dzierżawy>`).
+2. Redirect URI, platforma **Web**: `<NOVA_PUBLIC_URL>/api/connections/microsoft/callback`
+   (lokalnie: `http://localhost:5173/api/connections/microsoft/callback`).
+3. Certificates & secrets → nowy sekret klienta → `MICROSOFT_CLIENT_SECRET` (ma datę ważności — odnów przed nią);
+   Application (client) ID → `MICROSOFT_CLIENT_ID`.
+4. API permissions → Microsoft Graph → Delegated: `Mail.ReadBasic`, `Mail.Read`, `Mail.Send`, `Calendars.ReadBasic`,
+   `offline_access`, `openid`, `profile`; `Mail.ReadWrite` tylko jeśli chcesz szkice w Outlooku. Aplikacja i tak
+   prosi tylko o uprawnienia zaznaczone przez użytkownika przy łączeniu.
+
+W organizacji administrator może wymagać zatwierdzenia aplikacji (wtedy Microsoft pokazuje prośbę o zgodę
+administratora). Teams nie jest zaimplementowany — wymaga zgody administratora (`ChannelMessage.Read.All`) i kont
+służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft).
 
 ## Struktura
 

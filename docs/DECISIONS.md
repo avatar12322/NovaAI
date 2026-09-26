@@ -208,8 +208,8 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   i nie jest przekazywana modelowi jako polecenie (runtime modelu używa tylko ról user/assistant).
 - Webhooki: `POST /api/webhooks/slack` — HMAC `v0` z `SLACK_SIGNING_SECRET`, okno 5 min, `url_verification`,
   deduplikacja po `event_id` (`webhook_deliveries`). Mapowanie zdarzeń na użytkowników/zadania — nie zaimplementowano.
-- Microsoft 365 i Slack (OAuth): oznaczone jako niezaimplementowane; Google Pub/Sub push (JWT OIDC) i odnawianie
-  subskrypcji (watch/Graph) — nie zaimplementowano.
+- Slack (OAuth): niezaimplementowany; Google Pub/Sub push (JWT OIDC) i odnawianie subskrypcji (watch/Graph) — nie
+  zaimplementowano. Microsoft (Outlook) — patrz D-027.
 
 ## D-020 Proaktywność (M6): przypomnienia w trwałej kolejce, prywatność i koszt przed akcją
 
@@ -293,3 +293,61 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   Narzędzia tylko do odczytu (`readOnly`) — bez zmian. Obrona nie zależy od tego, czy model oprze się wstrzyknięciu.
 - Broker sprawdza zgodę (stan, właściciel, krok, skrót parametrów) zawsze, gdy krok ją ma — także gdy wymusił ją
   kontekst, a nie definicja narzędzia.
+
+## D-027 Microsoft Graph: Outlook — poczta i kalendarz (uprawnienia delegowane, osobno dla każdego użytkownika)
+
+Źródła: oficjalna dokumentacja Microsoft Learn, sprawdzona 2026-09-26 — Microsoft identity platform (authorization
+code flow v2.0 z PKCE, uprawnienia i zgody, refresh tokeny), Microsoft Graph v1.0 (list messages, get message,
+sendMail, create message, calendarView, parametr `$search`, stronicowanie `@odata.nextLink`, nagłówki `Prefer`),
+uprawnienia Teams (list channel messages, list chat messages) i instrukcje cofania zgody aplikacji. **Nic z tego nie
+zostało sprawdzone na prawdziwym koncie ani dzierżawie Microsoft** — tylko na lokalnej atrapie odtwarzającej kontrakt.
+
+- Logowanie: `https://login.microsoftonline.com/{MICROSOFT_TENANT}/oauth2/v2.0/authorize` i `/token`, kod
+  autoryzacyjny + PKCE S256, klient poufny (`client_secret`), `response_mode=query`, `prompt=select_account` (wybór
+  konta zamiast cichego użycia zalogowanego). Domyślnie `common` (konta osobiste i służbowe). Każdy użytkownik NovaAI
+  łączy własne konto; tokeny w sejfie jak w D-019 (AAD = użytkownik|dostawca|połączenie). `state` jednorazowy.
+- Najmniejsze uprawnienia (delegowane) per zdolność; w żądaniu tylko te, które użytkownik zaznaczył:
+
+  | Zdolność            | Endpoint Graph v1.0                                                   | Uprawnienie           |
+  | ------------------- | --------------------------------------------------------------------- | --------------------- |
+  | `mail.search`       | `GET /me/messages?$search=…&$select=id,subject,from,receivedDateTime` | `Mail.ReadBasic`      |
+  | `mail.read`         | `GET /me/messages/{id}` + `Prefer: outlook.body-content-type="text"`  | `Mail.Read`           |
+  | `mail.send`         | `POST /me/sendMail` (202, kopia w Elementach wysłanych)               | `Mail.Send`           |
+  | `mail.draft` (opc.) | `POST /me/messages` (201, szkic; zwraca `webLink`)                    | `Mail.ReadWrite`      |
+  | `calendar.freebusy` | `GET /me/calendarView` + `$select=start,end,showAs,isCancelled`       | `Calendars.ReadBasic` |
+  | `calendar.read`     | `GET /me/calendarView` (+ tytuł, miejsce, cały dzień)                 | `Calendars.ReadBasic` |
+
+  Zawsze także `offline_access` (refresh token), `openid`, `profile` (etykieta konta z tokenu ID — tylko do
+  wyświetlenia). `Mail.ReadBasic` nie obejmuje treści ani podglądu — wyniki wyszukiwania nie mają wycinka.
+  Szersze uprawnienie zastępuje węższe (`Mail.Read` ⊃ `Mail.ReadBasic`). `Mail.ReadWrite` (zmiana i usuwanie poczty)
+  wyłącznie dla szkiców i wyłącznie po świadomym zaznaczeniu — wysyłka i szkice są w UI domyślnie wyłączone.
+
+- Jedno uprawnienie może obejmować kilka zdolności (`Calendars.ReadBasic` = zajętość i tytuły wydarzeń), więc
+  połączenie zapisuje też wybór użytkownika (`connections.capabilities`, migracja 0011); aplikacja udostępnia tylko
+  część wspólną wyboru i przyznanych zakresów. Zakresy porównywane w postaci kanonicznej (Microsoft zwraca
+  „Mail.Read” zamiast pełnego URI i dodaje wcześniej przyznane, np. `User.Read`).
+- Czas wydarzeń: `Prefer: outlook.timezone="UTC"` (Graph zwraca czas bez przesunięcia) → ISO z `Z`. Stronicowanie
+  tylko po adresach w obrębie Graph (maks. 10 stron); odwołane wydarzenia pomijane; `showAs: free` nie jest zajętością.
+- Tokeny: Microsoft może zwrócić nowy refresh token — zastępuje poprzedni. Odświeżenie pod blokadą wiersza
+  (`SELECT … FOR UPDATE`), więc równoległe zadania odświeżają raz. HTTP 401 z Graph ⇒ jedno wymuszone odświeżenie
+  i jedno ponowienie (bezpieczne także dla wysyłki — odrzucone żądanie nie zostało wykonane); drugie 401 albo
+  `invalid_grant` / `interaction_required` / `consent_required` przy odświeżeniu ⇒ status „wymaga ponownego
+  połączenia”, bez dalszych wywołań. 403 ⇒ brak uprawnienia (także zasady organizacji); 429/5xx ⇒ ponowienie zadania.
+- Odłączenie: Microsoft nie ma endpointu odwołania pojedynczego tokenu aplikacji (unieważnienie sesji użytkownika
+  wylogowałoby go ze wszystkich aplikacji), więc NovaAI usuwa tokeny u siebie, a Ustawienia pokazują, jak cofnąć zgodę:
+  konto osobiste — account.microsoft.com → Prywatność → dostęp aplikacji; konto służbowe — Moje aplikacje
+  (myapps.microsoft.com) → Zarządzaj aplikacją → Cofnij uprawnienia. Wydany wcześniej token dostępu wygasa sam.
+- Narzędzia: poczta i szczegóły kalendarza tylko dla agenta prywatnego (`resultVisibility: private`); NovaAI dostaje
+  wyłącznie przedziały zajętości osób z grantem (D-019), a trwały błąd konta jednej osoby daje „kalendarz wymaga
+  ponownego połączenia konta” zamiast błędu całej odpowiedzi. Wysyłka i szkic zawsze przez zgodę (podgląd skrzynki
+  nadawcy z etykietą konta, odbiorcy i treści); konto jest ustalane przy planowaniu i należy do parametrów objętych
+  skrótem zgody. Dwa połączone konta z tą samą funkcją ⇒ odmowa „wskaż konto” (Outlook/Gmail), bez zgadywania.
+- Teams — **niezaimplementowane**, pokazane w Ustawieniach: odczyt wiadomości kanałów wymaga
+  `ChannelMessage.Read.All`, na które zgodę musi wyrazić administrator organizacji; czaty (`Chat.Read`) działają tylko
+  na kontach służbowych/szkolnych; konta osobiste Microsoft nie mają dostępu do API Teams.
+- Konta służbowe: zasady zgód dzierżawy mogą wymagać zatwierdzenia administratora także dla poczty i kalendarza.
+  Microsoft zwykle pokazuje wtedy własny ekran „wymagana zgoda administratora” (bez powrotu do NovaAI); jeśli wraca
+  z błędem, callback rozpoznaje to po `consent_required` lub kodach AADSTS w `error_description` (m.in. 90094, 65001)
+  i pokazuje komunikat „organizacja wymaga zgody administratora”. Rozpoznanie jest heurystyczne; treść opisu błędu
+  nie jest zapisywana (audyt ma tylko krótki kod i wyprowadzony powód).
+- Poza zakresem: subskrypcje zmian (webhooki Graph), zapis w kalendarzu, załączniki, foldery i wątki poczty.

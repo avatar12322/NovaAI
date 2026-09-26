@@ -4,19 +4,19 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 ## Status etapów
 
-| Etap                     | Status    | Uwagi                                                                                                                     |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------- |
-| M0 — szkielet            | gotowe    | workspace, API, web, Postgres lokalny, migracje, healthcheck; Compose nieprzetestowany (brak Dockera)                     |
-| M1 — izolacja            | gotowe    | sesje, polityka + RLS, rozmowy, pamięć, udostępnianie, audyt; testy izolacji Alfa/Beta                                    |
-| M2 — UI i zadania        | gotowe    | trwała kolejka, zgody, SSE, UI desktop/telefon, PWA; e2e                                                                  |
-| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, wyniki narzędzi → model; adaptery Anthropic/Hermes tylko na mockach (brak kluczy)           |
-| M4 — Worker              | częściowe | protokół, symulator, Worker Rust (Linux + interop z API); na Windows tylko kompilacja, bez uruchomienia                   |
-| M5 — integracje          | częściowe | Google (kalendarz free/busy, Gmail) na mockach, Slack webhook; brak kont OAuth; Microsoft/Slack OAuth niezaimplementowane |
-| M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej       |
-| Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                |
-| Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                         |
-| Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                      |
-| Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa          |
+| Etap                     | Status    | Uwagi                                                                                                                                                          |
+| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0 — szkielet            | gotowe    | workspace, API, web, Postgres lokalny, migracje, healthcheck; Compose nieprzetestowany (brak Dockera)                                                          |
+| M1 — izolacja            | gotowe    | sesje, polityka + RLS, rozmowy, pamięć, udostępnianie, audyt; testy izolacji Alfa/Beta                                                                         |
+| M2 — UI i zadania        | gotowe    | trwała kolejka, zgody, SSE, UI desktop/telefon, PWA; e2e                                                                                                       |
+| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, wyniki narzędzi → model; adaptery Anthropic/Hermes tylko na mockach (brak kluczy)                                                |
+| M4 — Worker              | częściowe | protokół, symulator, Worker Rust (Linux + interop z API); na Windows tylko kompilacja, bez uruchomienia                                                        |
+| M5 — integracje          | częściowe | Google i Microsoft (Outlook: poczta, kalendarz) tylko na atrapach — połączenie z kontami NIESPRAWDZONE; Slack webhook; Teams i Slack OAuth niezaimplementowane |
+| M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej                                            |
+| Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                                                     |
+| Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                                                              |
+| Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                                                           |
+| Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa                                               |
 
 ## Dziennik
 
@@ -265,15 +265,67 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 - Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 27/27, api 187/187 (nowe: `conversations.test.ts` 2,
   testy fragmentów Markdown i wycinków), web 4/4; `pnpm test:e2e` → 20/20 (test NovaAI wyszukuje rozmowę po tytule).
 
+### Microsoft Graph: Outlook — poczta i kalendarz (2026-09-26)
+
+Gałąź `claude/novaai-microsoft-graph` (od `claude/novaai-documents`). **Połączenie z Microsoftem nie zostało
+sprawdzone** — brak konta i rejestracji aplikacji; całość zweryfikowana na lokalnej atrapie Microsoft identity platform
+i Graph odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26, szczegóły i źródła: `docs/DECISIONS.md` D-027).
+
+- `MicrosoftConnector` (`apps/api/src/connectors/microsoft.ts`): OAuth v2.0 z PKCE S256 osobno dla każdego
+  użytkownika, `MICROSOFT_CLIENT_ID/SECRET/TENANT` (domyślnie `common`), najmniejsze uprawnienia per zdolność
+  (`Mail.ReadBasic`, `Mail.Read`, `Mail.Send`, `Calendars.ReadBasic`; `Mail.ReadWrite` tylko dla szkiców), rotacja
+  refresh tokenu, mapowanie 401/403/404/429/5xx, stronicowanie kalendarza tylko w obrębie Graph.
+- `ConnectionService`: wybór konta dla zdolności (`resolve`, odmowa przy dwóch kontach bez wskazania), wywołania
+  z jednym wymuszonym odświeżeniem po 401 (`call`), odświeżanie pod blokadą wiersza, stan „wymaga ponownego
+  połączenia”, etykieta konta i wybór zdolności zapisane przy połączeniu (migracja `0011_connection_account.sql`).
+- Narzędzia niezależne od dostawcy: `mail.search`, `mail.read`, `mail.send` (zgoda), nowe `mail.draft` (zawsze zgoda,
+  szkic w Outlooku bez wysyłki) i `calendar.events` (tylko agent prywatny); `calendar.freebusy` łączy Google i Outlook,
+  NovaAI dostaje tylko przedziały, a błąd konta jednej osoby nie blokuje innych. Google: 401 → odświeżenie i ponowienie.
+- UI (Ustawienia → Integracje): stan połączenia z kontem, „nie połączono” / „wymaga ponownego połączenia”, wybór
+  uprawnień z nazwami uprawnień Microsoft (wysyłka i szkice domyślnie wyłączone), nieprzyznane uprawnienia, notatka
+  „Microsoft Teams — wymaga zgody administratora organizacji”, zasady kont służbowych, jak cofnąć zgodę u Microsoft.
+  Komunikat po powrocie z odmową administratora organizacji. Czat i kroki zadań pokazują czytelny powód odmowy
+  (brak konta, wygasły dostęp, brak uprawnienia, dwa konta). Komendy demo: `szkic maila do …`, `wydarzenia: od do`,
+  słowo `outlook`/`gmail` po poleceniu.
+- Testy (`apps/api/src/connectors/microsoft.test.ts`, 26, dane fikcyjne `example.test`): stan bez konfiguracji i notatka
+  Teams; URL autoryzacji z minimalnymi zakresami, state, PKCE i `select_account`; wymiana kodu z weryfikatorem,
+  zaszyfrowane tokeny, brak tokenów w odpowiedziach i audycie, rola aplikacji bez dostępu do szyfrogramu;
+  normalizacja zakresów i widoczny brak przyznanego uprawnienia; jednorazowy state i przechwycony kod bez weryfikatora;
+  rozpoznanie wymogu zgody administratora (bez zapisu opisu błędu); **izolacja Alfa/Beta** (każde wywołanie Graph
+  tokenem właściciela, cudzy identyfikator wiadomości → 404, odłączenie Bety nie wpływa na Alfę); NovaAI bez narzędzi
+  poczty i szczegółów kalendarza; **odświeżanie** z rotacją refresh tokenu, jedno odświeżenie przy trzech równoległych
+  żądaniach, 401 → odświeżenie → ponowienie; **cofnięcie dostępu** po stronie Microsoft → stan „wymaga ponownego
+  połączenia”, kolejne prośby odrzucane bez wywołań, inni użytkownicy bez zmian; odłączenie usuwa tokeny i blokuje
+  wywołania; wysyłka i szkic tylko po zgodzie (dokładnie jedno `sendMail`, odrzucona zgoda nie tworzy szkicu); treść
+  maila z „instrukcjami” pozostaje danymi; wybór konta przy dwóch kontach; wydarzenia ze stronicowaniem i czasem UTC;
+  połączenie „tylko zajętość” nie daje tytułów mimo tego samego uprawnienia; zajętość dla NovaAI bez tytułów;
+  walidacja adresu i nagłówków; `$search` z ucieczką; brak podążania za adresem następnej strony spoza Graph.
+  Sprawdzono też, że testy wykrywają zepsucie: wyłączenie ograniczenia do wybranych zdolności i ponownego sprawdzenia
+  pod blokadą powodowało porażki odpowiednich testów.
+- e2e `apps/web/e2e/integrations.spec.ts` (desktop + telefon): stan „nie połączono”, domyślne uprawnienia, notatka Teams,
+  adres logowania Microsoft z minimalnymi zakresami (przekierowanie przechwycone w przeglądarce — nic nie trafia do
+  Microsoft; w e2e ustawiony testowy `MICROSOFT_CLIENT_ID` i klucz sejfu), komunikat o zgodzie administratora, czytelna
+  odmowa w czacie. Zrzuty: `docs/screens/*-13-integrations-microsoft.png`; pozostałe zrzuty odświeżone.
+  Stany „połączono” i „wymaga ponownego połączenia” obejrzane jednorazowo na zrzucie z wierszem połączenia bez tokenów
+  (nie dołączono do repozytorium).
+- Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 27/27, api 213/213 (w tym Microsoft 26, Google 14 po
+  zmianach), web 5/5; `pnpm test:e2e` → 24/24; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
+- Niesprawdzone (wymaga konta i rejestracji aplikacji w Microsoft Entra): prawdziwe logowanie i ekrany zgody,
+  zachowanie dzierżaw z ograniczonymi zgodami (kody AADSTS, powrót do aplikacji), semantyka i limity `$search`,
+  format identyfikatorów wiadomości, `webLink` szkicu, limity 429.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
 - Brak systemu Windows w sesji: Worker Rust sprawdzony na Linuksie (testy + interop z API) i kompilacyjnie dla
   `x86_64-pc-windows-gnu` (bez TLS — brak kompilatora mingw; nie instalowałem pakietów systemowych). Test ręczny:
   `workers/windows/README.md`.
-- Brak kont OAuth (Google Cloud client, Microsoft, Slack) — integracje sprawdzone wyłącznie na lokalnych mockach.
-  Do uruchomienia: klient OAuth „Web application”, redirect `<NOVA_PUBLIC_URL>/api/connections/google/callback`,
-  `GOOGLE_CLIENT_ID/SECRET`, `NOVA_SECRET_KEY`; weryfikacja zakresów Gmail przez Google przed udostępnieniem.
+- Brak kont OAuth (Google Cloud client, Microsoft, Slack) — integracje sprawdzone wyłącznie na lokalnych atrapach;
+  połączenie z Google i Microsoft NIE jest sprawdzone. Google: klient OAuth „Web application”, redirect
+  `<NOVA_PUBLIC_URL>/api/connections/google/callback`, `GOOGLE_CLIENT_ID/SECRET`, weryfikacja zakresów Gmail przez
+  Google przed udostępnieniem. Microsoft: rejestracja aplikacji w Microsoft Entra (README → Integracje), redirect
+  `<NOVA_PUBLIC_URL>/api/connections/microsoft/callback`, `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT`.
+  Oba wymagają `NOVA_SECRET_KEY`.
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
 
@@ -282,14 +334,17 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 - Adapter Honcho dla `episodic`; wyszukiwanie semantyczne (embeddingi) i OCR skanów w pamięci dokumentów.
 - Worker: procesy, uruchamianie aplikacji, brokerowane komendy / PowerShell, przeglądarka, zrzuty ekranu, UI Automation
   (spec, sekcja 6, punkty 4–5). Zaimplementowane: pliki (lista/odczyt/zapis z diffem i kopią) oraz git status/diff.
-- Integracje Microsoft (Outlook/Calendar/Teams) i Slack OAuth (jest tylko weryfikowany webhook Slack); Google Drive.
+- Microsoft Teams (wymaga zgody administratora organizacji — `ChannelMessage.Read.All`; czaty tylko konta służbowe),
+  Slack OAuth (jest tylko weryfikowany webhook Slack), Google Drive; subskrypcje zmian Graph/Gmail, załączniki.
 - Web Push (VAPID) — powiadomienia działają w otwartej aplikacji (SSE + lista); transkrypcja głosu po stronie serwera.
-- Edycja kalendarza Google (jest tylko odczyt zajętości z grantem i kalendarz lokalny).
+- Zapis w kalendarzach Google i Outlook (jest odczyt: zajętość z grantem, wydarzenia Outlook dla agenta prywatnego,
+  kalendarz lokalny).
 
 ## Następne 3 zadania
 
-1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klient OAuth Google,
-   Worker na Windows wg `workers/windows/README.md` (w tym test junction).
+1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klienci OAuth
+   Google i Microsoft (README → Integracje) i sprawdzenie połączenia na własnym koncie (logowanie, wyszukiwanie,
+   szkic, zajętość, odłączenie i cofnięcie zgody), Worker na Windows wg `workers/windows/README.md`.
 2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS, kopie zapasowe Postgres, usługa systemowa dla `start:prod`.
-3. Pamięć dokumentów z prawdziwym modelem: ocena cytowania źródeł i odporności na wstrzyknięcia na zestawie pytań;
-   rozważyć wyszukiwanie semantyczne (pgvector + lokalne embeddingi) i OCR skanów. Potem Web Push (VAPID).
+3. Pamięć dokumentów i poczta z prawdziwym modelem: ocena cytowania źródeł i odporności na wstrzyknięcia (dokumenty,
+   treść e-maili) na zestawie pytań; potem Web Push (VAPID).
