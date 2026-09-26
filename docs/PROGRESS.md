@@ -547,6 +547,18 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Niesprawdzone w przeglądarce e2e: sam dymek na żywo (tryb demo nie strumieniuje, a tura kończy się zbyt szybko)
   — logika pokryta testami jednostkowymi i API.
 
+### Rozmowa głosowa bez rąk (2026-09-26)
+
+- Przycisk „Rozmowa głosowa” w czacie: asystent słucha (rozpoznawanie mowy przeglądarki, za tą samą zgodą co
+  dyktowanie), rozpoznana wypowiedź od razu trafia do rozmowy, ostatnia odpowiedź tury jest odczytywana na głos
+  (bez znaczników i odnośników [D1]), potem znowu słucha — aż do „Zakończ rozmowę”. Kilka razy cisza z rzędu albo
+  błąd mikrofonu kończy rozmowę z komunikatem. Pasek stanu: „Słucham”, „Myślę”, „Mówię”; kula w nagłówku ma
+  osobną animację słuchania. Bez kosztów serwera (poza samą rozmową z modelem).
+- e2e `voice.spec.ts` (atrapy rozpoznawania i syntezy mowy): pytanie wysłane bez klikania, odpowiedź odczytana,
+  ponowne słuchanie, zakończenie. Zrzut: `docs/screens/*-20-voice-conversation.png`.
+- Niesprawdzone: prawdziwy mikrofon i rozpoznawanie mowy w Chrome/Edge/Safari (środowisko bez audio).
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 281/281, web 12/12; `pnpm test:e2e` → 42/42.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

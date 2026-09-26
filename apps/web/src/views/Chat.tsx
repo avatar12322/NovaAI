@@ -11,7 +11,13 @@ import {
 import { AgentOrb, AssistantActivity, RevealText } from '../components/Assistant';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Icon } from '../components/Icon';
-import { DictationButton, SpeakButton, useSpeaking } from '../components/Voice';
+import {
+  DictationButton,
+  SpeakButton,
+  useSpeaking,
+  useVoiceConversation,
+  type VoiceState,
+} from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useDeltaEffect, useEventEffect } from '../lib/events';
@@ -277,24 +283,50 @@ function ConversationPane({
     return () => clearInterval(iv);
   }, [thinking, load]);
 
-  const send = async (ev?: FormEvent) => {
-    ev?.preventDefault();
-    const content = draft.trim();
-    if (!content || sending) return;
+  /** Wysyłka treści; zwraca zadanie tury (do śledzenia odpowiedzi) albo null przy błędzie. */
+  const sendText = async (content: string): Promise<string | null> => {
     setSending(true);
     setError(null);
     try {
       const r = await api.sendMessage(id, content);
-      setDraft('');
       setMessages((m) => [...(m ?? []), r.message]);
       markFresh([r.message.id]);
       setThinking(r.taskId);
+      return r.taskId;
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Nie udało się wysłać');
+      return null;
     } finally {
       setSending(false);
     }
   };
+
+  const send = async (ev?: FormEvent) => {
+    ev?.preventDefault();
+    const content = draft.trim();
+    if (!content || sending) return;
+    if (await sendText(content)) setDraft('');
+  };
+
+  // Rozmowa głosowa: rozpoznana wypowiedź od razu idzie do asystenta, a ostatnia odpowiedź tej tury jest
+  // odczytywana na głos (potem znowu słuchanie).
+  const voiceTurn = useRef<string | null>(null);
+  const voice = useVoiceConversation((text) => {
+    void sendText(text).then((taskId) => {
+      if (taskId) voiceTurn.current = taskId;
+      else voice.stop();
+    });
+  });
+  useEffect(() => {
+    const taskId = voiceTurn.current;
+    if (!taskId || thinking || !messages) return;
+    const reply = [...messages]
+      .reverse()
+      .find((m) => m.role === 'assistant' && m.meta.taskId === taskId);
+    if (!reply) return; // odpowiedź jeszcze się wczytuje
+    voiceTurn.current = null;
+    voice.speak(reply.content);
+  }, [thinking, messages, voice]);
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -313,7 +345,18 @@ function ConversationPane({
         >
           ←
         </a>
-        <AgentOrb state={thinking ? 'thinking' : speaking ? 'speaking' : 'idle'} size={30} />
+        <AgentOrb
+          state={
+            thinking
+              ? 'thinking'
+              : speaking || voice.state === 'speaking'
+                ? 'speaking'
+                : voice.state === 'listening'
+                  ? 'listening'
+                  : 'idle'
+          }
+          size={30}
+        />
         <div>
           <h2>{conv?.title ?? '…'}</h2>
           <p className="muted small">
@@ -351,6 +394,12 @@ function ConversationPane({
         )}
         <div ref={bottom} />
       </div>
+      {voice.state !== 'off' && <VoiceBar state={voice.state} onStop={voice.stop} />}
+      {voice.error && voice.state === 'off' && (
+        <p className="note note-warn voice-note" role="status">
+          {voice.error}
+        </p>
+      )}
       <form className="composer" onSubmit={(e) => void send(e)}>
         <label htmlFor="composer-input" className="sr-only">
           Wiadomość
@@ -367,6 +416,18 @@ function ConversationPane({
           }
         />
         <DictationButton onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))} />
+        {voice.supported && (
+          <button
+            type="button"
+            className={`btn ${voice.state !== 'off' ? 'btn-primary' : ''}`}
+            aria-pressed={voice.state !== 'off'}
+            aria-label={voice.state !== 'off' ? 'Zakończ rozmowę głosową' : 'Rozmowa głosowa'}
+            title="Rozmowa głosowa: mów, asystent odpowie na głos"
+            onClick={() => (voice.state !== 'off' ? voice.stop() : voice.start())}
+          >
+            <Icon name="voice" />
+          </button>
+        )}
         <button
           type="submit"
           className="btn btn-primary"
@@ -377,6 +438,31 @@ function ConversationPane({
         </button>
       </form>
     </section>
+  );
+}
+
+const VOICE_PL: Record<Exclude<VoiceState, 'off'>, string> = {
+  listening: 'Słucham — mów śmiało',
+  waiting: 'Myślę nad odpowiedzią',
+  speaking: 'Mówię — możesz przerwać',
+};
+
+/** Pasek rozmowy głosowej nad polem wiadomości: stan i zakończenie. */
+function VoiceBar({ state, onStop }: { state: Exclude<VoiceState, 'off'>; onStop: () => void }) {
+  return (
+    <div className={`voice-bar voice-${state}`} role="status" aria-live="polite">
+      <span className="voice-wave" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+      </span>
+      <span className="voice-label">{VOICE_PL[state]}</span>
+      <button type="button" className="btn btn-sm" onClick={onStop}>
+        Zakończ rozmowę
+      </button>
+    </div>
   );
 }
 

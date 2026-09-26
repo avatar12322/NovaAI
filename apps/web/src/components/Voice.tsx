@@ -36,6 +36,21 @@ function hasConsent(): boolean {
   }
 }
 
+/** Jednorazowa zgoda na rozpoznawanie mowy przeglądarki (dyktowanie i rozmowa głosowa). */
+function askVoiceConsent(): boolean {
+  if (hasConsent()) return true;
+  const ok = window.confirm(
+    'Dyktowanie używa rozpoznawania mowy przeglądarki. W Chrome/Edge nagranie jest przetwarzane na serwerach dostawcy przeglądarki. Włączyć dyktowanie?',
+  );
+  if (!ok) return false;
+  try {
+    localStorage.setItem(CONSENT_KEY, '1');
+  } catch {
+    /* zgoda tylko na tę sesję */
+  }
+  return true;
+}
+
 export function DictationButton({ onText }: { onText: (text: string) => void }) {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,17 +64,7 @@ export function DictationButton({ onText }: { onText: (text: string) => void }) 
       rec.current?.stop();
       return;
     }
-    if (!hasConsent()) {
-      const ok = window.confirm(
-        'Dyktowanie używa rozpoznawania mowy przeglądarki. W Chrome/Edge nagranie jest przetwarzane na serwerach dostawcy przeglądarki. Włączyć dyktowanie?',
-      );
-      if (!ok) return;
-      try {
-        localStorage.setItem(CONSENT_KEY, '1');
-      } catch {
-        /* zgoda tylko na tę sesję */
-      }
-    }
+    if (!askVoiceConsent()) return;
     const r = new Ctor();
     r.lang = 'pl-PL';
     r.interimResults = false;
@@ -159,4 +164,131 @@ export function SpeakButton({ text }: { text: string }) {
       )}
     </button>
   );
+}
+
+/** Tekst do odczytu: bez znaczników Markdown i odnośników do źródeł ([D1]). */
+export function speakable(text: string): string {
+  return text
+    .replace(/\[D\d+\]/g, '')
+    .replace(/[*_`#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export type VoiceState = 'off' | 'listening' | 'waiting' | 'speaking';
+
+const NO_SPEECH_LIMIT = 3;
+
+/**
+ * Rozmowa głosowa bez rąk: słuchaj → wyślij → (odpowiedź) → odczytaj → słuchaj znowu, aż do „Zakończ”.
+ * Rozpoznawanie mowy przeglądarki (za zgodą) i speechSynthesis — bez kosztów serwera. Cisza kilka razy z rzędu
+ * albo błąd mikrofonu kończy rozmowę.
+ */
+export function useVoiceConversation(onUtterance: (text: string) => void) {
+  const [state, setState] = useState<VoiceState>('off');
+  const [error, setError] = useState<string | null>(null);
+  const cb = useRef(onUtterance);
+  cb.current = onUtterance;
+  // Sterownik w ref: stabilne funkcje, bez zależności między callbackami.
+  const ctl = useRef<{
+    active: boolean;
+    rec: RecognitionLike | null;
+    silent: number;
+    listen(): void;
+    stop(message?: string): void;
+  } | null>(null);
+  if (!ctl.current) {
+    const c = {
+      active: false,
+      rec: null as RecognitionLike | null,
+      silent: 0,
+      listen() {
+        const Ctor = recognitionCtor();
+        if (!c.active || !Ctor) return;
+        const r = new Ctor();
+        r.lang = 'pl-PL';
+        r.interimResults = false;
+        r.continuous = false;
+        let heard = false;
+        r.onresult = (e) => {
+          const text = Array.from(e.results)
+            .map((res) => res[0]?.transcript ?? '')
+            .join(' ')
+            .trim();
+          if (!text || !c.active) return;
+          heard = true;
+          c.silent = 0;
+          setState('waiting');
+          cb.current(text);
+        };
+        r.onerror = (e) => {
+          if (e.error === 'no-speech' || e.error === 'aborted') return;
+          c.stop(
+            e.error === 'not-allowed' ? 'Brak dostępu do mikrofonu' : 'Błąd rozpoznawania mowy',
+          );
+        };
+        r.onend = () => {
+          if (c.rec === r) c.rec = null;
+          if (!c.active || heard) return;
+          if (++c.silent > NO_SPEECH_LIMIT) c.stop('Nic nie słychać — rozmowa głosowa zakończona.');
+          else c.listen();
+        };
+        c.rec = r;
+        setState('listening');
+        r.start();
+      },
+      stop(message?: string) {
+        c.active = false;
+        c.rec?.stop();
+        c.rec = null;
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        announce(false);
+        setState('off');
+        setError(message ?? null);
+      },
+    };
+    ctl.current = c;
+  }
+  useEffect(() => {
+    const c = ctl.current!;
+    return () => {
+      if (c.active) c.stop();
+    };
+  }, []);
+
+  const supported =
+    typeof window !== 'undefined' && recognitionCtor() !== null && 'speechSynthesis' in window;
+  return {
+    supported,
+    state,
+    error,
+    start() {
+      const c = ctl.current!;
+      if (!supported || c.active || !askVoiceConsent()) return;
+      setError(null);
+      c.active = true;
+      c.silent = 0;
+      c.listen();
+    },
+    stop() {
+      ctl.current!.stop();
+    },
+    /** Odczyt odpowiedzi, potem znowu słuchanie (o ile rozmowa trwa). */
+    speak(text: string) {
+      const c = ctl.current!;
+      if (!c.active) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(speakable(text) || 'Gotowe.');
+      u.lang = 'pl-PL';
+      const next = () => {
+        announce(false);
+        if (c.active) c.listen();
+      };
+      u.onend = next;
+      u.onerror = next;
+      setState('speaking');
+      announce(true);
+      window.speechSynthesis.speak(u);
+    },
+  };
 }
