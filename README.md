@@ -31,15 +31,21 @@ Healthcheck: `curl http://127.0.0.1:4000/api/health`.
 
 ```bash
 # .env: NOVA_ENV=production, NOVA_DEV_LOGIN=false, NOVA_SECRET_KEY=<32 bajty base64>,
-#       NOVA_WEB_ORIGIN=https://twoja-domena, NOVA_RP_ID=twoja-domena, własne hasła ról Postgres
-pnpm db:migrate
-pnpm --filter @nova/api admin create-household "Nasz dom" osoba1@example.com:Imię1 osoba2@example.com:Imię2
-pnpm --filter @nova/api admin enroll osoba1@example.com   # jednorazowy link (15 min) do rejestracji passkey
-pnpm --filter @nova/api start
+#       NOVA_WEB_ORIGIN=https://twoja-domena, NOVA_RP_ID=twoja-domena, NOVA_WEB_DIST=apps/web/dist,
+#       NOVA_TRUST_PROXY=1 (za reverse proxy), własne hasła ról Postgres
+pnpm install
+pnpm build:prod                 # apps/web/dist + apps/api/dist (bundel esbuild, czysty Node — bez tsx)
+pnpm --filter @nova/api admin:prod migrate
+pnpm --filter @nova/api admin:prod create-household "Nasz dom" osoba1@example.com:Imię1 osoba2@example.com:Imię2
+pnpm --filter @nova/api admin:prod enroll osoba1@example.com   # jednorazowy link (15 min) do rejestracji passkey
+pnpm --filter @nova/api start:prod                             # API + frontend z jednego originu
 ```
 
-Serwer musi działać za TLS (reverse proxy); ciasteczka sesji mają wtedy flagę `Secure`.
-Za proxy ustaw `NOVA_TRUST_PROXY=1` (liczba zaufanych przeskoków), aby limity żądań widziały adres klienta.
+Serwer musi działać za TLS (reverse proxy przekazujący cały ruch na `NOVA_API_HOST:NOVA_API_PORT`);
+ciasteczka sesji mają wtedy flagę `Secure`. Frontend jest serwowany przez API z nagłówkiem CSP
+(tylko własne skrypty i połączenia). `NOVA_TRUST_PROXY=1` (liczba zaufanych przeskoków) sprawia,
+że limity żądań widzą adres klienta, a nie proxy. Smoke test całej ścieżki produkcyjnej lokalnie:
+`pnpm test:prod-smoke` (baza `nova_e2e`, `NOVA_ENV=production`, wirtualny uwierzytelniacz Chromium).
 
 ## Kontrole
 

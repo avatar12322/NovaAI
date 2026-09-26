@@ -41,6 +41,8 @@ const EnvSchema = z.object({
   NOVA_RP_ORIGINS: z.string().optional().default(''),
   /** Za reverse proxy: liczba zaufanych przeskoków (np. 1) — poprawne req.ip dla limitów. */
   NOVA_TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+  /** Katalog zbudowanego frontendu (np. apps/web/dist) — API serwuje go z tego samego originu. */
+  NOVA_WEB_DIST: z.string().optional().default(''),
 });
 
 export type AppConfig = {
@@ -66,6 +68,8 @@ export type AppConfig = {
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
   trustProxy: number;
+  /** Bezwzględna ścieżka do zbudowanego frontendu lub '' (frontend serwowany osobno, np. Vite w dev). */
+  webDist: string;
 };
 
 export class ConfigError extends Error {}
@@ -118,5 +122,6 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
         .filter(Boolean),
     },
     trustProxy: e.NOVA_TRUST_PROXY,
+    webDist: e.NOVA_WEB_DIST ? resolve(REPO_ROOT, e.NOVA_WEB_DIST) : '',
   };
 }

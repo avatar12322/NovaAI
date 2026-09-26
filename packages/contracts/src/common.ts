@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LIMITS } from './limits';
 
 export const Uuid = z.uuid();
 export const Visibility = z.enum(['private', 'shared']);
@@ -33,9 +34,4 @@ export const ApiErrorBody = z.object({
 export type ApiErrorBody = z.infer<typeof ApiErrorBody>;
 
 /** Limity wielkości wejścia (egzekwowane w API i sprawdzane w UI). */
-export const LIMITS = {
-  messageChars: 16_000,
-  memoryChars: 4_000,
-  titleChars: 200,
-  bodyBytes: 256 * 1024,
-} as const;
+export { LIMITS };

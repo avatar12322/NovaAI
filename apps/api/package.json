@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
+    "bundle": "node scripts/bundle.mjs",
+    "start:prod": "node --enable-source-maps dist/main.js",
+    "admin:prod": "node dist/cli.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json",
     "db:migrate": "tsx src/db/cli.ts migrate",
@@ -19,6 +22,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
     "@fastify/cookie": "^11.1.2",
+    "@fastify/static": "^10.1.4",
     "@fastify/websocket": "^11.3.1",
     "@nova/contracts": "workspace:*",
     "@nova/permissions": "workspace:*",
@@ -32,6 +36,7 @@
   "devDependencies": {
     "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "vitest": "^5.0.2"
   }

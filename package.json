@@ -24,6 +24,8 @@
     "format:check": "prettier --check .",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "test:e2e": "pnpm --filter @nova/web test:e2e",
+    "build:prod": "pnpm --filter @nova/web build && pnpm --filter @nova/api bundle",
+    "test:prod-smoke": "pnpm build:prod && pnpm --filter @nova/web exec playwright test -c playwright.prod.config.ts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
     "worker:build": "cargo build --manifest-path workers/windows/Cargo.toml",
     "worker:test": "cargo fmt --manifest-path workers/windows/Cargo.toml --check && cargo clippy --manifest-path workers/windows/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path workers/windows/Cargo.toml",

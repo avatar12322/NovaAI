@@ -1,5 +1,5 @@
 import type { Memory, MemoryKind } from '@nova/contracts';
-import { LIMITS } from '@nova/contracts';
+import { LIMITS } from '@nova/contracts/limits';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';

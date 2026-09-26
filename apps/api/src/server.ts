@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import cookie from '@fastify/cookie';
+import fastifyStatic from '@fastify/static';
 import { LIMITS } from '@nova/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { resolveSession, SESSION_COOKIE, type AuthContext } from './auth/session';
@@ -28,6 +29,21 @@ declare module 'fastify' {
 
 const REQUEST_ID_RE = /^[A-Za-z0-9._-]{8,80}$/;
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+/** CSP frontendu: tylko własne skrypty i połączenia; style inline wyłącznie dla atrybutów `style`. */
+const WEB_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "manifest-src 'self'",
+  "worker-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
 
 export interface BuildOptions {
   logger?: boolean;
@@ -68,7 +84,16 @@ export async function buildServer(
     reply.header('x-request-id', req.id);
     reply.header('x-content-type-options', 'nosniff');
     reply.header('referrer-policy', 'no-referrer');
-    reply.header('cache-control', 'no-store');
+    if (req.url.startsWith('/api/')) {
+      reply.header('cache-control', 'no-store');
+    } else {
+      // Frontend (NOVA_WEB_DIST): pliki z hashem w nazwie buforowane długo, reszta zawsze sprawdzana.
+      reply.header(
+        'cache-control',
+        req.url.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+      );
+      reply.header('content-security-policy', WEB_CSP);
+    }
     // Ochrona CSRF: mutacje wymagają niestandardowego nagłówka (wymusza preflight CORS,
     // którego serwer nie obsługuje dla obcych originów) + ciasteczko SameSite=Strict.
     if (
@@ -150,6 +175,17 @@ export async function buildServer(
     },
     { prefix: '/api' },
   );
+
+  // Produkcja: frontend z tego samego originu co API (ciasteczka SameSite=Strict, origin WebAuthn).
+  if (deps.config.webDist) {
+    await app.register(fastifyStatic, {
+      root: deps.config.webDist,
+      prefix: '/',
+      index: ['index.html'],
+      cacheControl: false,
+      dotfiles: 'deny',
+    });
+  }
 
   app.addHook('onClose', async () => deps.devices.hub.closeAll());
   return app;

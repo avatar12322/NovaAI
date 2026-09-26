@@ -1,4 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanupExpired } from './maintenance';
 import { createTestApp, type TestApp } from './test/helpers';
@@ -64,5 +67,47 @@ describe('sprzątanie wygasłych artefaktów', () => {
     expect(left.rows[0].n).toBe(1);
     const again = await cleanupExpired(t.db);
     expect(Object.values(again).every((n) => n === 0)).toBe(true);
+  });
+});
+
+describe('frontend z NOVA_WEB_DIST', () => {
+  it('serwuje dist z CSP i buforem; API bez bufora; bez plików ukrytych i spoza katalogu', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nova-web-'));
+    mkdirSync(join(dir, 'assets'));
+    writeFileSync(join(dir, 'index.html'), '<!doctype html><title>NovaAI</title>');
+    writeFileSync(join(dir, 'assets', 'app-abc123.js'), 'console.log(1)');
+    writeFileSync(join(dir, '.secret'), 'SEKRET');
+    t = await createTestApp({ NOVA_WEB_DIST: dir });
+
+    const index = await t.app.inject({ url: '/' });
+    expect(index.statusCode).toBe(200);
+    expect(index.body).toContain('<title>NovaAI</title>');
+    expect(index.headers['content-security-policy']).toContain("script-src 'self'");
+    expect(index.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(index.headers['cache-control']).toBe('no-cache');
+
+    const asset = await t.app.inject({ url: '/assets/app-abc123.js' });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+
+    const health = await t.app.inject({ url: '/api/health' });
+    expect(health.headers['cache-control']).toBe('no-store');
+    expect(health.headers['content-security-policy']).toBeUndefined();
+    // Nieznana trasa API nadal zwraca JSON 404, nie plik.
+    const missing = await t.app.inject({ url: '/api/nie-ma' });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error.code).toBe('not_found');
+
+    for (const url of ['/.secret', '/%2e%2e/%2e%2e/etc/passwd', '/..%2f..%2fetc%2fpasswd']) {
+      const r = await t.app.inject({ url });
+      expect([403, 404]).toContain(r.statusCode);
+      expect(r.body).not.toContain('SEKRET');
+      expect(r.body).not.toContain('root:');
+    }
+  });
+
+  it('bez NOVA_WEB_DIST frontend nie jest serwowany (dev: Vite)', async () => {
+    t = await createTestApp();
+    expect((await t.app.inject({ url: '/' })).statusCode).toBe(404);
   });
 });

@@ -260,3 +260,13 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   (maks. 2 wywołania na turę) i uniemożliwia łańcuch akcji sterowany treścią wyników. Po narzędziach wymagających zgody
   tury uzupełniającej nie ma (zgoda może czekać długo); wynik trafia do rozmowy i model zobaczy go w następnej turze.
 - Druga tura przechodzi przez ten sam budżet (rezerwacja/limit) i jest liczona osobno w `usage_records`.
+
+## D-024 Produkcja: jeden proces (API + frontend), bundel esbuild, CSP
+
+- Frontend serwowany przez API z tego samego originu (`NOVA_WEB_DIST`): ciasteczko `SameSite=Strict`, kontrola
+  `Origin` i origin WebAuthn działają bez CORS. Reverse proxy tylko terminuje TLS.
+- Bundel esbuild zamiast `tsx` w produkcji: brak kompilacji przy starcie i zależności deweloperskich; pakiety
+  workspace (źródła TS) są wbudowane, biblioteki z `node_modules` — zewnętrzne. `REPO_ROOT` liczony względem
+  `apps/api/dist` (ta sama głębokość co `src`), więc migracje i `.env` są znajdowane tak samo.
+- CSP bez `unsafe-inline` dla skryptów i bez `eval`; `style-src 'unsafe-inline'` tylko dla atrybutów `style`
+  w React. Frontend nie importuje zod (patrz PROGRESS) — walidacja wejścia i tak odbywa się na serwerze.

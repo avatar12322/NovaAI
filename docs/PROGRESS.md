@@ -15,6 +15,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 | M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej       |
 | Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                |
 | Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                         |
+| Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                      |
 
 ## Dziennik
 
@@ -180,6 +181,22 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   jako danymi, kroki reply → tool_1 → followup, brak akcji z „instrukcji”, dwa rekordy kosztu, następna tura widzi
   wynik; narzędzie ze zgodą ⇒ brak tury uzupełniającej). Tylko FakeProvider — bez płatnych wywołań.
 
+### Ścieżka produkcyjna: bundel API, frontend z API, CSP (2026-09-26)
+
+- `apps/api/scripts/bundle.mjs` (esbuild): `apps/api/dist/{main,cli}.js` dla czystego Node (pakiety `@nova/*`
+  wbudowane, zależności z `node_modules` zewnętrzne); skrypty `bundle`, `start:prod`, `admin:prod`, `pnpm build:prod`.
+- `NOVA_WEB_DIST`: API serwuje zbudowany frontend (`@fastify/static`, bez plików ukrytych) z CSP
+  (`script-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`…), `immutable` dla `assets/`, `no-cache` dla reszty.
+- Znalezione smoke testem i poprawione: frontend dołączał zod (tylko przez `LIMITS`), a zod wykonuje próbę
+  `Function('')` → naruszenie CSP `script-src eval` w konsoli. `LIMITS` przeniesione do `@nova/contracts/limits`
+  (moduł bez zależności) — zod poza bundlem web (389 KB → 291 KB), brak naruszeń.
+- Polecenia i wyniki: `pnpm check` → api 152/152 (nowe w `hardening.test.ts`: dist z CSP/buforem, JSON 404 dla
+  nieznanych tras API, brak plików ukrytych i `..`); `pnpm test:e2e` → 18/18; `pnpm test:prod-smoke` → 1/1
+  (bundel API w `NOVA_ENV=production` + frontend z dist: nagłówki, brak logowania testowego, konto z CLI bundla,
+  passkey, czat przez kolejkę i SSE, ciasteczko `HttpOnly; Secure; SameSite=Strict`, ponowne logowanie kluczem,
+  zero naruszeń CSP i błędów konsoli; jedyne błędy HTTP: `401 /api/me` przed zalogowaniem, `404 /api/auth/dev-users`).
+- Nie sprawdzono: instalacji `pnpm install --prod` na czystym serwerze, reverse proxy z TLS (brak serwera/domeny).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -196,5 +213,5 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klient OAuth Google,
    Worker na Windows wg `workers/windows/README.md` (w tym test junction).
-2. Bundel produkcyjny API (esbuild) i konfiguracja wdrożenia (TLS, reverse proxy, kopie zapasowe Postgres).
+2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS, kopie zapasowe Postgres, usługa systemowa dla `start:prod`.
 3. Web Push (VAPID) dla przypomnień i zgód poza otwartą aplikacją; transkrypcja serwerowa po decyzji o kosztach.

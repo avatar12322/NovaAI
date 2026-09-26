@@ -1,5 +1,5 @@
 import type { Conversation, MeResponse, Message } from '@nova/contracts';
-import { LIMITS } from '@nova/contracts';
+import { LIMITS } from '@nova/contracts/limits';
 import {
   useCallback,
   useEffect,
