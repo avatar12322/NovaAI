@@ -28,12 +28,15 @@ import type {
   Task,
   TaskPage,
 } from '@nova/contracts';
+import type { CostAdapterInfo, CostEntryInfo, CostSummary, ServiceInfo } from '@nova/contracts';
 
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
     message: string,
+    /** Szczegóły błędu z serwera (np. lista błędnych wierszy importu). */
+    public readonly details?: unknown,
   ) {
     super(message);
   }
@@ -66,8 +69,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(res.status, 'bad_response', 'Nieoczekiwana odpowiedź serwera');
   }
   if (!res.ok) {
-    const err = (data as { error?: { code?: string; message?: string } } | null)?.error;
-    throw new ApiError(res.status, err?.code ?? 'error', err?.message ?? `Błąd ${res.status}`);
+    const err = (data as { error?: { code?: string; message?: string; details?: unknown } } | null)
+      ?.error;
+    throw new ApiError(
+      res.status,
+      err?.code ?? 'error',
+      err?.message ?? `Błąd ${res.status}`,
+      err?.details,
+    );
   }
   return data as T;
 }
@@ -276,6 +285,31 @@ export const api = {
     paidCallsEnabled: boolean;
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
+  // ---------- Usługi i koszty ----------
+  services: (space: 'all' | 'private' | 'shared', month: string) =>
+    get<{ month: string; items: ServiceInfo[] }>(`/services${qs({ space, month })}`),
+  service: (id: string, month: string) =>
+    get<ServiceInfo & { entries: CostEntryInfo[] }>(`/services/${id}${qs({ month })}`),
+  createService: (body: Record<string, unknown>) =>
+    post<ServiceInfo & { warnings: string[] }>('/services', body),
+  updateService: (id: string, body: Record<string, unknown>) =>
+    request<ServiceInfo & { warnings: string[] }>('PATCH', `/services/${id}`, body),
+  deleteService: (id: string) => request<{ ok: boolean }>('DELETE', `/services/${id}`),
+  setServiceShared: (id: string, shared: boolean) =>
+    post<ServiceInfo & { warnings: string[] }>(`/services/${id}/${shared ? 'share' : 'unshare'}`),
+  serviceRenewed: (id: string) =>
+    post<ServiceInfo & { warnings: string[] }>(`/services/${id}/renewed`),
+  addCost: (id: string, body: Record<string, unknown>) =>
+    post<{ id: string }>(`/services/${id}/costs`, body),
+  deleteCost: (id: string, costId: string) =>
+    request<{ ok: boolean }>('DELETE', `/services/${id}/costs/${costId}`),
+  importCosts: (id: string, csv: string) =>
+    post<{ created: number; duplicates: number }>(`/services/${id}/costs/import`, { csv }),
+  costSummary: (space: 'all' | 'private' | 'shared', month: string) =>
+    get<CostSummary>(`/costs/summary${qs({ space, month })}`),
+  costAdapters: () => get<{ items: CostAdapterInfo[] }>('/cost-adapters'),
+  syncCostAdapter: (id: string) =>
+    post<{ months: number; items: CostAdapterInfo[] }>(`/cost-adapters/${id}/sync`),
 
   connections: () => get<{ items: ConnectionInfo[] }>('/connections'),
   startConnection: (provider: string, capabilities: string[]) =>

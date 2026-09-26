@@ -107,6 +107,12 @@ export function Shell({
       match: (r) => r.view === 'documents' || r.view === 'document',
     },
     {
+      label: 'Usługi i koszty',
+      icon: 'wallet',
+      to: { view: 'services', id: null },
+      match: (r) => r.view === 'services',
+    },
+    {
       label: 'Ustawienia',
       icon: 'settings',
       to: { view: 'settings' },

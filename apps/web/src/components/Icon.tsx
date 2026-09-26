@@ -30,6 +30,7 @@ const PATHS: Record<string, string> = {
   refresh: 'M20 11a8 8 0 10-2.3 5.7M20 5v6h-6',
   search: 'M11 5a6 6 0 100 12 6 6 0 000-12zM20 20l-4.3-4.3',
   back: 'M15 5l-7 7 7 7',
+  wallet: 'M4 7h14a2 2 0 012 2v9a2 2 0 01-2 2H4zM4 7l11-3v3M16 13h4',
 };
 
 export function Icon({

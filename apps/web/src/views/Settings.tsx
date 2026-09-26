@@ -2,6 +2,7 @@ import type { HealthResponse, MeResponse } from '@nova/contracts';
 import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Badge, ErrorNote, Spinner } from '../components/ui';
+import { href } from '../lib/router';
 import { api, ApiError, type BudgetStatus, type ModelStatus } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { formatMoney } from '../lib/format';
@@ -40,6 +41,17 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
       </header>
       <ServiceStatus />
       <BudgetPanel />
+      <section className="panel row between">
+        <div>
+          <h2 className="h-sub">Usługi i koszty</h2>
+          <p className="small muted">
+            Dostawcy modeli, serwery, domeny i abonamenty: budżety, odnowienia i faktury.
+          </p>
+        </div>
+        <a className="btn btn-sm" href={href({ view: 'services', id: null })}>
+          Otwórz
+        </a>
+      </section>
       <DevicesPanel />
       <IntegrationsPanel />
       <CalendarPanel />

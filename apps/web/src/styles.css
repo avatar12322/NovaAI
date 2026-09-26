@@ -1331,3 +1331,135 @@ mark {
   margin: 0;
   color: var(--danger);
 }
+
+/* ---------- usługi i koszty ---------- */
+.services {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  max-width: 1100px;
+}
+.services h1 {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.services-filters {
+  gap: var(--space-3);
+}
+.services-filters input[type='month'] {
+  width: auto;
+  min-height: 0;
+}
+.service-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-3);
+}
+.service-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.service-name {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.service-name:hover {
+  text-decoration: underline;
+}
+.service-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+.service-facts dt {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.service-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.budget-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.meter {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+.budget-near .meter span {
+  background: var(--warn);
+}
+.budget-exceeded .meter span {
+  background: var(--danger);
+}
+.cost-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cost-total {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.kind-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.service-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+.service-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.service-form .wide {
+  grid-column: 1 / -1;
+}
+.service-actions {
+  gap: var(--space-2);
+}
+.cost-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cost-entries li {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+}
+.cost-entries li.not-counted {
+  opacity: 0.6;
+}
+.note.pre {
+  white-space: pre-line;
+}
