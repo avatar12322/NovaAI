@@ -18,8 +18,8 @@ cp .env.example .env            # wartości domyślne pasują do lokalnego Postg
 
 # Baza — wariant A (Linux/macOS, bez Dockera):
 pnpm db:start                   # klaster w ./.data/pg na 127.0.0.1:54329 + role/bazy z infra/db/init.sql
-# Baza — wariant B (Docker Desktop, np. Windows):
-docker compose -f infra/compose.yaml up -d
+# Baza — wariant B (Docker Desktop, np. Windows): najpierw NOVA_PG_SUPERUSER_PASSWORD w .env
+docker compose --env-file .env -f infra/compose.yaml up -d
 
 pnpm db:seed                    # migracje + 2 sztuczne konta testowe (tylko dev/test)
 pnpm dev                        # API http://127.0.0.1:4000, web http://127.0.0.1:5173
