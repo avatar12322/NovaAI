@@ -590,6 +590,22 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 291/291, web 12/12; `pnpm test:e2e` → 48/48 (dwa przebiegi po
   poprawce); `pnpm test:prod-smoke` → 1/1 (CSP z `media-src blob:`).
 
+### Paleta poleceń (2026-09-26)
+
+- Ctrl+K / Cmd+K (albo lupa w nagłówku na telefonie i „Polecenia” w menu): przejście do dowolnego widoku,
+  nowa rozmowa, „Przeczytaj przegląd dnia”, jasny/ciemny motyw i „Zapytaj asystenta: …” — pytanie otwiera nową
+  prywatną rozmowę, jest wysłane od razu, a rozmowa pokazuje pracę asystenta od pierwszej chwili. Wyszukiwanie
+  bez polskich znaków („uslugi” → „Usługi i koszty”, także „ł”), obsługa klawiaturą (↑ ↓, Enter, Esc) i role ARIA
+  (dialog, combobox, listbox).
+- Poprawki przy okazji przeglądu zrzutów: przycisk-ikona (`button.icon-btn`) miał domyślną ramkę i tło
+  przeglądarki; zrzuty ekranów robione w trakcie animacji wejścia (półprzezroczysty panel, niepełny przegląd
+  dnia) — pomocnik `shot` czeka teraz na koniec skończonych animacji (najwyżej 2 s).
+- Testy: `lib/commands.test.ts` (wyszukiwanie z polskimi znakami i bez, pytanie jako pierwsza propozycja, brak
+  wyników), e2e `palette.spec.ts` (przejście, wyszukiwanie, strzałki, Esc, nieprzezroczysty panel po animacji,
+  pytanie z palety z odpowiedzią). Zrzut: `docs/screens/*-22-command-palette.png`.
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 291/291, web 15/15; `pnpm test:e2e` → 50/50;
+  `pnpm test:prod-smoke` → 1/1.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

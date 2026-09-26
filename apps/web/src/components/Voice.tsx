@@ -290,3 +290,9 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
     },
   };
 }
+
+/** Odczyt spoza przycisku (np. z palety poleceń) — z sygnałem „mówi” dla kuli asystenta. */
+export function speakNow(text: string, source?: SpeechSource): void {
+  announce(true);
+  void speak(text, source, () => announce(false));
+}

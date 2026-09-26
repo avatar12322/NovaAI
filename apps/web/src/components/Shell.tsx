@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useEventEffect, useEvents } from '../lib/events';
 import { href, type Route } from '../lib/router';
 import { ActivityStrip } from './ActivityStrip';
+import { CommandPalette } from './CommandPalette';
 import { Icon } from './Icon';
 
 interface NavItem {
@@ -30,6 +31,18 @@ export function Shell({
   const [unread, setUnread] = useState(0);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const { connected } = useEvents();
+  const [palette, setPalette] = useState(false);
+  // Ctrl+K / Cmd+K — paleta poleceń z każdego miejsca aplikacji.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPalette((p) => !p);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const refreshCounts = () => {
     api
@@ -157,6 +170,11 @@ export function Shell({
             </li>
           ))}
         </ul>
+        <button type="button" className="palette-open" onClick={() => setPalette(true)}>
+          <Icon name="search" size={16} />
+          <span>Polecenia</span>
+          <kbd>Ctrl K</kbd>
+        </button>
         <div className="sidenav-foot">
           <div className="me">
             <span className="avatar" aria-hidden="true">
@@ -175,6 +193,14 @@ export function Shell({
           N
         </span>
         <span className="topbar-title">NovaAI</span>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Polecenia i pytania (Ctrl+K)"
+          onClick={() => setPalette(true)}
+        >
+          <Icon name="search" />
+        </button>
         <a
           href={href({ view: 'approvals' })}
           className="icon-btn"
@@ -233,6 +259,7 @@ export function Shell({
             </a>
           ))}
       </nav>
+      {palette && <CommandPalette onClose={() => setPalette(false)} />}
     </div>
   );
 }

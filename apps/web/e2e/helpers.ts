@@ -13,6 +13,18 @@ mkdirSync(SCREENS, { recursive: true });
 
 export async function shot(page: Page, name: string): Promise<void> {
   const project = test.info().project.name;
+  // Zrzut po zakończeniu animacji wejścia (bez nieskończonych, np. pulsowania kuli), najwyżej 2 s.
+  await page.evaluate(() =>
+    Promise.race([
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => undefined)),
+      ),
+      new Promise((r) => setTimeout(r, 2000)),
+    ]),
+  );
   await page.screenshot({ path: resolve(SCREENS, `${project}-${name}.png`), fullPage: false });
 }
 

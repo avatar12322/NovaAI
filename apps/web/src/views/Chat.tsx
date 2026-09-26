@@ -23,6 +23,7 @@ import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useDeltaEffect, useEventEffect } from '../lib/events';
 import { applyDelta, sameText, type LiveReply } from '../lib/live';
 import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
+import { clearPendingTurn, peekPendingTurn } from '../lib/pending';
 import { prefersReducedMotion } from '../lib/reveal';
 import { href, navigate, parseRoute } from '../lib/router';
 
@@ -179,7 +180,10 @@ function ConversationPane({
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   /** Zadanie tury agenta w toku — wskaźnik pracy trwa do jego zakończenia (także po narzędziach). */
-  const [thinking, setThinking] = useState<string | null>(null);
+  const [thinking, setThinking] = useState<string | null>(() => peekPendingTurn(id));
+  useEffect(() => {
+    clearPendingTurn(id);
+  }, [id]);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const speaking = useSpeaking();
