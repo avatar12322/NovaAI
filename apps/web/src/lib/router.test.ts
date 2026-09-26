@@ -21,6 +21,10 @@ describe('router', () => {
     expect(parseRoute(`#/documents/${id}/x`)).toEqual({ view: 'document', id, ord: null });
     expect(href({ view: 'document', id, ord: 0 })).toBe(`#/documents/${id}/0`);
   });
+  it('modele AI i klucze API', () => {
+    expect(parseRoute('#/models')).toEqual({ view: 'models' });
+    expect(href({ view: 'models' })).toBe('#/models');
+  });
   it('odrzuca identyfikatory niebędące UUID', () => {
     expect(parseRoute('#/tasks/../../etc')).toEqual({ view: 'tasks', id: null });
   });

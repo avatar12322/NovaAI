@@ -113,6 +113,12 @@ export function Shell({
       match: (r) => r.view === 'services',
     },
     {
+      label: 'Modele AI',
+      icon: 'key',
+      to: { view: 'models' },
+      match: (r) => r.view === 'models',
+    },
+    {
       label: 'Ustawienia',
       icon: 'settings',
       to: { view: 'settings' },

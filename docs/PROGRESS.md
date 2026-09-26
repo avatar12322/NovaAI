@@ -18,6 +18,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 | Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                              |
 | Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa                  |
 | Usługi i koszty          | gotowe*   | rejestr usług, koszty i faktury, budżety, odnowienia; *adaptery raportów kosztów tylko na atrapie — niepodłączone                 |
+| Modele AI i klucze API   | gotowe*   | dostawcy i klucze dodawane w aplikacji (szyfrowane), modele z cennikiem, kursy; *tylko na atrapie — bez prawdziwych kluczy        |
 
 ## Dziennik
 
@@ -435,6 +436,44 @@ share/unshare` (agent nie tworzy ani nie zmienia usług).
   odtwarzał 500); e2e klika filtry i sprawdza brak błędu. `pnpm check` → 4/4, 29/29, 257/257, 5/5;
   `pnpm test:e2e` → 32/32.
 
+### Modele AI i klucze API (2026-09-26)
+
+Gałąź `claude/novaai-model-providers` od `claude/novaai-services-costs`. Decyzje: `docs/DECISIONS.md` D-030.
+
+- Migracja `0014_model_providers.sql`: `model_providers` (klucz jako szyfrogram + 4 ostatnie znaki),
+  `household_models` (cennik, zastosowanie, priorytet, polityka danych), `household_fx`; RLS — odczyt dla domowników,
+  kolumna z szyfrogramem niedostępna dla roli aplikacji; zapis tylko przez serwer.
+- Brama modeli: migawka per dom (plik + dostawcy domu), unieważniana po zmianie; `AutoAgentRuntime` wybiera model albo
+  tryb demo w każdej turze — dodanie lub usunięcie klucza działa bez restartu. `/api/model/status` i `/api/health`
+  (z sesją) pokazują stan domu. OpenAI (`api.openai.com`) dostaje `max_completion_tokens`.
+- API (`/api/model/providers`, `/api/model/models`, `/api/model/fx`): zmiany tylko właściciel domu, domownik czyta;
+  „Sprawdź klucz” = bezpłatna lista modeli; kolizja nazw z plikiem ⇒ 409; bez `NOVA_SECRET_KEY` ⇒ `no_vault`;
+  `http://localhost` tylko przy `NOVA_MODELS_ALLOW_LOCAL`; `db:rotate-keys` obejmuje klucze dostawców.
+- UI: „Modele AI” (menu boczne; na telefonie Ustawienia → Modele AI i klucze API) — gotowe ustawienia Anthropic /
+  OpenAI / Gemini / inny zgodny z OpenAI z linkami do tworzenia klucza i cennika, pole klucza typu hasło (po zapisie
+  tylko „•••• ABCD”), sprawdzenie, zmiana, wyłączenie i usunięcie klucza; modele z cennikiem (podpowiedzi
+  identyfikatorów z „Sprawdź klucz”), edycja, kursy walut z ostrzeżeniem o brakującym kursie; widok domownika tylko
+  do odczytu. „Usługi i koszty” proponuje nazwy dostawców dodanych w aplikacji. Zrzuty:
+  `docs/screens/*-17-models.png`.
+- Testy (`apps/api/src/model/household-models.test.ts`, 13, lokalna atrapa HTTP): uprawnienia właściciel/domownik
+  (403 dla każdej zmiany), izolacja domów (niewidoczne, 404, migawka innego domu bez modeli), klucz nie wraca
+  w odpowiedziach ani audycie i nie leży jawnie w bazie, rola aplikacji nie czyta szyfrogramu (42501), szyfrogram
+  przeniesiony do innego rekordu nie daje się odszyfrować (i nie wychodzi żadne żądanie), brak `NOVA_SECRET_KEY`,
+  rotacja klucza głównego, walidacja adresów i kluczy (bez echa wartości), `NOVA_MODELS_ALLOW_LOCAL`, sprawdzenie
+  klucza (OpenAI-zgodny: ok/401 bez treści odpowiedzi; Anthropic: `x-api-key` + `anthropic-version`; serwer
+  niedostępny), rozmowa demo → model → demo bez restartu z kosztem w PLN po kursie (0,008 zł) zapisanym pod nazwą
+  dostawcy i widocznym jako szacunek w „Usługi i koszty”, model „tylko wspólne” bez prywatnej rozmowy. Dodatkowo:
+  kolejność tras i pamięć podręczna migawki (`gateway.test.ts`), `max_completion_tokens` (`providers.contract.test.ts`),
+  walidacja adresów/kluczy (contracts), trasa `#/models` (web).
+- e2e `apps/web/e2e/models.spec.ts` (desktop + telefon): dodanie dostawcy (adres w domenie `.test`, klucz testowy),
+  tylko końcówka klucza na stronie, wyłączenie dostawcy, model z błędną i poprawną ceną, brakujący kurs USD→PLN i jego
+  ustawienie, asystent nadal w trybie demo, domownik tylko do odczytu, usunięcie. „Sprawdź klucz” nie jest klikane —
+  test nie wysyła niczego do dostawców.
+- Polecenia i wyniki: `pnpm check` → contracts 6/6, permissions 29/29, api 272/272, web 6/6; `pnpm test:e2e` →
+  34/34; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
+- Niesprawdzone: prawdziwe klucze Anthropic, OpenAI i Gemini (lista modeli i rozmowa) — świadomie bez płatnych API;
+  warstwa zgodności Gemini jest w wersji beta.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -452,6 +491,7 @@ share/unshare` (agent nie tworzy ani nie zmienia usług).
   (`ANTHROPIC_ADMIN_API_KEY`, `OPENAI_ADMIN_API_KEY`; Admin API Anthropic niedostępne dla kont indywidualnych).
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
+  Dostawcy dodawani w aplikacji (Modele AI i klucze API) sprawdzeni tylko na lokalnej atrapie.
 
 ## Niezaimplementowane (poza blokadami)
 
@@ -467,7 +507,8 @@ share/unshare` (agent nie tworzy ani nie zmienia usług).
 
 ## Następne 3 zadania
 
-1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klienci OAuth
+1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w „Modele AI i klucze API”
+   (albo `models.local.json`), limit w „Koszt modeli”, klienci OAuth
    Google i Microsoft, aplikacja Slack, klucze administracyjne raportów kosztów (README → Integracje) i sprawdzenie na
    własnych kontach; Worker na Windows.
 2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS (także redirect HTTPS dla Slacka), kopie zapasowe

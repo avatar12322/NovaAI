@@ -13,6 +13,7 @@ import { HomeView } from './views/Home';
 import { LoginView } from './views/Login';
 import { MemoryView } from './views/Memory';
 import { EnrollView } from './views/Passkeys';
+import { ModelsView } from './views/Models';
 import { ServicesView } from './views/Services';
 import { SettingsView } from './views/Settings';
 import { TasksView } from './views/Tasks';
@@ -79,6 +80,7 @@ export function App() {
           {route.view === 'documents' && <DocumentsView key={route.space} space={route.space} />}
           {route.view === 'document' && <DocumentView id={route.id} ord={route.ord} />}
           {route.view === 'services' && <ServicesView id={route.id} />}
+          {route.view === 'models' && <ModelsView />}
           {route.view === 'home' && <HomeView me={me} />}
           {route.view === 'settings' && <SettingsView me={me} onLogout={logout} />}
         </ErrorBoundary>

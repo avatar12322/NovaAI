@@ -31,6 +31,7 @@ const PATHS: Record<string, string> = {
   search: 'M11 5a6 6 0 100 12 6 6 0 000-12zM20 20l-4.3-4.3',
   back: 'M15 5l-7 7 7 7',
   wallet: 'M4 7h14a2 2 0 012 2v9a2 2 0 01-2 2H4zM4 7l11-3v3M16 13h4',
+  key: 'M8 15a4 4 0 110-8 4 4 0 010 8zM11.5 11H21M18 11v3M15 11v2',
 };
 
 export function Icon({

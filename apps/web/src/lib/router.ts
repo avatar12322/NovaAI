@@ -11,6 +11,7 @@ export type Route =
   | { view: 'documents'; space: 'private' | 'shared' }
   | { view: 'document'; id: string; ord: number | null }
   | { view: 'services'; id: string | null }
+  | { view: 'models' }
   | { view: 'home' }
   | { view: 'settings' }
   | { view: 'enroll'; token: string };
@@ -40,6 +41,8 @@ export function parseRoute(hash: string): Route {
       return { view: 'documents', space: b === 'shared' ? 'shared' : 'private' };
     case 'services':
       return { view: 'services', id: b && UUID.test(b) ? b : null };
+    case 'models':
+      return { view: 'models' };
     case 'home':
       return { view: 'home' };
     case 'settings':

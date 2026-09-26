@@ -96,8 +96,19 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
    VPS, bazy, domeny, kopie zapasowe, abonamenty) z budżetem, datą odnowienia (przypomnienie) i linkiem do panelu;
    wpisy kosztów: szacunek, raport dostawcy, faktura (ręcznie lub import CSV). Suma miesiąca liczy każdą opłatę raz
    (faktura > raport > szacunek), osobno dla każdej waluty. Bez haseł i kluczy API.
+10. **Modele AI i klucze API** (menu boczne; na telefonie: Ustawienia → Modele AI i klucze API) — właściciel domu
+    dodaje dostawcę (Anthropic, OpenAI, Google Gemini albo inny serwer zgodny z OpenAI, np. Ollama na localhost),
+    wkleja klucz API (szyfrowany, potem widać tylko 4 ostatnie znaki), „Sprawdź klucz” (bezpłatna lista modeli),
+    a potem dodaje model z cennikiem z oficjalnej strony dostawcy i — dla cennika w USD/EUR — kurs do waluty
+    budżetu. Asystent przełącza się z trybu demo na model od razu, bez restartu. Domownik widzi stan tylko do odczytu.
 
 ## Integracje (opcjonalnie, własne konta)
+
+**Modele** — najprościej w aplikacji: **Modele AI i klucze API** (wymaga `NOVA_SECRET_KEY`). Alternatywa dla
+operatora serwera: `infra/config/models.example.json` → `models.local.json` + klucze w `.env` (nazwy z pliku mają
+pierwszeństwo). Klucze tworzy się w konsolach dostawców: platform.claude.com/settings/keys (Anthropic),
+platform.openai.com/api-keys (OpenAI), aistudio.google.com/apikey (Gemini). Każde wywołanie modelu jest płatne
+według cennika dostawcy — ustaw limit w Ustawienia → Koszt modeli. Szczegóły: `docs/DECISIONS.md` D-030.
 
 Bez konfiguracji integracje są oznaczone jako „niedostępne”. Wymagany jest też `NOVA_SECRET_KEY` (szyfrowanie
 tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie widzi cudzej poczty.
@@ -133,7 +144,7 @@ aplikacji działa tylko dla aplikacji wewnętrznych lub opublikowanych w Slack M
 
 W organizacji administrator może wymagać zatwierdzenia aplikacji (wtedy Microsoft pokazuje prośbę o zgodę
 administratora, a Slack — prośbę o zatwierdzenie instalacji). Teams nie jest zaimplementowany — wymaga zgody administratora (`ChannelMessage.Read.All`) i kont
-służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft, D-028 Slack, D-029 Usługi i koszty).
+służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft, D-028 Slack, D-029 Usługi i koszty, D-030 Modele AI i klucze API).
 
 ## Struktura
 

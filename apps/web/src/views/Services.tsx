@@ -10,7 +10,7 @@ import { currentMonth, formatMicros, microsToText } from '@nova/contracts/money'
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, errorText } from '../lib/api';
 import { href, navigate } from '../lib/router';
 
 /**
@@ -60,20 +60,7 @@ const ADAPTER_STATE_PL: Record<CostAdapterInfo['state'], string> = {
 
 const money = (list: Money[]) =>
   list.length ? list.map((m) => formatMicros(m.micros, m.currency)).join(' + ') : '—';
-/** Komunikat błędu z API; przy walidacji — konkretne powody (np. „Nie wpisuj tu haseł…”). */
-const errText = (e: unknown) => {
-  if (!(e instanceof ApiError)) return 'Błąd';
-  const reasons = Array.isArray(e.details)
-    ? [
-        ...new Set(
-          (e.details as Array<{ message?: unknown }>)
-            .map((d) => (typeof d.message === 'string' ? d.message : null))
-            .filter((m): m is string => !!m),
-        ),
-      ]
-    : [];
-  return reasons.length ? reasons.join(' ') : e.message;
-};
+const errText = errorText;
 const monthLabel = (m: string) =>
   new Date(`${m}-01T12:00:00Z`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
 
@@ -424,9 +411,17 @@ function ServiceForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    api
-      .modelStatus()
-      .then((m) => setProviders([...new Set(m.providers.map((p) => p.kind))]))
+    Promise.all([api.modelStatus().catch(() => null), api.modelProviders().catch(() => null)])
+      .then(([m, o]) =>
+        setProviders(
+          [
+            ...new Set([
+              ...(m?.providers.map((p) => p.kind) ?? []),
+              ...(o?.providers.map((p) => p.name) ?? []),
+            ]),
+          ].sort(),
+        ),
+      )
       .catch(() => undefined);
   }, []);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>

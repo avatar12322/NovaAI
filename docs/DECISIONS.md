@@ -466,3 +466,54 @@ dla pobierania automatycznego). **Adaptery nie zostały sprawdzone na prawdziwyc
   w tle, przeliczanie walut, korekty ujemne (zwroty) — do rozważenia z aktualną dokumentacją każdego dostawcy.
 - Gałąź bazowa: `claude/novaai-slack` — najnowsza gałąź z pamięcią dokumentów (zawiera też Microsoft, Slack
   i poprawkę czarnego ekranu).
+
+## D-030 Modele AI i klucze API dodawane w aplikacji
+
+Prośba: dodawanie kluczy Anthropic, OpenAI, Gemini itp. w samej aplikacji. Konfiguracja operatora
+(`models.local.json` + klucze w zmiennych środowiskowych, D-011…D-017) zostaje bez zmian; obok niej każdy dom ma
+własnych dostawców, modele z cennikiem i kursy walut (`model_providers`, `household_models`, `household_fx`).
+
+Źródła (sprawdzone 2026-09-26): Anthropic — Models API (`GET /v1/models`, nagłówki `x-api-key`
+i `anthropic-version: 2023-06-01`, `limit` 1–1000; platform.claude.com/docs/en/api/models-list); OpenAI — lista
+modeli `GET /v1/models` z `Authorization: Bearer` oraz `max_completion_tokens` zamiast przestarzałego `max_tokens`,
+który nie działa z modelami rozumującymi (typy `CreateChatCompletionRequest` w openai-node; strona referencji
+platform.openai.com odrzuca pobieranie automatyczne — 403); Gemini — warstwa zgodności z OpenAI
+(ai.google.dev/gemini-api/docs/openai, aktualizacja 2026-09-02): adres
+`https://generativelanguage.googleapis.com/v1beta/openai/`, klucz Gemini API jako Bearer, `/chat/completions`
+i `/models`, wersja beta. **Nie sprawdzone na prawdziwych kontach** — testy wyłącznie na lokalnej atrapie, bez
+płatnych wywołań.
+
+- Uprawnienia: dostawców, klucze, modele i kursy zmienia tylko właściciel domu (`memberships.role = 'owner'`);
+  domownik widzi stan (dostępność, ostatnie sprawdzenie, 4 ostatnie znaki klucza). Asystent nie ma narzędzi do
+  zmiany tej konfiguracji.
+- Klucz tylko do zapisu: AES-256-GCM kluczem `NOVA_SECRET_KEY` (ten sam sejf co tokeny OAuth, D-019), AAD
+  `model_provider|<dom>|<dostawca>` — szyfrogram przeniesiony do innego rekordu nie daje się odszyfrować. API,
+  audyt, zdarzenia i komunikaty walidacji nigdy nie zawierają klucza (audyt — nawet końcówki); ciała żądań nie są
+  logowane. Rola aplikacji (`nova_app`) ma uprawnienie `SELECT` tylko do kolumn bez szyfrogramu; odczyt i zapis
+  klucza — wyłącznie przez rolę systemową w kodzie serwera. Odszyfrowany klucz istnieje tylko w pamięci procesu API.
+  Bez `NOVA_SECRET_KEY` klucza nie da się zapisać (czytelny błąd `no_vault`). `db:rotate-keys` szyfruje ponownie
+  także klucze dostawców.
+- Adres serwera: tylko `https://` bez loginu, hasła i parametrów; `http://localhost`/`127.0.0.1` (np. Ollama, także
+  bez klucza) tylko przy `NOVA_MODELS_ALLOW_LOCAL` (domyślnie poza produkcją) — ogranicza SSRF przez właściciela
+  domu. Wywołania dostawców nie podążają za przekierowaniami, a treść odpowiedzi błędów nie wraca do UI.
+- Budżet działa bez zmian: model wymaga cennika (wejście/wyjście za milion tokenów, opcjonalnie cache) w walucie
+  cennika; inna waluta niż budżetu wymaga kursu ustawionego przez właściciela (bez pobierania kursów z internetu),
+  inaczej model jest niedostępny z powodem „brak kursu”. UI podaje link do oficjalnego cennika dostawcy i zapisuje
+  źródło oraz datę sprawdzenia cennika (widoczne w `usage_records.price_source`). Koszt trafia do `usage_records`
+  pod nazwą dostawcy, więc działa szacunek w „Usługi i koszty” (D-029).
+- Routing: modele domu (wg priorytetu, zaznaczone „krótkie pytania” → `chat.simple`, „złożone zadania” →
+  `chat.complex`) przed modelami z pliku; w trasach profili (Hermes) — na końcu, jako zapas, bo trasa profilu to
+  świadomy wybór operatora. Nazwy z pliku mają pierwszeństwo; kolizja przy dodawaniu ⇒ 409. `dataPolicy`
+  („tylko wspólne”) działa jak w pliku.
+- Bez restartu: `ModelGateway.snapshot(dom)` łączy plik i dane domu (pamięć podręczna 30 s, unieważniana po każdej
+  zmianie w tym procesie; inne instancje API widzą zmianę najpóźniej po 30 s). `AutoAgentRuntime` wybiera w każdej
+  turze model albo jawny tryb demo — usunięcie ostatniego dostawcy przywraca demo. `/api/model/status`
+  i `/api/health` (z sesją) pokazują stan domu; `/api/health` bez sesji — tylko konfigurację z pliku.
+- „Sprawdź klucz”: bezpłatna lista modeli (Anthropic `GET {base}/v1/models?limit=1000`, zgodni z OpenAI
+  `GET {base}/models`), limit 10 sprawdzeń na minutę na osobę, wynik zapisany przy dostawcy; zwrócone
+  identyfikatory są podpowiedziami w formularzu modelu. Zmiana klucza lub adresu kasuje poprzedni wynik.
+- Oficjalne API OpenAI (`api.openai.com`) dostaje `max_completion_tokens`; pozostałe serwery zgodne z OpenAI
+  (Hermes, Gemini, Ollama) — `max_tokens`.
+- Poza zakresem: automatyczne pobieranie cenników (brak oficjalnego, maszynowego źródła cen), osobni dostawcy per
+  domownik, natywne API Gemini, Vertex AI / Bedrock, strumieniowanie.
+- Gałąź bazowa: `claude/novaai-services-costs` (zawiera pamięć dokumentów, Microsoft, Slack i „Usługi i koszty”).

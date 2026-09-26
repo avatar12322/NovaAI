@@ -43,6 +43,17 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
       <BudgetPanel />
       <section className="panel row between">
         <div>
+          <h2 className="h-sub">Modele AI i klucze API</h2>
+          <p className="small muted">
+            Klucze Anthropic, OpenAI, Google Gemini i innych dostawców, modele z cennikiem.
+          </p>
+        </div>
+        <a className="btn btn-sm" href={href({ view: 'models' })}>
+          Otwórz
+        </a>
+      </section>
+      <section className="panel row between">
+        <div>
           <h2 className="h-sub">Usługi i koszty</h2>
           <p className="small muted">
             Dostawcy modeli, serwery, domeny i abonamenty: budżety, odnowienia i faktury.
@@ -138,7 +149,10 @@ function ServiceStatus() {
           <dd>
             {model ? (
               model.mode === 'demo' ? (
-                <Badge tone="warn">tryb demo — brak skonfigurowanego dostawcy</Badge>
+                <>
+                  <Badge tone="warn">tryb demo — brak skonfigurowanego dostawcy</Badge>{' '}
+                  <a href={href({ view: 'models' })}>Dodaj klucz API</a>
+                </>
               ) : (
                 <Badge tone="ok">skonfigurowany</Badge>
               )

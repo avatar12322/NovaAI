@@ -29,6 +29,7 @@ import type {
   TaskPage,
 } from '@nova/contracts';
 import type { CostAdapterInfo, CostEntryInfo, CostSummary, ServiceInfo } from '@nova/contracts';
+import type { ModelsOverview, ProviderCheckResult } from '@nova/contracts';
 
 export class ApiError extends Error {
   constructor(
@@ -105,6 +106,21 @@ async function uploadFile<T>(path: string, file: Blob): Promise<T> {
     );
   }
   return data as T;
+}
+
+/** Komunikat błędu z API; przy walidacji — konkretne powody z serwera (bez wartości pól). */
+export function errorText(e: unknown): string {
+  if (!(e instanceof ApiError)) return 'Błąd';
+  const reasons = Array.isArray(e.details)
+    ? [
+        ...new Set(
+          (e.details as Array<{ message?: unknown }>)
+            .map((d) => (typeof d.message === 'string' ? d.message : null))
+            .filter((m): m is string => !!m),
+        ),
+      ]
+    : [];
+  return reasons.length ? reasons.join(' ') : e.message;
 }
 
 const get = <T>(p: string) => request<T>('GET', p);
@@ -285,6 +301,20 @@ export const api = {
     paidCallsEnabled: boolean;
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
+  // ---------- Modele AI i klucze API (klucz tylko wysyłany, nigdy odczytywany) ----------
+  modelProviders: () => get<ModelsOverview>('/model/providers'),
+  addModelProvider: (body: Record<string, unknown>) =>
+    post<ModelsOverview>('/model/providers', body),
+  updateModelProvider: (id: string, body: Record<string, unknown>) =>
+    request<ModelsOverview>('PATCH', `/model/providers/${id}`, body),
+  deleteModelProvider: (id: string) => request<ModelsOverview>('DELETE', `/model/providers/${id}`),
+  checkModelProvider: (id: string) => post<ProviderCheckResult>(`/model/providers/${id}/check`),
+  addHouseholdModel: (body: Record<string, unknown>) => post<ModelsOverview>('/model/models', body),
+  updateHouseholdModel: (id: string, body: Record<string, unknown>) =>
+    request<ModelsOverview>('PATCH', `/model/models/${id}`, body),
+  deleteHouseholdModel: (id: string) => request<ModelsOverview>('DELETE', `/model/models/${id}`),
+  setFxRate: (currency: string, rate: number | null) =>
+    request<ModelsOverview>('PUT', '/model/fx', { currency, rate }),
   // ---------- Usługi i koszty ----------
   services: (space: 'all' | 'private' | 'shared', month: string) =>
     get<{ month: string; items: ServiceInfo[] }>(`/services${qs({ space, month })}`),
