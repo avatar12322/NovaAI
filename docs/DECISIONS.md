@@ -412,3 +412,57 @@ no-store`, tokenem pytającej osoby) oraz dla modelu w turze uzupełniającej (n
   ponowienie przetwarza zdarzenie. Odpowiedź w < 3 s (tylko operacje w bazie). Inne zdarzenia: `ignored`, bez treści.
 - Poza zakresem: powiadomienia push o nowych wzmiankach (wymagałyby subskrypcji zdarzeń wiadomości i zakresów
   `*:history`), pliki, reakcje, edycja i usuwanie wiadomości, instalacje Enterprise Grid (org-wide).
+
+## D-029 Usługi i koszty: rejestr usług, jedna opłata liczona raz, adaptery raportów kosztów
+
+Źródła adapterów (sprawdzone 2026-09-26): Anthropic — Usage and Cost API
+(platform.claude.com/docs/en/manage-claude/usage-cost-api) i referencja „Get Cost Report”
+(platform.claude.com/docs/en/api/beta/organization/cost_report/retrieve); OpenAI — Costs API (opis i przykład
+odpowiedzi w developers.openai.com/cookbook/examples/completions_usage_api; strona referencji API była niedostępna
+dla pobierania automatycznego). **Adaptery nie zostały sprawdzone na prawdziwych kontach** — tylko na atrapie.
+
+- Dane: `services` (cel, właściciel, link do panelu, okres rozliczeniowy, waluta, plan, data odnowienia, dni
+  przypomnienia, miesięczny budżet, status, notatki) i `service_costs` (szacunek / raport dostawcy / faktura;
+  faktura opłacona = z datą zapłaty). Kwoty w mikro-jednostkach (jak `usage_records`), bez liczb zmiennoprzecinkowych.
+  Waluta ISO 4217 (Intl); wpis ręczny nie może mieć więcej miejsc po przecinku niż waluta (JPY 0, PLN 2).
+- Prywatność jak w pozostałych danych: prywatna usługa — tylko właściciel; wspólna — członkowie domu czytają,
+  zmienia wyłącznie właściciel (polityka `service.*` + RLS; wpisy kosztów widoczne razem z usługą). Moduł nie ma
+  narzędzi agenta — modele nie zmieniają usług ani kosztów.
+- **Każda opłata liczona raz**: w obrębie jednej usługi i jednego miesiąca suma bierze jedno źródło — faktury, a gdy
+  ich nie ma, raport dostawcy, a dopiero potem szacunek (wpisy ręczne + koszt zapisanych wywołań modeli). Wpisy
+  „przegrane” są pokazywane jako niewliczone. Dostawca modeli i adapter kosztów mogą być przypisane do najwyżej jednej
+  usługi w domu (unikalny indeks), więc ten sam koszt nie trafi do dwóch usług; odmowa nie ujawnia cudzej usługi.
+- Szacunek z wywołań modeli: `usage_records` danego domu i dostawcy z konfiguracji modeli (płatne, bez nieudanych).
+  Miesiące w UTC — tak liczą raporty dostawców.
+- Waluty nie są sumowane ani przeliczane: suma miesiąca i sumy usług są osobno dla każdej waluty; budżet porównuje
+  tylko kwoty w walucie usługi (inne waluty są wskazane jako nieporównane). Stan budżetu: „blisko” od 80 %,
+  „przekroczony” powyżej 100 %; jedno powiadomienie na usługę i miesiąc (klucz idempotencji), dla właściciela albo
+  — przy usłudze wspólnej — dla domowników.
+- Faktury: deduplikacja w obrębie usługi po znormalizowanym numerze (wielkość liter, spacje), a bez numeru — po dacie
+  wystawienia (lub miesiącu), kwocie i walucie. Import CSV (`numer;data_wystawienia;kwota;waluta;miesiac;data_zaplaty`)
+  najpierw waliduje całość (błędy z numerami linii ⇒ nic nie jest zapisane), a powtórny import pomija zapisane faktury.
+- Odnowienia: przypomnienie przez trwałą kolejkę `N` dni przed datą o 9:00 czasu polskiego (czas letni uwzględniony);
+  zmiana daty, statusu lub widoczności przestawia przypomnienie, anulowanie/usunięcie usługi je odwołuje. Termin już
+  bliski ⇒ przypomnienie od razu; data minęła lub dalej niż rok ⇒ ostrzeżenie zamiast przypomnienia. „Odnowiono”
+  przesuwa datę o okres (miesiąc, kwartał, rok) z zachowaniem dnia miesiąca (31.01 → 28/29.02 → 31.03); usługi
+  jednorazowe i rozliczane za użycie — data ręcznie.
+- Bez haseł i kluczy: pola wyglądające na klucze API, tokeny lub hasła są odrzucane z komunikatem; link do panelu tylko
+  `https://`, bez danych logowania i parametrów typu `token`/`key`. Klucze administracyjne adapterów tylko w
+  zmiennych środowiskowych serwera (`ANTHROPIC_ADMIN_API_KEY`, `OPENAI_ADMIN_API_KEY`); API zwraca wyłącznie
+  „klucz skonfigurowany: tak/nie”, audyt i błędy synchronizacji nie zawierają kluczy.
+- Adaptery (odczyt raportów organizacji, rozszerzalny interfejs `CostAdapter`):
+  - Anthropic: `GET /v1/organizations/cost_report`, nagłówki `x-api-key` (klucz administracyjny `sk-ant-admin…`)
+    i `anthropic-version: 2023-06-01`, kubełki dzienne (`limit` ≤ 31), stronicowanie `has_more`/`next_page`; kwota
+    to tekst dziesiętny w centach, waluta USD. Admin API niedostępne dla kont indywidualnych; koszty Priority Tier
+    poza raportem; dane pojawiają się zwykle w ciągu ok. 5 minut, zalecane odpytywanie najwyżej raz na minutę.
+  - OpenAI: `GET /v1/organization/costs`, `Authorization: Bearer` z kluczem administracyjnym, `start_time`/`end_time`
+    w sekundach Unix, `bucket_width=1d`, `limit` 1–180, stronicowanie `has_more`/`next_page`; `amount.value`
+    w dolarach, `amount.currency` („usd”).
+  - Synchronizacja na żądanie właściciela usługi z przypisanym adapterem: poprzedni i bieżący miesiąc, jeden wpis
+    „raport dostawcy” na miesiąc i walutę, aktualizowany przy kolejnej synchronizacji (bez duplikatów).
+  - Stan w UI: „niepodłączone” (brak klucza / brak udanej synchronizacji / błąd ostatniej próby) dopóki
+    synchronizacja rzeczywiście się nie uda; „podłączone” tylko po udanej synchronizacji.
+- Poza zakresem: adaptery VPS, domen i kopii zapasowych (wpisy ręczne lub import CSV), automatyczna synchronizacja
+  w tle, przeliczanie walut, korekty ujemne (zwroty) — do rozważenia z aktualną dokumentacją każdego dostawcy.
+- Gałąź bazowa: `claude/novaai-slack` — najnowsza gałąź z pamięcią dokumentów (zawiera też Microsoft, Slack
+  i poprawkę czarnego ekranu).

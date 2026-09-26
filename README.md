@@ -92,6 +92,10 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
    `szukaj na slacku: rachunek`, `napisz na slacku do C0123ABCD: treść`,
    `odpowiedz na slacku w C0123ABCD 1758790400.000500: treść`. Treść ze Slacka pokazuje przycisk „Pokaż na żywo” —
    NovaAI jej nie zapisuje. Wysyłka zawsze czeka na zgodę.
+9. **Usługi i koszty** (menu boczne; na telefonie: Ustawienia → Usługi i koszty) — lista usług NovaAI (modele API,
+   VPS, bazy, domeny, kopie zapasowe, abonamenty) z budżetem, datą odnowienia (przypomnienie) i linkiem do panelu;
+   wpisy kosztów: szacunek, raport dostawcy, faktura (ręcznie lub import CSV). Suma miesiąca liczy każdą opłatę raz
+   (faktura > raport > szacunek), osobno dla każdej waluty. Bez haseł i kluczy API.
 
 ## Integracje (opcjonalnie, własne konta)
 
@@ -111,6 +115,11 @@ tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie w
    `offline_access`, `openid`, `profile`; `Mail.ReadWrite` tylko jeśli chcesz szkice w Outlooku. Aplikacja i tak
    prosi tylko o uprawnienia zaznaczone przez użytkownika przy łączeniu.
 
+**Raporty kosztów (Usługi i koszty)** — opcjonalne klucze administracyjne tylko do odczytu kosztów organizacji:
+`ANTHROPIC_ADMIN_API_KEY` (Claude Console → Admin keys; niedostępne dla kont indywidualnych) i
+`OPENAI_ADMIN_API_KEY`. Bez nich adaptery są „niepodłączone”, a koszty wpisuje się ręcznie. Po ustawieniu klucza
+przypisz adapter do usługi i użyj „Synchronizuj raport” — dopiero udana synchronizacja zmienia stan na „podłączone”.
+
 **Slack** — aplikacja w api.slack.com/apps utworzona w Twoim workspace (aplikacja wewnętrzna — wyszukiwanie dla
 aplikacji działa tylko dla aplikacji wewnętrznych lub opublikowanych w Slack Marketplace):
 
@@ -124,7 +133,7 @@ aplikacji działa tylko dla aplikacji wewnętrznych lub opublikowanych w Slack M
 
 W organizacji administrator może wymagać zatwierdzenia aplikacji (wtedy Microsoft pokazuje prośbę o zgodę
 administratora, a Slack — prośbę o zatwierdzenie instalacji). Teams nie jest zaimplementowany — wymaga zgody administratora (`ChannelMessage.Read.All`) i kont
-służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft, D-028 Slack).
+służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft, D-028 Slack, D-029 Usługi i koszty).
 
 ## Struktura
 

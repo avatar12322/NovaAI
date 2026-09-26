@@ -17,6 +17,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 | Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                                 |
 | Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                              |
 | Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa                  |
+| Usługi i koszty          | gotowe*   | rejestr usług, koszty i faktury, budżety, odnowienia; *adaptery raportów kosztów tylko na atrapie — niepodłączone                 |
 
 ## Dziennik
 
@@ -381,6 +382,48 @@ odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26; źródła i decy
   `pnpm check` → 4/4, 27/27, 240/240, 5/5; `pnpm test:e2e` → 30/30; `pnpm test:prod-smoke` → 1/1.
 - Niesprawdzone: przeglądarka zgłaszającego (wersja nieznana) — zachowanie odtworzone symulacją.
 
+### Usługi i koszty (2026-09-26)
+
+Gałąź `claude/novaai-services-costs` od `claude/novaai-slack` (najnowsza gałąź z pamięcią dokumentów). Decyzje:
+`docs/DECISIONS.md` D-029.
+
+- Migracja `0013_services_costs.sql`: `services`, `service_costs`, `cost_adapter_runs`; RLS jak w dokumentach
+  (prywatne — właściciel; wspólne — domownicy czytają; zapis tylko właściciel). Polityka: `service.read/create/manage/
+share/unshare` (agent nie tworzy ani nie zmienia usług).
+- API: lista i szczegóły usług ze stanem miesiąca, suma miesiąca (`/api/costs/summary`), wpisy kosztów, import faktur
+  CSV, udostępnianie, „odnowiono”, adaptery (`/api/cost-adapters`, synchronizacja na żądanie).
+- Suma miesiąca: faktura > raport dostawcy > szacunek w obrębie usługi i miesiąca (bez podwójnego liczenia); szacunek
+  z zapisanych kosztów wywołań modeli; waluty osobno, bez przeliczania; budżet tylko w walucie usługi; jedno
+  powiadomienie o przekroczeniu na usługę i miesiąc.
+- Odnowienia: przypomnienia w trwałej kolejce (N dni wcześniej, 9:00 czasu polskiego), przestawiane i anulowane razem
+  z usługą; „odnowiono” zachowuje dzień miesiąca.
+- Bez haseł i kluczy: odrzucane pola wyglądające na sekrety i linki z danymi logowania; klucze administracyjne
+  adapterów tylko w konfiguracji serwera.
+- Adaptery Anthropic (Cost API) i OpenAI (Costs API) według dokumentacji z 2026-09-26; stan „niepodłączone” do czasu
+  udanej synchronizacji. **Nie sprawdzone na prawdziwych kontach** — brak kluczy administracyjnych.
+- UI: widok „Usługi i koszty” (menu boczne; na telefonie przez Ustawienia) — suma miesiąca z podziałem na faktury
+  opłacone / do zapłaty, raporty i szacunki, karty usług z budżetem i odnowieniem, szczegóły z wpisami (wpisy
+  niewliczone oznaczone), dodawanie kosztu, import CSV, udostępnianie, panel adapterów. Walidacja pokazuje konkretny
+  powód (np. „Nie wpisuj tu haseł ani kluczy API”). Zrzuty: `docs/screens/*-15-services.png`, `*-16-service-detail.png`.
+- Testy (`apps/api/src/services/services.test.ts`, 16): **izolacja** Alfa/Beta (API i RLS, udostępnienie tylko do
+  odczytu, cofnięcie, zakres NovaAI, dostawca modeli przypisany do cudzej usługi bez ujawniania nazwy); **brak
+  podwójnego liczenia** (szacunek → raport → faktura, szacunek z wywołań modeli zastąpiony fakturą, osobne miesiące);
+  **waluty** (USD/EUR/JPY osobno, budżet tylko w walucie usługi, miejsca po przecinku per waluta, nieznany kod);
+  **odnowienia** (termin i strefa czasowa, zmiana daty, anulowanie, wspólne przypomnienie dostarczone obojgu,
+  „odnowiono” 31.01 → 28/29.02 → 31.03, kwartał, rok przestępny); **budżet** (blisko limitu, przekroczenie, jedno
+  powiadomienie, faktura niższa niż raport); **powtórny import faktury** (numer z inną wielkością liter, CSV dwa razy,
+  faktura bez numeru, błędny CSV bez częściowego zapisu); **sekrety**; **adaptery** na atrapie (brak klucza,
+  stronicowanie, centy jako tekst dziesiętny, aktualizacja bez duplikatów, błąd klucza ⇒ „błąd”, OpenAI w dolarach,
+  synchronizacja tylko przez właściciela, brak kluczy w odpowiedziach i audycie). Kontrola testów: liczenie wszystkich
+  źródeł naraz i losowy klucz deduplikacji faktur powodowały porażki odpowiednich testów.
+- e2e `apps/web/e2e/services.spec.ts` (desktop + telefon): dodanie usługi, odrzucone hasło w notatkach, szacunek →
+  raport → faktura (liczona tylko faktura), przekroczony budżet, odrzucona ta sama faktura, adaptery „niepodłączone”,
+  udostępnienie Becie tylko do odczytu.
+- Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 29/29, api 256/256 (w tym usługi 16), web 5/5;
+  `pnpm test:e2e` → 32/32; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
+- Niesprawdzone: synchronizacja z prawdziwymi kontami Anthropic i OpenAI (klucze administracyjne), zachowanie
+  przy dużych organizacjach (wiele stron raportu), adaptery innych dostawców (VPS, domeny — wpisy ręczne).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -394,6 +437,8 @@ odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26; źródła i decy
   `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT`. Slack: aplikacja wewnętrzna z zakresami użytkownika, redirect
   HTTPS, Event Subscriptions (README → Integracje), `SLACK_CLIENT_ID/SECRET`, `SLACK_SIGNING_SECRET`.
   Wszystkie wymagają `NOVA_SECRET_KEY`.
+- Brak kluczy administracyjnych Anthropic/OpenAI — adaptery raportów kosztów sprawdzone tylko na atrapie
+  (`ANTHROPIC_ADMIN_API_KEY`, `OPENAI_ADMIN_API_KEY`; Admin API Anthropic niedostępne dla kont indywidualnych).
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
 
@@ -412,9 +457,9 @@ odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26; źródła i decy
 ## Następne 3 zadania
 
 1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klienci OAuth
-   Google i Microsoft oraz aplikacja Slack (README → Integracje) i sprawdzenie na własnych kontach (logowanie, odczyt,
-   szkic/wysyłka po zgodzie, odłączenie i cofnięcie zgody, zdarzenia Slack), Worker na Windows.
+   Google i Microsoft, aplikacja Slack, klucze administracyjne raportów kosztów (README → Integracje) i sprawdzenie na
+   własnych kontach; Worker na Windows.
 2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS (także redirect HTTPS dla Slacka), kopie zapasowe
-   Postgres, usługa systemowa dla `start:prod`.
-3. Poczta, Slack i dokumenty z prawdziwym modelem: ocena odporności na wstrzyknięcia (treść e-maili, wiadomości Slack,
-   dokumenty) i jakości odpowiedzi na zestawie pytań; potem Web Push (VAPID).
+   Postgres, usługa systemowa dla `start:prod`; wpisanie tych usług i ich kosztów w „Usługi i koszty”.
+3. Poczta, Slack i dokumenty z prawdziwym modelem: ocena odporności na wstrzyknięcia i jakości odpowiedzi; potem
+   Web Push (VAPID) i ewentualnie automatyczna synchronizacja raportów kosztów w tle.
