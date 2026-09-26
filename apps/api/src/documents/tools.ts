@@ -91,7 +91,7 @@ function forModel(header: string, parts: Array<{ label: string; content: string 
 
 type ReadParams = { documentId: string; fromPart: number; parts: number };
 
-export const documentsReadTool: ToolDef<ReadParams> = {
+const documentsReadTool: ToolDef<ReadParams> = {
   name: 'documents.read',
   capability: 'document.read',
   title:
@@ -169,7 +169,7 @@ async function search(ctx: ToolContext, p: SearchParams) {
   });
 }
 
-export const documentsSearchTool: ToolDef<SearchParams> = {
+const documentsSearchTool: ToolDef<SearchParams> = {
   name: 'documents.search',
   capability: 'document.read',
   title:

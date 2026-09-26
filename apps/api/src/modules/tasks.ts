@@ -85,7 +85,7 @@ const toStep = (r: StepRow): TaskStep => ({
   finishedAt: r.finished_at,
 });
 
-export async function fetchTask(c: pg.PoolClient, id: string, me: string): Promise<Task | null> {
+async function fetchTask(c: pg.PoolClient, id: string, me: string): Promise<Task | null> {
   const t = await c.query<TaskRow>(`${TASK_SELECT} WHERE id = $1`, [id]);
   if (!t.rows[0]) return null;
   const s = await c.query<StepRow>(

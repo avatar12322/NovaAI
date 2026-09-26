@@ -20,7 +20,7 @@ export interface GoogleEndpoints {
   gmailBase: string;
 }
 
-export const GOOGLE_ENDPOINTS: GoogleEndpoints = {
+const GOOGLE_ENDPOINTS: GoogleEndpoints = {
   authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
   tokenUrl: 'https://oauth2.googleapis.com/token',
   revokeUrl: 'https://oauth2.googleapis.com/revoke',

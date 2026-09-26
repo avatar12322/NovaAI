@@ -2,7 +2,7 @@ import type { Db, Queryable } from './db/pool';
 import { hashParams } from './lib/crypto';
 import { redact } from './lib/redact';
 
-export interface AuditEntry {
+interface AuditEntry {
   actorKind: 'user' | 'agent' | 'system' | 'device';
   actorUserId?: string | null;
   ownerUserId?: string | null;

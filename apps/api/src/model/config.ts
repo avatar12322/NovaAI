@@ -18,7 +18,7 @@ const PricingSchema = z.object({
   verifiedAt: z.string().nullable().optional(),
   source: z.string().optional(),
 });
-export type Pricing = z.infer<typeof PricingSchema>;
+type Pricing = z.infer<typeof PricingSchema>;
 
 const ProviderSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -70,7 +70,7 @@ export const ModelsConfigSchema = z.object({
 });
 export type ModelsConfig = z.infer<typeof ModelsConfigSchema>;
 
-export const EMPTY_MODELS_CONFIG: ModelsConfig = ModelsConfigSchema.parse({});
+const EMPTY_MODELS_CONFIG: ModelsConfig = ModelsConfigSchema.parse({});
 
 export function loadModelsConfig(path: string): { config: ModelsConfig; error: string | null } {
   if (!path) return { config: EMPTY_MODELS_CONFIG, error: null };

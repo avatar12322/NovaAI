@@ -14,7 +14,6 @@ import {
   type CostAdapterInfo,
   type CostSummary,
   type Money,
-  type ServiceMonth,
 } from '@nova/contracts';
 import { decideCreate } from '@nova/permissions';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
@@ -670,5 +669,3 @@ export const serviceRoutes =
       return { months: perMonth.size, items: await adapterInfo(auth.householdId, auth.userId) };
     });
   };
-
-export type { ServiceMonth };

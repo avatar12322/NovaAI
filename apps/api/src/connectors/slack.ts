@@ -26,7 +26,7 @@ export interface SlackEndpoints {
   api: string;
 }
 
-export const SLACK_ENDPOINTS: SlackEndpoints = {
+const SLACK_ENDPOINTS: SlackEndpoints = {
   authorize: 'https://slack.com/oauth/v2/authorize',
   api: 'https://slack.com/api',
 };

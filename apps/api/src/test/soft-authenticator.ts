@@ -16,7 +16,7 @@ function cborHead(major: number, n: number): Buffer {
 
 type Cbor = number | string | Buffer | Map<Cbor, Cbor>;
 
-export function cbor(v: Cbor): Buffer {
+function cbor(v: Cbor): Buffer {
   if (typeof v === 'number') return v >= 0 ? cborHead(0, v) : cborHead(1, -1 - v);
   if (typeof v === 'string') {
     const b = Buffer.from(v, 'utf8');
@@ -31,7 +31,7 @@ export function cbor(v: Cbor): Buffer {
 const b64u = (b: Buffer | string) => Buffer.from(b).toString('base64url');
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest();
 
-export interface SoftOptions {
+interface SoftOptions {
   origin?: string;
   rpId?: string;
   userVerified?: boolean;

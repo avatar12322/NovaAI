@@ -95,20 +95,24 @@ const usageRows = async () =>
     )
   ).rows;
 
+/** Stan konfiguracji z pliku (bez dostawców domu) — tak jak widzi go żądanie bez domu. */
+const fileSnapshot = (...args: ConstructorParameters<typeof ModelGateway>) =>
+  new ModelGateway(...args).snapshot(null);
+
 describe('dostępność modeli', () => {
-  it('przykładowa konfiguracja parsuje się i bez cenników/kluczy daje jawny tryb demo', () => {
+  it('przykładowa konfiguracja parsuje się i bez cenników/kluczy daje jawny tryb demo', async () => {
     const { config, error } = loadModelsConfig(
       resolve(REPO_ROOT, 'infra/config/models.example.json'),
     );
     expect(error).toBeNull();
-    const gw = new ModelGateway(t.db, config, { ANTHROPIC_API_KEY: 'k' });
+    const gw = await fileSnapshot(t.db, config, { ANTHROPIC_API_KEY: 'k' });
     expect(gw.status().mode).toBe('demo');
     expect(gw.availability('claude-strong').reason).toContain('cennika');
     expect(gw.availability('hermes-household').available).toBe(false);
   });
 
-  it('brak cennika, brak kursu i brak klucza czynią model niedostępnym (z powodem)', () => {
-    const gw = new ModelGateway(t.db, cfg(), {});
+  it('brak cennika, brak kursu i brak klucza czynią model niedostępnym (z powodem)', async () => {
+    const gw = await fileSnapshot(t.db, cfg(), {});
     expect(gw.availability('noPrice')).toMatchObject({
       available: false,
       reason: expect.stringContaining('cennika'),
@@ -118,7 +122,7 @@ describe('dostępność modeli', () => {
       reason: expect.stringContaining('EUR'),
     });
     const withAnthropic = cfg({ providers: { a: { kind: 'anthropic', apiKeyEnv: 'NOPE_KEY' } } });
-    const gw2 = new ModelGateway(
+    const gw2 = await fileSnapshot(
       t.db,
       { ...withAnthropic, models: { m: { ...withAnthropic.models.paidPLN!, provider: 'a' } } },
       {},
@@ -130,7 +134,7 @@ describe('dostępność modeli', () => {
     expect(gw2.status().mode).toBe('demo');
   });
 
-  it('profil Hermesa bez potwierdzenia wyłączonych toolsetów jest niedostępny', () => {
+  it('profil Hermesa bez potwierdzenia wyłączonych toolsetów jest niedostępny', async () => {
     const c = cfg({
       providers: {
         h: {
@@ -141,7 +145,7 @@ describe('dostępność modeli', () => {
         },
       },
     });
-    const gw = new ModelGateway(
+    const gw = await fileSnapshot(
       t.db,
       { ...c, models: { hm: { ...c.models.free!, provider: 'h' } } },
       { HK: 'k' },
@@ -149,8 +153,8 @@ describe('dostępność modeli', () => {
     expect(gw.availability('hm').reason).toContain('toolsetów');
   });
 
-  it('kontekst prywatny nie trafia do modelu „shared_only”', () => {
-    const gw = new ModelGateway(t.db, cfg(), {});
+  it('kontekst prywatny nie trafia do modelu „shared_only”', async () => {
+    const gw = await fileSnapshot(t.db, cfg(), {});
     expect(gw.candidates('chat.shared', 'x', true)).toEqual([]);
     expect(gw.candidates('chat.shared', 'x', false)).toEqual(['sharedOnly']);
   });

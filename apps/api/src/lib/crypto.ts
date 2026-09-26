@@ -1,19 +1,15 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 export function sha256(data: string | Buffer): Buffer {
   return createHash('sha256').update(data).digest();
 }
 
-export function sha256Hex(data: string | Buffer): string {
+function sha256Hex(data: string | Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
-}
-
-export function safeEqual(a: Buffer, b: Buffer): boolean {
-  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /**

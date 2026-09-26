@@ -27,7 +27,7 @@ interface MemoryRow {
   updated_at: string;
 }
 
-export const MEMORY_SELECT = `
+const MEMORY_SELECT = `
   SELECT m.id, m.kind, m.visibility, m.content, m.owner_user_id, u.display_name AS owner_name, m.source,
          m.created_at, m.updated_at
     FROM memories m LEFT JOIN users u ON u.id = m.owner_user_id`;

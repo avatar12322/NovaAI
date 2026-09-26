@@ -1,12 +1,12 @@
 import { badRequest } from './errors';
 
 /** Kursor stronicowania (created_at|updated_at, id) — nieprzezroczysty dla klienta. */
-export interface Cursor {
+interface Cursor {
   ts: string;
   id: string;
 }
 
-export function encodeCursor(c: Cursor): string {
+function encodeCursor(c: Cursor): string {
   return Buffer.from(`${c.ts}|${c.id}`, 'utf8').toString('base64url');
 }
 

@@ -31,13 +31,13 @@ import { publicKeyFromRaw, rawPublicKey, signText, verifyText } from './keys';
 const pexec = promisify(execFile);
 const MAX_READ = 256 * 1024;
 
-export interface LocalPolicy {
+interface LocalPolicy {
   /** Katalogi udostępnione lokalnie przez właściciela urządzenia (niezależnie od serwera). */
   roots: string[];
   capabilities: GrantCapability[];
 }
 
-export class Denied extends Error {}
+class Denied extends Error {}
 
 /**
  * Symulator Workera — referencyjna implementacja protokołu v1 w TS (testy i demo bez Windowsa).

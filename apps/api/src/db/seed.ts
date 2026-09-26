@@ -10,7 +10,7 @@ export const DEV_USERS: Record<DevUserKey, { email: string; displayName: string 
   beta: { email: 'beta@example.test', displayName: 'Beta (test)' },
 };
 
-export const DEV_HOUSEHOLD_NAME = 'Dom testowy';
+const DEV_HOUSEHOLD_NAME = 'Dom testowy';
 
 export interface SeedResult {
   householdId: string;

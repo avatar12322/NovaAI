@@ -10,7 +10,7 @@ import { ConnectorError, type ChatMessage } from './types';
  * i parametry (`live`), a treść jest pobierana na żywo (zasady Slacka zabraniają przechowywania wyników
  * wyszukiwania). Wysyłka: zawsze zgoda z podglądem nazwy kanału pobranej ze Slacka, nie od modelu.
  */
-export interface SlackLiveQuery {
+interface SlackLiveQuery {
   kind: 'mentions' | 'search';
   query?: string;
   days: number;
@@ -44,7 +44,7 @@ const tsToIso = (ts: string) => {
 };
 
 /** Forma dla modelu: NIEZAUFANE DANE (treść cudzych wiadomości), skrócone. */
-export function formatChatForModel(items: ChatMessage[]): string {
+function formatChatForModel(items: ChatMessage[]): string {
   if (!items.length) return 'Brak wyników.';
   return items
     .map(
@@ -128,7 +128,7 @@ function readTool(kind: 'mentions' | 'search'): ToolDef<ReadParams> {
 type SendParams = { channel: string; text: string; threadTs?: string; channelLabel?: string };
 
 /** Wysyłka jako ta osoba: ZAWSZE zgoda; kanał i jego nazwa ustalane ze Slacka przy planowaniu. */
-export const slackSendTool: ToolDef<SendParams> = {
+const slackSendTool: ToolDef<SendParams> = {
   name: 'slack.send',
   capability: 'chat.send',
   title: 'Wyślij wiadomość na Slacku',
@@ -207,8 +207,8 @@ export const slackSendTool: ToolDef<SendParams> = {
   },
 };
 
-export const slackMentionsTool = readTool('mentions');
-export const slackSearchTool = readTool('search');
+const slackMentionsTool = readTool('mentions');
+const slackSearchTool = readTool('search');
 
 export const SLACK_TOOLS: ToolDef[] = [
   slackMentionsTool as unknown as ToolDef,

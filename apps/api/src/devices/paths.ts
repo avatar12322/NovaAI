@@ -2,9 +2,9 @@
  * Leksykalna walidacja ścieżek po stronie brokera (warstwa 1). Worker wykonuje walidację kanoniczną
  * (realpath, symlinki/junctions) — warstwa 2. Obsługuje ścieżki Windows (C:\…) i POSIX (/…).
  */
-export type PathStyle = 'windows' | 'posix';
+type PathStyle = 'windows' | 'posix';
 
-export interface NormalizedPath {
+interface NormalizedPath {
   style: PathStyle;
   /** Segmenty bez pustych i `.`; dla windows pierwszy segment to litera dysku, np. `c:`. */
   segments: string[];

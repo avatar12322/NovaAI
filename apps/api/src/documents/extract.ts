@@ -5,7 +5,7 @@ import { decodeText, DocumentError } from './text';
 
 const PDF_TIMEOUT_MS = 30_000;
 
-export interface Extracted {
+interface Extracted {
   chunks: ChunkDraft[];
   pageCount: number | null;
   charCount: number;

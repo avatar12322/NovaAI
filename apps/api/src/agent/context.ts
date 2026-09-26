@@ -14,27 +14,19 @@ import type {
   ContextMessage,
 } from './runtime';
 
-export const HISTORY_LIMIT = 20;
-export const MEMORY_LIMIT = 50;
+const HISTORY_LIMIT = 20;
+const MEMORY_LIMIT = 50;
 /** Fragmenty dokumentów w turze: niewiele i przycięte — koszt tokenów i mniej miejsca na wstrzyknięcia. */
-export const DOCUMENT_CHUNKS = 4;
+const DOCUMENT_CHUNKS = 4;
 const DOCUMENT_CHUNK_CHARS = 1500;
 /** Lista dokumentów w kontekście (tylko tytuły) — model może je odczytać narzędziem. */
-export const DOCUMENT_CATALOG = 30;
+const DOCUMENT_CATALOG = 30;
 
-/** Zdolności, które serwer udostępnia agentowi w danym kontekście (model ich nie rozszerza). */
-export function capabilitiesFor(kind: ContextKind): string[] {
-  if (kind === 'household_agent') return ['memory.create'];
-  if (kind === 'private_agent') return ['memory.create', 'reminder.create'];
-  return [];
-}
-
-export interface BuiltContext {
+interface BuiltContext {
   contextKind: ContextKind;
   scope: 'user' | 'shared';
   input: AgentTurnInput;
   userContext: AgentUserContext;
-  allowedCapabilities: string[];
 }
 
 /**
@@ -237,6 +229,5 @@ export async function buildTurnContext(
       agentName: agent.name,
       runtimeProfile: agent.runtime_profile,
     },
-    allowedCapabilities: capabilitiesFor(contextKind),
   };
 }

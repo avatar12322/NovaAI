@@ -37,7 +37,7 @@ const CONV_SELECT = `
          c.created_at, c.updated_at
     FROM conversations c JOIN agents a ON a.id = c.agent_id`;
 
-export const toConversation = (r: ConversationRow): Conversation => ({
+const toConversation = (r: ConversationRow): Conversation => ({
   id: r.id,
   space: r.visibility,
   visibility: r.visibility,
@@ -59,12 +59,12 @@ interface MessageRow {
   created_at: string;
 }
 
-export const MESSAGE_SELECT = `
+const MESSAGE_SELECT = `
   SELECT m.id, m.conversation_id, m.role, m.author_user_id, u.display_name AS author_name, m.content, m.meta,
          m.created_at
     FROM messages m LEFT JOIN users u ON u.id = m.author_user_id`;
 
-export const toMessage = (r: MessageRow): Message => ({
+const toMessage = (r: MessageRow): Message => ({
   id: r.id,
   conversationId: r.conversation_id,
   role: r.role,
@@ -75,10 +75,7 @@ export const toMessage = (r: MessageRow): Message => ({
   createdAt: r.created_at,
 });
 
-export async function fetchConversation(
-  c: pg.PoolClient,
-  id: string,
-): Promise<Conversation | null> {
+async function fetchConversation(c: pg.PoolClient, id: string): Promise<Conversation | null> {
   const { rows } = await c.query<ConversationRow>(`${CONV_SELECT} WHERE c.id = $1`, [id]);
   return rows[0] ? toConversation(rows[0]) : null;
 }
@@ -123,7 +120,7 @@ export function shortText(text: string, max: number): string {
   return `${line.slice(0, end).replace(/[\s,.;:–-]+$/, '')}…`;
 }
 
-export type MessageHandler = (args: {
+type MessageHandler = (args: {
   deps: AppDeps;
   auth: AuthContext;
   conversation: Conversation;

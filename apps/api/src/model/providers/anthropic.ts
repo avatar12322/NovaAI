@@ -8,7 +8,7 @@ import {
   type ProviderResponse,
 } from '../types';
 
-export interface AnthropicProviderOptions {
+interface AnthropicProviderOptions {
   apiKey: string;
   /** Tylko dla testów kontraktowych (lokalny serwer-mock). Domyślnie oficjalny endpoint SDK. */
   baseURL?: string;

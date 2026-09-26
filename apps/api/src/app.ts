@@ -57,7 +57,7 @@ export interface AppOptions {
   retryBaseMs?: number;
 }
 
-export interface App {
+interface App {
   deps: AppDeps;
   runner: TaskRunner;
   /** Klucz publiczny serwera do podpisu poleceń (przypinany przez Workery). */

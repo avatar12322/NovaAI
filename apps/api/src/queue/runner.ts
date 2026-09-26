@@ -68,7 +68,7 @@ export interface TaskKindDef {
 
 export type RunnerDeps = AppDeps;
 
-export interface RunnerOptions {
+interface RunnerOptions {
   workerId?: string;
   leaseMs: number;
   pollMs?: number;

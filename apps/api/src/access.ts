@@ -48,11 +48,7 @@ const READ_ACTION: Partial<Record<ResourceType, Action>> = {
   service: 'service.read',
 };
 
-export async function loadMeta(
-  db: Db,
-  type: ResourceType,
-  id: string,
-): Promise<ResourceMeta | null> {
+async function loadMeta(db: Db, type: ResourceType, id: string): Promise<ResourceMeta | null> {
   const sql = META_SQL[type];
   if (!sql) throw new Error(`Brak zapytania metadanych dla ${type}`);
   const { rows } = await db.owner.query<{

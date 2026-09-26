@@ -3,7 +3,7 @@ import { withSystemTx, type Db } from '../db/pool';
 import { emitEvent } from '../events';
 
 /** Budżet liczony w miesiącu kalendarzowym strefy domowników. */
-export const BUDGET_TZ = 'Europe/Warsaw';
+const BUDGET_TZ = 'Europe/Warsaw';
 const MONTH_START = `date_trunc('month', now() AT TIME ZONE '${BUDGET_TZ}') AT TIME ZONE '${BUDGET_TZ}'`;
 
 export class BudgetBlocked extends Error {
@@ -14,14 +14,14 @@ export class BudgetBlocked extends Error {
   }
 }
 
-export interface BudgetRow {
+interface BudgetRow {
   currency: string;
   soft_limit_micros: number | null;
   hard_limit_micros: number | null;
   paid_calls_enabled: boolean;
 }
 
-export interface BudgetStatus {
+interface BudgetStatus {
   currency: string;
   period: string;
   spent: number;
@@ -40,7 +40,7 @@ export interface BudgetStatus {
 }
 
 const toUnits = (micros: number | null) => (micros === null ? null : micros / 1_000_000);
-export const toMicros = (units: number) => Math.round(units * 1_000_000);
+const toMicros = (units: number) => Math.round(units * 1_000_000);
 
 function stateOf(b: BudgetRow, spentMicros: number): BudgetStatus['state'] {
   if (!b.paid_calls_enabled) return 'blocked';
@@ -49,7 +49,7 @@ function stateOf(b: BudgetRow, spentMicros: number): BudgetStatus['state'] {
   return 'ok';
 }
 
-export interface ReserveArgs {
+interface ReserveArgs {
   householdId: string;
   userId: string | null;
   taskId?: string | null;

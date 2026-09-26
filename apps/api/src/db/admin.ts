@@ -6,7 +6,7 @@ import { withSystemTx, type Db } from './pool';
 /**
  * Operacje administracyjne wykonywane LOKALNIE z CLI (bez API) — bootstrap produkcji bez logowania testowego.
  */
-export interface NewUser {
+interface NewUser {
   email: string;
   displayName: string;
 }

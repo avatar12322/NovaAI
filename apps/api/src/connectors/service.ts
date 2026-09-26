@@ -40,7 +40,7 @@ interface StoredTokens {
   expiresAt: number;
 }
 
-export interface ConnectionInfo {
+interface ConnectionInfo {
   provider: Provider;
   title: string;
   capabilities: readonly ConnectorCapability[];

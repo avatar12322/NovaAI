@@ -94,13 +94,29 @@ export function DictationButton({ onText }: { onText: (text: string) => void }) 
   );
 }
 
+/** Odczyt na głos trwa — sygnał dla „kuli” asystenta (animacja mówienia). */
+const SPEAKING = 'nova:speaking';
+const announce = (on: boolean) => window.dispatchEvent(new CustomEvent(SPEAKING, { detail: on }));
+
+export function useSpeaking(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const handler = (e: Event) => setOn((e as CustomEvent<boolean>).detail === true);
+    window.addEventListener(SPEAKING, handler);
+    return () => window.removeEventListener(SPEAKING, handler);
+  }, []);
+  return on;
+}
+
 export function SpeakButton({ text }: { text: string }) {
   const [speaking, setSpeaking] = useState(false);
   // Przerwanie odczytu przy zamknięciu widoku (np. zmiana rozmowy).
   useEffect(
     () => () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window)
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
+        announce(false);
+      }
     },
     [],
   );
@@ -109,13 +125,19 @@ export function SpeakButton({ text }: { text: string }) {
     window.speechSynthesis.cancel();
     if (speaking) {
       setSpeaking(false);
+      announce(false);
       return;
     }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'pl-PL';
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
+    const stop = () => {
+      setSpeaking(false);
+      announce(false);
+    };
+    u.onend = stop;
+    u.onerror = stop;
     setSpeaking(true);
+    announce(true);
     window.speechSynthesis.speak(u);
   };
   return (

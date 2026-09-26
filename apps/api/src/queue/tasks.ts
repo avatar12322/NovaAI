@@ -11,7 +11,7 @@ export interface StepSpec {
   requiresApproval?: boolean;
 }
 
-export interface CreateTaskArgs {
+interface CreateTaskArgs {
   householdId: string;
   visibility: 'private' | 'shared';
   conversationId?: string | null;

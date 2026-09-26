@@ -1,24 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { shot, loginAs, logout } from './helpers';
 import { makePdf } from '../../api/src/test/pdf-fixture';
 
 /**
  * Pamięć dokumentów w UI (tryb demo, bez modelu): dodanie PDF, wyszukiwanie, odpowiedź w czacie ze źródłem
  * (dokument + strona) i przejście do fragmentu; błędy plików; prywatny dokument Alfy niewidoczny dla Bety.
  */
-const SCREENS = process.env.E2E_SCREENSHOTS
-  ? resolve(import.meta.dirname, '../../../docs/screens')
-  : resolve(import.meta.dirname, '../test-results/screens');
-mkdirSync(SCREENS, { recursive: true });
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: resolve(SCREENS, `${test.info().project.name}-${name}.png`) });
-
-async function loginAs(page: Page, who: 'Alfa (test)' | 'Beta (test)') {
-  await page.goto('/');
-  await page.getByRole('button', { name: new RegExp(who.replace(/[()]/g, '\\$&')) }).click();
-  await expect(page.locator('.envbar')).toContainText(who);
-}
 
 async function ask(page: Page, question: string) {
   await page.goto('/#/chat/private');
@@ -97,8 +84,7 @@ test('dokument PDF: dodanie, wyszukanie, odpowiedź ze źródłem i fragment; iz
   await shot(page, '12-document-fragment');
 
   // Beta: brak dokumentu na liście, w wyszukiwaniu i w odpowiedzi asystenta.
-  await page.goto('/#/settings');
-  await page.getByRole('button', { name: 'Wyloguj' }).last().click();
+  await logout(page);
   await loginAs(page, 'Beta (test)');
   await page.goto('/#/documents');
   await expect(page.getByText('Nie masz jeszcze dokumentów')).toBeVisible();

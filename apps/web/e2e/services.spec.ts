@@ -1,23 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { expect, test } from '@playwright/test';
+import { shot, loginAs, logout } from './helpers';
 
 /**
  * „Usługi i koszty” w UI: dodanie usługi, szacunek → raport → faktura (liczona raz), przekroczony budżet,
  * adaptery „niepodłączone”, odrzucenie pola z hasłem, udostępnienie domownikowi (tylko odczyt).
  */
-const SCREENS = process.env.E2E_SCREENSHOTS
-  ? resolve(import.meta.dirname, '../../../docs/screens')
-  : resolve(import.meta.dirname, '../test-results/screens');
-mkdirSync(SCREENS, { recursive: true });
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: resolve(SCREENS, `${test.info().project.name}-${name}.png`) });
-
-async function loginAs(page: Page, who: 'Alfa (test)' | 'Beta (test)') {
-  await page.goto('/');
-  await page.getByRole('button', { name: new RegExp(who.replace(/[()]/g, '\\$&')) }).click();
-  await expect(page.locator('.envbar')).toContainText(who);
-}
 
 test('usługa: koszty bez podwójnego liczenia, budżet, adaptery niepodłączone, udostępnienie', async ({
   page,
@@ -100,8 +87,7 @@ test('usługa: koszty bez podwójnego liczenia, budżet, adaptery niepodłączon
   await card.getByRole('link', { name }).click();
   await page.getByRole('button', { name: 'Udostępnij domownikom' }).click();
   await expect(page.getByRole('status').first()).toContainText('widoczna dla domowników');
-  await page.goto('/#/settings');
-  await page.getByRole('button', { name: 'Wyloguj' }).last().click();
+  await logout(page);
   await loginAs(page, 'Beta (test)');
   await page.goto('/#/services');
   const shared = page.locator('.service-card').filter({ hasText: name });

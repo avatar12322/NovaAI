@@ -37,7 +37,7 @@ export interface GatewayRequest {
   tools: ToolSpec[];
 }
 
-export interface GatewayResult extends ProviderResponse {
+interface GatewayResult extends ProviderResponse {
   modelKey: string;
   provider: string;
   model: string;
@@ -46,7 +46,7 @@ export interface GatewayResult extends ProviderResponse {
   paid: boolean;
 }
 
-export interface ModelAvailability {
+interface ModelAvailability {
   key: string;
   provider: string;
   model: string;
@@ -57,7 +57,7 @@ export interface ModelAvailability {
 }
 
 /** Szacunek tokenów bez tokenizera dostawcy — ZAWSZE oznaczany jako estymacja. */
-export const estimateTokens = (chars: number) => Math.ceil(chars / 4);
+const estimateTokens = (chars: number) => Math.ceil(chars / 4);
 
 /** Dostawcy i modele dodane w aplikacji dla jednego domu (klucze już odszyfrowane — tylko w pamięci serwera). */
 export interface HouseholdOverlay {
@@ -83,7 +83,7 @@ export interface HouseholdModelSource {
 /**
  * Rozwiązana konfiguracja modeli (plik + ewentualnie dostawcy domu): dostępność, trasy, koszt.
  */
-export class ResolvedModels {
+class ResolvedModels {
   constructor(
     readonly config: ModelsConfig,
     readonly providers: ReadonlyMap<string, ModelProvider>,
@@ -298,23 +298,6 @@ export class ModelGateway {
       profileRoutes,
     };
     return new ResolvedModels(config, providers, errors);
-  }
-
-  // Zgodność wsteczna: stan konfiguracji z pliku (bez dostawców domu).
-  availability(key: string): ModelAvailability {
-    return this.base.availability(key);
-  }
-  status() {
-    return this.base.status();
-  }
-  hasAvailable(): boolean {
-    return this.base.hasAvailable();
-  }
-  candidates(capability: string, runtimeProfile: string, containsPrivateData: boolean): string[] {
-    return this.base.candidates(capability, runtimeProfile, containsPrivateData);
-  }
-  costMicros(m: ModelConfig, u: Parameters<ResolvedModels['costMicros']>[1]): number {
-    return this.base.costMicros(m, u);
   }
 
   async complete(req: GatewayRequest): Promise<GatewayResult> {

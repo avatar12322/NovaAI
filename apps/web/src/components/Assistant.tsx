@@ -9,7 +9,7 @@ import { stageOf } from '../lib/stage';
  * Obecność asystenta w rozmowie: „kula” ze stanem (spoczynek / myśli / mówi), wskaźnik pracy z etapem
  * pobieranym z kroków zadania i odsłanianie nowej odpowiedzi. Ruch wyłącza ustawienie „ogranicz ruch”.
  */
-export type OrbState = 'idle' | 'thinking' | 'speaking';
+type OrbState = 'idle' | 'thinking' | 'speaking';
 
 export function AgentOrb({ state, size = 28 }: { state: OrbState; size?: number }) {
   return (

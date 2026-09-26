@@ -26,7 +26,7 @@ export function actionHash(tool: string, params: Record<string, unknown>): strin
   return hashParams({ tool, params });
 }
 
-export interface ExecuteOptions {
+interface ExecuteOptions {
   idempotencyKey: string;
   approvalId?: string | null;
 }

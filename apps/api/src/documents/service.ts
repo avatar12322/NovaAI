@@ -400,7 +400,7 @@ interface ChunkHitRow {
  * Zapytanie działa pod RLS kontekstu (NovaAI => scope 'shared'), a każdy dokument jest dodatkowo
  * sprawdzany polityką aplikacji; rozbieżność jest audytowana i dokument pomijany.
  */
-export interface AllowedDocument {
+interface AllowedDocument {
   title: string;
   filename: string;
   format: DocumentFormat;

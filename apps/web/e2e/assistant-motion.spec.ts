@@ -1,23 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { shot, loginAs } from './helpers';
 
 /**
  * Animacje asystenta: wskaźnik pracy z etapem i „kulą”, wejście nowych wiadomości, odsłanianie odpowiedzi;
  * wiadomości z historii bez animacji; „ogranicz ruch” wyłącza animacje. Tryb demo (bez modelu).
  */
-const SCREENS = process.env.E2E_SCREENSHOTS
-  ? resolve(import.meta.dirname, '../../../docs/screens')
-  : resolve(import.meta.dirname, '../test-results/screens');
-mkdirSync(SCREENS, { recursive: true });
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: resolve(SCREENS, `${test.info().project.name}-${name}.png`) });
-
-async function loginAs(page: Page, who: 'Alfa (test)' | 'Beta (test)') {
-  await page.goto('/');
-  await page.getByRole('button', { name: new RegExp(who.replace(/[()]/g, '\\$&')) }).click();
-  await expect(page.locator('.envbar')).toContainText(who);
-}
 
 async function newConversation(page: Page) {
   await page.goto('/#/chat/private');
@@ -30,6 +17,19 @@ test('asystent „myśli” z etapem, nowa odpowiedź wchodzi z animacją; histo
 }) => {
   // Bez strumienia zdarzeń koniec tury wykryje dopiero odpytywanie (co 2 s) — wskaźnik jest widoczny dłużej.
   await page.route('**/api/events/stream', (r) => r.abort());
+  // Syntezator mowy pod kontrolą testu: odczyt trwa do „Zatrzymaj” (cancel kończy wypowiedź).
+  await page.addInitScript(() => {
+    const synth = window.speechSynthesis;
+    let current: SpeechSynthesisUtterance | null = null;
+    synth.speak = (u) => {
+      current = u;
+    };
+    synth.cancel = () => {
+      const u = current;
+      current = null;
+      u?.onend?.(new Event('end') as SpeechSynthesisEvent);
+    };
+  });
   await loginAs(page, 'Alfa (test)');
   await newConversation(page);
   await page.locator('#composer-input').fill('co pamiętasz?');
@@ -58,6 +58,15 @@ test('asystent „myśli” z etapem, nowa odpowiedź wchodzi z animacją; histo
   await expect(page.locator('.msg-assistant').last()).toContainText('tryb demo');
   await expect(page.locator('.msg[data-fresh]')).toHaveCount(0);
   await expect(page.locator('.msg-enter')).toHaveCount(0);
+
+  // Odczyt na głos: kula „mówi”, przycisk pokazuje equalizer i zatrzymuje odczyt.
+  const orb = page.locator('.conv-head .orb');
+  await page.getByRole('button', { name: 'Odczytaj odpowiedź' }).last().click();
+  await expect(orb).toHaveClass(/orb-speaking/);
+  const stop = page.getByRole('button', { name: 'Zatrzymaj odczyt' });
+  await expect(stop.locator('.eq')).toBeVisible();
+  await stop.click();
+  await expect(orb).toHaveClass(/orb-idle/);
 });
 
 test.describe('ograniczony ruch', () => {

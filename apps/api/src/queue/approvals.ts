@@ -2,9 +2,9 @@ import type pg from 'pg';
 import { emitEvent } from '../events';
 import type { PlannedCall } from '../tools/broker';
 
-export const APPROVAL_TTL_MS = 24 * 3600_000;
+const APPROVAL_TTL_MS = 24 * 3600_000;
 
-export interface ApprovalTarget {
+interface ApprovalTarget {
   taskId: string;
   stepId: string;
   householdId: string;

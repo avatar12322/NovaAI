@@ -340,7 +340,7 @@ export function demoWorkflowSteps(message: string): StepSpec[] {
 const MAX_TOOL_MESSAGE = 6000;
 
 /** Czytelna forma wyniku narzędzia do rozmowy (z limitem długości). */
-export function formatToolResult(tool: string, out: Record<string, unknown>): string {
+function formatToolResult(tool: string, out: Record<string, unknown>): string {
   const summary = typeof out.summary === 'string' ? out.summary : tool;
   let body = '';
   if (Array.isArray(out.entries)) {

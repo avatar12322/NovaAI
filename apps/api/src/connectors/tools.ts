@@ -1,6 +1,6 @@
 import { decide } from '@nova/permissions';
 import { z } from 'zod';
-import { ToolDenied, type ToolContext, type ToolDef } from '../tools/types';
+import type { ToolContext, ToolDef } from '../tools/types';
 import { mapErr } from './tool-errors';
 import {
   ConnectorError,
@@ -111,7 +111,7 @@ const FreeBusyParams = z
  * calendar.freebusy — NovaAI dostaje WYŁĄCZNIE przedziały zajętości osób, które jawnie wydały grant.
  * Agent prywatny widzi zajętość tylko własnego kalendarza. Szczegóły wydarzeń nigdy nie są zwracane.
  */
-export const calendarFreeBusyTool: ToolDef<{ from: string; to: string }> = {
+const calendarFreeBusyTool: ToolDef<{ from: string; to: string }> = {
   name: 'calendar.freebusy',
   capability: 'calendar.freebusy',
   title: 'Sprawdź zajętość w kalendarzu',
@@ -185,7 +185,7 @@ type EventsParams = { from: string; to: string; max: number; account?: 'google' 
  * calendar.events — szczegóły wydarzeń (tytuł, czas, miejsce) z WŁASNEGO kalendarza, tylko dla agenta
  * prywatnego i tylko, gdy użytkownik włączył „odczyt wydarzeń” przy łączeniu konta. NovaAI tego nie ma.
  */
-export const calendarEventsTool: ToolDef<EventsParams> = {
+const calendarEventsTool: ToolDef<EventsParams> = {
   name: 'calendar.events',
   capability: 'calendar.read',
   title: 'Pokaż wydarzenia z kalendarza',
@@ -254,7 +254,7 @@ const noMailForNova = async (ctx: ToolContext) =>
 
 type SearchParams = { query: string; max: number; account?: 'google' | 'microsoft' };
 
-export const mailSearchTool = mailTool<SearchParams>({
+const mailSearchTool = mailTool<SearchParams>({
   name: 'mail.search',
   capability: 'mail.search',
   title: 'Szukaj w poczcie',
@@ -297,7 +297,7 @@ export const mailSearchTool = mailTool<SearchParams>({
 
 type ReadParams = { messageId: string; account?: 'google' | 'microsoft' };
 
-export const mailReadTool = mailTool<ReadParams>({
+const mailReadTool = mailTool<ReadParams>({
   name: 'mail.read',
   capability: 'mail.read',
   title: 'Odczytaj wiadomość',
@@ -440,8 +440,8 @@ function outgoingTool(kind: 'send' | 'draft'): ToolDef<OutgoingParams> {
   };
 }
 
-export const mailSendTool = outgoingTool('send');
-export const mailDraftTool = outgoingTool('draft');
+const mailSendTool = outgoingTool('send');
+const mailDraftTool = outgoingTool('draft');
 
 export const CONNECTOR_TOOLS: ToolDef[] = [
   calendarFreeBusyTool as unknown as ToolDef,
@@ -463,7 +463,3 @@ export const CONNECTOR_REQUIRED: ReadonlyMap<string, ConnectorCapability> = new 
   ['slack.search', 'chat.read'],
   ['slack.send', 'chat.send'],
 ]);
-
-export function assertNever(x: never): never {
-  throw new ToolDenied(String(x));
-}

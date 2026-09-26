@@ -12,7 +12,7 @@ import type { AppConfig } from '../config';
 const PKCS8_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 
-export function privateKeyFromSeed(seed: Buffer): KeyObject {
+function privateKeyFromSeed(seed: Buffer): KeyObject {
   if (seed.length !== 32) throw new Error('seed Ed25519 musi mieć 32 bajty');
   return createPrivateKey({
     key: Buffer.concat([PKCS8_ED25519_PREFIX, seed]),

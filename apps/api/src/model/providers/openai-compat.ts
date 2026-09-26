@@ -7,7 +7,7 @@ import {
   type ProviderResponse,
 } from '../types';
 
-export interface OpenAiCompatOptions {
+interface OpenAiCompatOptions {
   /** Np. http://127.0.0.1:8642/v1 (Hermes API server) — bez końcowego ukośnika. */
   baseUrl: string;
   apiKey: string;

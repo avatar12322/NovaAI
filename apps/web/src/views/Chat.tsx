@@ -11,7 +11,7 @@ import {
 import { AgentOrb, AssistantActivity, RevealText } from '../components/Assistant';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Icon } from '../components/Icon';
-import { DictationButton, SpeakButton } from '../components/Voice';
+import { DictationButton, SpeakButton, useSpeaking } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useEventEffect } from '../lib/events';
@@ -175,6 +175,7 @@ function ConversationPane({
   const [thinking, setThinking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const speaking = useSpeaking();
   /** Wiadomości znane od otwarcia rozmowy; tylko nowsze dostają animację wejścia i odsłaniania. */
   const seen = useRef<Set<string> | null>(null);
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
@@ -295,7 +296,7 @@ function ConversationPane({
         >
           ←
         </a>
-        <AgentOrb state={thinking ? 'thinking' : 'idle'} size={30} />
+        <AgentOrb state={thinking ? 'thinking' : speaking ? 'speaking' : 'idle'} size={30} />
         <div>
           <h2>{conv?.title ?? '…'}</h2>
           <p className="muted small">

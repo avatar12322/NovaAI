@@ -1,34 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { expect, test } from '@playwright/test';
+import { shot, loginAs, logout } from './helpers';
 
 /**
  * Smoke/e2e UI na prawdziwym API (baza nova_e2e) — desktop i telefon.
  * Zrzuty ekranów: z E2E_SCREENSHOTS=1 trafiają do docs/screens (dokumentacja),
  * w przeciwnym razie do test-results (ignorowane przez Git).
  */
-const SCREENS = process.env.E2E_SCREENSHOTS
-  ? resolve(import.meta.dirname, '../../../docs/screens')
-  : resolve(import.meta.dirname, '../test-results/screens');
-mkdirSync(SCREENS, { recursive: true });
-
-async function shot(page: Page, name: string) {
-  const project = test.info().project.name;
-  await page.screenshot({ path: resolve(SCREENS, `${project}-${name}.png`), fullPage: false });
-}
-
-async function loginAs(page: Page, who: 'Alfa (test)' | 'Beta (test)') {
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Wybierz konto testowe' })).toBeVisible();
-  await page.getByRole('button', { name: new RegExp(who.replace(/[()]/g, '\\$&')) }).click();
-  await expect(page.locator('.envbar')).toContainText(who);
-}
-
-async function logout(page: Page) {
-  await page.goto('/#/settings');
-  await page.getByRole('button', { name: 'Wyloguj' }).last().click();
-  await expect(page.getByRole('heading', { name: 'Wybierz konto testowe' })).toBeVisible();
-}
 
 test('logowanie testowe, czat prywatny, pamięć i jawne udostępnienie', async ({ page }) => {
   const tag = `${test.info().project.name}-${Date.now()}`;

@@ -97,7 +97,7 @@ const monthRange = (month: string) => {
   return { from: new Date(Date.UTC(y, m - 1, 1)), to: new Date(Date.UTC(y, m, 1)) };
 };
 
-export function budgetState(budget: number, spent: number): BudgetState {
+function budgetState(budget: number, spent: number): BudgetState {
   if (spent > budget) return 'exceeded';
   if (spent >= budget * 0.8) return 'near';
   return 'ok';
@@ -319,7 +319,7 @@ function zoneOffsetMinutes(at: Date, timeZone: string): number {
   return Math.round((local - at.getTime()) / 60_000);
 }
 
-export const REMINDER_TZ = 'Europe/Warsaw';
+const REMINDER_TZ = 'Europe/Warsaw';
 
 /** Godzina 09:00 czasu polskiego w danym dniu (z uwzględnieniem czasu letniego). */
 export function nineAmWarsaw(dateText: string): Date {
@@ -440,7 +440,7 @@ const norm = (s: string) =>
     .replace(/ł/g, 'l')
     .trim();
 
-export interface ImportRow {
+interface ImportRow {
   line: number;
   invoiceNumber: string;
   issuedOn: string | null;

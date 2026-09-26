@@ -31,9 +31,9 @@ export function createDb(appUrl: string, ownerUrl: string): Db {
   };
 }
 
-export type DbScope = 'user' | 'shared';
+type DbScope = 'user' | 'shared';
 
-export interface UserDbContext {
+interface UserDbContext {
   userId: string;
   scope: DbScope;
 }

@@ -102,10 +102,10 @@ function readTool(
   };
 }
 
-export const deviceListTool = readTool('device.files.list', 'Lista plików', 'path');
-export const deviceReadTool = readTool('device.files.read', 'Odczyt pliku', 'path');
-export const deviceGitStatusTool = readTool('device.git.status', 'Git status', 'repoPath');
-export const deviceGitDiffTool = readTool('device.git.diff', 'Git diff', 'repoPath');
+const deviceListTool = readTool('device.files.list', 'Lista plików', 'path');
+const deviceReadTool = readTool('device.files.read', 'Odczyt pliku', 'path');
+const deviceGitStatusTool = readTool('device.git.status', 'Git status', 'repoPath');
+const deviceGitDiffTool = readTool('device.git.diff', 'Git diff', 'repoPath');
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
@@ -119,7 +119,7 @@ const cacheKey = (d: string, p: string, sha: string | null) => `${d}|${p}|${sha 
  * Zapis pliku: ZAWSZE wymaga zgody z podglądem diff. Parametry zamrażają `baseSha256` — Worker odmówi,
  * jeśli plik zmienił się od podglądu. Worker robi kopię zapasową i atomową zamianę.
  */
-export const deviceWriteTool: ToolDef<WriteParams> = {
+const deviceWriteTool: ToolDef<WriteParams> = {
   name: 'device.files.write',
   capability: 'device.files.write',
   title: 'Zapis pliku',

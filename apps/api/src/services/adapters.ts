@@ -6,7 +6,7 @@ import type { CostAdapterId } from '@nova/contracts';
  * „Podłączony” = po udanej synchronizacji; do tego czasu UI pokazuje „niepodłączone”.
  * Dokumentacja sprawdzona 2026-09-26 (docs/DECISIONS.md D-029). Adresy można podmienić w testach.
  */
-export interface CostReportDay {
+interface CostReportDay {
   /** Dzień UTC (YYYY-MM-DD). */
   day: string;
   amountMicros: number;
@@ -88,7 +88,7 @@ function addDay(map: Map<string, CostReportDay>, d: string, currency: string, mi
  * i `anthropic-version: 2023-06-01`. Kwoty: tekst dziesiętny w najmniejszych jednostkach (centy), waluta USD.
  * Niedostępne dla kont indywidualnych; koszty Priority Tier nie są w tym raporcie.
  */
-export class AnthropicCostAdapter implements CostAdapter {
+class AnthropicCostAdapter implements CostAdapter {
   readonly id = 'anthropic' as const;
   readonly title = 'Anthropic (Claude API) — raport kosztów organizacji';
   readonly docsUrl = 'https://platform.claude.com/docs/en/manage-claude/usage-cost-api';
@@ -149,7 +149,7 @@ export class AnthropicCostAdapter implements CostAdapter {
  * `limit` 1–180, stronicowanie `has_more`/`next_page`), nagłówek `Authorization: Bearer` z kluczem
  * administracyjnym. Kwoty: `amount.value` w dolarach (liczba), `amount.currency` („usd”).
  */
-export class OpenAICostAdapter implements CostAdapter {
+class OpenAICostAdapter implements CostAdapter {
   readonly id = 'openai' as const;
   readonly title = 'OpenAI API — raport kosztów organizacji';
   readonly docsUrl = 'https://developers.openai.com/cookbook/examples/completions_usage_api';

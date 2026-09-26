@@ -48,7 +48,7 @@ const WEB_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
-export interface BuildOptions {
+interface BuildOptions {
   logger?: boolean;
   /** Klucz publiczny do podpisu poleceń urządzeń (z createApp). Brak => moduł urządzeń wyłączony. */
   deviceServerPublicKey?: Buffer;

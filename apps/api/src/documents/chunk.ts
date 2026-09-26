@@ -11,7 +11,7 @@ export interface ChunkDraft {
   content: string;
 }
 
-export const CHUNK_TARGET = 900;
+const CHUNK_TARGET = 900;
 export const CHUNK_MAX = 1400;
 
 interface Block {

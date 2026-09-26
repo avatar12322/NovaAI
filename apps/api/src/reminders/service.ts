@@ -5,10 +5,10 @@ import { createTask } from '../queue/tasks';
 import type { TaskKindDef } from '../queue/runner';
 import { ToolDenied } from '../tools/types';
 
-export const MAX_ACTIVE_REMINDERS = 50;
+const MAX_ACTIVE_REMINDERS = 50;
 export const MAX_AHEAD_MS = 366 * 24 * 3600_000;
 
-export interface NewReminder {
+interface NewReminder {
   householdId: string;
   visibility: 'private' | 'shared';
   text: string;

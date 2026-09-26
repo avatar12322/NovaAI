@@ -9,7 +9,7 @@ import { writeAudit } from '../audit';
 import type { Db } from '../db/pool';
 import { hashParams } from '../lib/crypto';
 import type { Principal } from '../principal';
-import { DeviceOffline, DeviceTimeout, type DeviceHub } from './hub';
+import { DeviceTimeout, type DeviceHub } from './hub';
 import { isWithinRoot } from './paths';
 
 export class DeviceDenied extends Error {
@@ -18,9 +18,8 @@ export class DeviceDenied extends Error {
   }
 }
 export class DeviceCommandFailed extends Error {}
-export { DeviceOffline, DeviceTimeout };
 
-export interface DeviceRow {
+interface DeviceRow {
   id: string;
   household_id: string;
   owner_user_id: string;
@@ -30,13 +29,13 @@ export interface DeviceRow {
   public_key: Buffer;
 }
 
-export interface GrantRow {
+interface GrantRow {
   id: string;
   capability: 'device.files.read' | 'device.files.write' | 'device.git.read';
   root: string;
 }
 
-export interface ExecOptions {
+interface ExecOptions {
   taskId: string | null;
   idempotencyKey: string;
   correlationId: string;

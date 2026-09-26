@@ -9,7 +9,7 @@ import { BudgetBlocked, ModelUnavailable, type ModelGateway } from './gateway';
 import { ProviderError } from './types';
 import { locatorLabel } from '../documents/text';
 
-export interface ToolCatalog {
+interface ToolCatalog {
   describe(names: readonly string[]): ToolSpec[];
 }
 

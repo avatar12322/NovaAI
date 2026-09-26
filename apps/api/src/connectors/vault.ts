@@ -5,7 +5,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:cr
  * AAD wiąże szyfrogram z (użytkownik, dostawca, id połączenia) — podmiana rekordów między użytkownikami
  * kończy się błędem uwierzytelnienia. Rotacja: nowy klucz główny + stare klucze tylko do odszyfrowania.
  */
-export interface VaultKey {
+interface VaultKey {
   id: string;
   key: Buffer;
 }

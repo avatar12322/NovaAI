@@ -3,7 +3,7 @@ import pg from 'pg';
 import type { Db, Queryable } from './db/pool';
 import { redact } from './lib/redact';
 
-export interface EmitEvent {
+interface EmitEvent {
   householdId: string;
   ownerUserId: string | null;
   visibility: 'private' | 'shared';

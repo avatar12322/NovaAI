@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import type pg from 'pg';
 import { REPO_ROOT } from '../config';
 
-export const MIGRATIONS_DIR = resolve(REPO_ROOT, 'infra/migrations');
+const MIGRATIONS_DIR = resolve(REPO_ROOT, 'infra/migrations');
 
 interface MigrationFile {
   name: string;
@@ -22,7 +22,7 @@ async function loadMigrations(dir: string): Promise<MigrationFile[]> {
   );
 }
 
-export interface MigrationStatus {
+interface MigrationStatus {
   applied: number;
   pending: number;
 }

@@ -1,24 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { expect, test } from '@playwright/test';
+import { shot, loginAs, logout } from './helpers';
 
 /**
  * „Modele AI i klucze API” w UI: dodanie dostawcy z kluczem (widać tylko 4 ostatnie znaki), model z cennikiem
  * i kursem waluty, widok domownika tylko do odczytu, usunięcie. Bez żadnych wywołań dostawców: adres to domena
  * .test (nigdy nie istnieje), dostawca jest wyłączony przed dodaniem modelu, a „Sprawdź klucz” nie jest klikane.
  */
-const SCREENS = process.env.E2E_SCREENSHOTS
-  ? resolve(import.meta.dirname, '../../../docs/screens')
-  : resolve(import.meta.dirname, '../test-results/screens');
-mkdirSync(SCREENS, { recursive: true });
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: resolve(SCREENS, `${test.info().project.name}-${name}.png`) });
-
-async function loginAs(page: Page, who: 'Alfa (test)' | 'Beta (test)') {
-  await page.goto('/');
-  await page.getByRole('button', { name: new RegExp(who.replace(/[()]/g, '\\$&')) }).click();
-  await expect(page.locator('.envbar')).toContainText(who);
-}
 
 // Wartość testowa — nie jest kluczem żadnego dostawcy i nigdy nie jest nigdzie wysyłana.
 const FAKE_KEY = 'e2e-not-a-real-key-0000000000-T3ST';
@@ -94,8 +81,7 @@ test('dostawca modeli: klucz tylko do zapisu, model z cennikiem, domownik tylko 
   await shot(page, '17-models');
 
   // Domownik: widzi stan i końcówkę klucza, bez przycisków zmian.
-  await page.goto('/#/settings');
-  await page.getByRole('button', { name: 'Wyloguj' }).last().click();
+  await logout(page);
   await loginAs(page, 'Beta (test)');
   await page.goto('/#/models');
   const seen = page.locator('.provider-item').filter({ hasText: label });
@@ -106,8 +92,7 @@ test('dostawca modeli: klucz tylko do zapisu, model z cennikiem, domownik tylko 
   await expect(page.getByRole('button', { name: 'Zapisz kurs' })).toHaveCount(0);
 
   // Właściciel usuwa dostawcę razem z modelem.
-  await page.goto('/#/settings');
-  await page.getByRole('button', { name: 'Wyloguj' }).last().click();
+  await logout(page);
   await loginAs(page, 'Alfa (test)');
   await page.goto('/#/models');
   page.once('dialog', (d) => void d.accept());
