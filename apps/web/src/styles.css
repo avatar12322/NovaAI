@@ -903,10 +903,11 @@ label {
   gap: var(--space-2);
 }
 .panel .grant-form:has(input[type='datetime-local']) {
-  grid-template-columns: 1fr 190px 190px auto;
+  grid-template-columns: 1fr 230px 230px auto;
 }
 .reminder-form {
-  grid-template-columns: 1fr 190px 170px auto;
+  /* Pole daty mieści format z godziną także w angielskiej wersji przeglądarki (mm/dd/rrrr, hh:mm AM). */
+  grid-template-columns: 1fr 230px 170px auto;
   margin-bottom: var(--space-2);
 }
 .pairing-code {

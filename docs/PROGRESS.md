@@ -258,6 +258,9 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
       „Wybierz pliki” i polskie statusy dokumentów z odnośnikiem.
   12. Puste stany bez wskazówki (Zgody, Wiadomości, Przypomnienia) i błąd gramatyczny („z Asystent Bety”) → konkretne
       wskazówki, co zrobić. Przycisk zadania demonstracyjnego ukryty w produkcji.
+  13. (Druga runda zrzutów) Na liście przypomnień nie było widać, które są wspólne → oznaczenie „dla domowników” /
+      „od: …” / „tylko dla mnie”; pole daty w formularzu przypomnień i kalendarza lokalnego ucinało początek → szersza kolumna.
+- Zrzuty w `docs/screens/` odświeżone z e2e (`E2E_SCREENSHOTS=1`), w tym nowe: dokumenty, źródła w czacie, fragment.
 - Nie zmieniono: format pola daty w przeglądarce (natywne, zależy od języka przeglądarki/systemu).
 - Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 27/27, api 187/187 (nowe: `conversations.test.ts` 2,
   testy fragmentów Markdown i wycinków), web 4/4; `pnpm test:e2e` → 20/20 (test NovaAI wyszukuje rozmowę po tytule).

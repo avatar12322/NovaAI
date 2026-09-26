@@ -51,7 +51,11 @@ export function RemindersPanel() {
       <span>
         <span className="mono small">{fmt(r.dueAt)}</span> {r.text}{' '}
         {r.status === 'fired' && <Badge tone="ok">dostarczone</Badge>}
-        {r.visibility === 'shared' && !r.isMine && <span className="tag">od: {r.ownerName}</span>}
+        {r.visibility === 'shared' ? (
+          <Badge tone="accent">{r.isMine ? 'dla domowników' : `od: ${r.ownerName}`}</Badge>
+        ) : (
+          <Badge>tylko dla mnie</Badge>
+        )}
       </span>
       {r.isMine && r.status === 'scheduled' && (
         <button
