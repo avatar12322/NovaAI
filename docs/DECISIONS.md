@@ -44,6 +44,9 @@ przeciw równoległym uruchomieniom. Brak narzędzia zewnętrznego — mniej zal
 Środowisko sesji ma klienta Docker bez demona, ale ma PostgreSQL 16. `scripts/pg-local.sh` tworzy klaster
 w `./.data/pg` (port 54329, tylko loopback). `infra/compose.yaml` daje ten sam port i role dla Docker
 Desktop (Windows). Oba warianty wykonują `infra/db/init.sql` (role + bazy `nova_dev`, `nova_test`).
+Hasło superużytkownika kontenera nie jest w repozytorium (zgłoszenie skanera sekretów, 2026-09-26): Compose wymaga
+`NOVA_PG_SUPERUSER_PASSWORD` z lokalnego `.env` (`docker compose --env-file .env -f infra/compose.yaml up -d`).
+Wcześniejsza wartość była wyłącznie deweloperska (kontener na 127.0.0.1) i pozostaje w historii Gita.
 
 ## D-007 Sesje i logowanie
 
@@ -208,8 +211,8 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   i nie jest przekazywana modelowi jako polecenie (runtime modelu używa tylko ról user/assistant).
 - Webhooki: `POST /api/webhooks/slack` — HMAC `v0` z `SLACK_SIGNING_SECRET`, okno 5 min, `url_verification`,
   deduplikacja po `event_id` (`webhook_deliveries`). Mapowanie zdarzeń na użytkowników/zadania — nie zaimplementowano.
-- Slack (OAuth): niezaimplementowany; Google Pub/Sub push (JWT OIDC) i odnawianie subskrypcji (watch/Graph) — nie
-  zaimplementowano. Microsoft (Outlook) — patrz D-027.
+- Google Pub/Sub push (JWT OIDC) i odnawianie subskrypcji (watch/Graph) — nie zaimplementowano. Microsoft (Outlook) —
+  patrz D-027, Slack — D-028.
 
 ## D-020 Proaktywność (M6): przypomnienia w trwałej kolejce, prywatność i koszt przed akcją
 
@@ -351,3 +354,61 @@ zostało sprawdzone na prawdziwym koncie ani dzierżawie Microsoft** — tylko n
   i pokazuje komunikat „organizacja wymaga zgody administratora”. Rozpoznanie jest heurystyczne; treść opisu błędu
   nie jest zapisywana (audyt ma tylko krótki kod i wyprowadzony powód).
 - Poza zakresem: subskrypcje zmian (webhooki Graph), zapis w kalendarzu, załączniki, foldery i wątki poczty.
+
+## D-028 Slack: token użytkownika, wyszukiwanie na żywo bez zapisu, wysyłka przez zgody
+
+Źródła: oficjalna dokumentacja Slack (docs.slack.dev), sprawdzona 2026-09-26 — instalacja z OAuth v2
+(`oauth/v2/authorize`, `oauth.v2.access`, `user_scope`), PKCE, rotacja tokenów, `auth.test`, `auth.revoke`,
+Real-time Search API i `assistant.search.context`, `search.messages` (oznaczone jako przestarzałe),
+`conversations.info`, `chat.postMessage`, Events API (ponowienia) oraz zdarzenia `tokens_revoked` i `app_uninstalled`.
+**Nic z tego nie zostało sprawdzone na prawdziwym workspace Slack** — tylko na lokalnej atrapie odtwarzającej kontrakt.
+
+- Każda osoba łączy własne konto: wyłącznie zakresy UŻYTKOWNIKA (`user_scope`, token `xoxp`), bez zakresów bota.
+  Tożsamość tokenu potwierdza `auth.test` (bez zakresów); workspace i użytkownik Slack są zapisywane przy połączeniu
+  (migracja 0012). Jedno konto Slack może być połączone tylko z jedną osobą NovaAI (unikalny indeks) — druga próba
+  kończy się komunikatem „połączone przez inną osobę”, bez odwołania tokenu (Slack może zwrócić ten sam token).
+- Bez PKCE: w Slacku włączenie PKCE zmienia aplikację w klienta publicznego (bez sekretu, nieodwracalnie, refresh
+  tokeny ważne 30 dni). NovaAI jest klientem poufnym: sekret klienta + jednorazowy `state` wiążący osobę.
+  Redirect URL musi być HTTPS (lokalnie potrzebny tunel).
+- Najmniejsze zakresy per zdolność (użytkownik wybiera w Ustawieniach; domyślnie tylko kanały publiczne):
+
+  | Zdolność            | Metoda Slack                              | Zakresy użytkownika                          |
+  | ------------------- | ----------------------------------------- | -------------------------------------------- |
+  | `chat.read`         | `assistant.search.context` (kanały publ.) | `search:read.public`                         |
+  | `chat.read_private` | j.w. + `private_channel`                  | + `search:read.private`                      |
+  | `chat.read_dm`      | j.w. + `im`, `mpim`                       | + `search:read.im`, `search:read.mpim`       |
+  | `chat.send`         | `conversations.info`, `chat.postMessage`  | `chat:write`, `channels:read`, `groups:read` |
+
+  Odczyt przez Real-time Search API, nie przez `search.messages`/`search:read` (dokumentacja: nie używać). Wzmianki
+  = wyszukiwanie `<@ID_UŻYTKOWNIKA>` od najnowszych (`sort=timestamp`, bez wyszukiwania semantycznego) z ostatnich
+  N dni. Slack zwraca wyłącznie wiadomości z rozmów, do których należy ta osoba.
+
+- **Brak zapisu treści**: zasady Real-time Search API zabraniają przechowywania i kopiowania pobranych danych.
+  Narzędzia `slack.mentions` / `slack.search` zapisują tylko liczbę wyników i parametry (`live`); treść jest
+  pobierana na żywo — w czacie przyciskiem „Pokaż na żywo” (`POST /api/connections/slack/live`, `Cache-Control:
+no-store`, tokenem pytającej osoby) oraz dla modelu w turze uzupełniającej (nie trafia do bazy). Odpowiedź asystenta
+  (podsumowanie) jest zapisywana jak każda odpowiedź — to zamierzone użycie API w aplikacjach AI. Test sprawdza całą
+  bazę pod kątem treści ze Slacka.
+- Dostępność Real-time Search API: tylko aplikacje wewnętrzne (utworzone w danym workspace) albo opublikowane
+  w Slack Marketplace — aplikacja „rozproszona, niepublikowana” nie może z niego korzystać; przeznaczone dla aplikacji
+  z funkcjami AI; limit ok. 10 zapytań/min na użytkownika. Dla domu w jednym workspace: aplikacja wewnętrzna.
+  Workspace z zatwierdzaniem aplikacji wymaga zgody administratora przed połączeniem.
+- Wysyłka (`slack.send`) jako ta osoba, zawsze po zgodzie, `nonIdempotentExternal`, bez rozwijania linków. Nazwa
+  kanału, członkostwo i archiwizacja pochodzą z `conversations.info` przy planowaniu (nadpisują cokolwiek podał model),
+  więc podgląd zgody pokazuje prawdziwy cel i konto nadawcy. Tylko kanały publiczne i prywatne (także odpowiedź
+  w wątku); rozmowy bezpośrednie i grupowe — nieobsługiwane (wymagałyby `im:read`, `mpim:read`, `users:read`).
+- Tokeny: bez rotacji nie wygasają; przy włączonej rotacji (ustawienie aplikacji) 12 h i jednorazowy refresh token —
+  odświeżanie pod blokadą wiersza, `token_expired` ⇒ jedno odświeżenie i ponowienie. `invalid_auth`, `token_revoked`,
+  `account_inactive` ⇒ „wymaga ponownego połączenia”. `missing_scope` ⇒ brak uprawnienia; 429/`ratelimited`, błędy
+  5xx, brak sieci i przekroczony czas ⇒ błąd przejściowy (ponowienie kroku, w API na żywo 503); błędy kanału
+  (`not_in_channel`, `is_archived`, `channel_not_found`, `restricted_action`) i wyłączone wyszukiwanie ⇒ czytelna odmowa.
+- Odłączenie: `auth.revoke` tokenem tej osoby, potem usunięcie tokenów lokalnie; brak potwierdzenia od Slacka (np. brak
+  sieci) ⇒ tokeny i tak usunięte, a komunikat prosi o usunięcie aplikacji w Slacku.
+- Events API (`POST /api/webhooks/slack`): podpis HMAC `v0` z `SLACK_SIGNING_SECRET`, okno 5 min, `url_verification`.
+  Obsługiwane `tokens_revoked` (lista `oauth` = użytkownicy) i `app_uninstalled` (cały workspace): połączenia dostają
+  stan „dostęp cofnięty w Slacku”, tokeny są usuwane, właściciel dostaje powiadomienie. Deduplikacja po `event_id`
+  i przetworzenie w jednej transakcji: ponowienie Slacka (`x-slack-retry-num`: od razu, po 1 min, po 5 min) po udanym
+  przetworzeniu jest tylko liczone (`webhook_deliveries.duplicates`); błąd przetwarzania ⇒ wycofanie i 500, więc
+  ponowienie przetwarza zdarzenie. Odpowiedź w < 3 s (tylko operacje w bazie). Inne zdarzenia: `ignored`, bez treści.
+- Poza zakresem: powiadomienia push o nowych wzmiankach (wymagałyby subskrypcji zdarzeń wiadomości i zakresów
+  `*:history`), pliki, reakcje, edycja i usuwanie wiadomości, instalacje Enterprise Grid (org-wide).

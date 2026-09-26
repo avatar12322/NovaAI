@@ -4,19 +4,19 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 ## Status etapów
 
-| Etap                     | Status    | Uwagi                                                                                                                                                          |
-| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0 — szkielet            | gotowe    | workspace, API, web, Postgres lokalny, migracje, healthcheck; Compose nieprzetestowany (brak Dockera)                                                          |
-| M1 — izolacja            | gotowe    | sesje, polityka + RLS, rozmowy, pamięć, udostępnianie, audyt; testy izolacji Alfa/Beta                                                                         |
-| M2 — UI i zadania        | gotowe    | trwała kolejka, zgody, SSE, UI desktop/telefon, PWA; e2e                                                                                                       |
-| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, wyniki narzędzi → model; adaptery Anthropic/Hermes tylko na mockach (brak kluczy)                                                |
-| M4 — Worker              | częściowe | protokół, symulator, Worker Rust (Linux + interop z API); na Windows tylko kompilacja, bez uruchomienia                                                        |
-| M5 — integracje          | częściowe | Google i Microsoft (Outlook: poczta, kalendarz) tylko na atrapach — połączenie z kontami NIESPRAWDZONE; Slack webhook; Teams i Slack OAuth niezaimplementowane |
-| M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej                                            |
-| Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                                                     |
-| Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                                                              |
-| Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                                                           |
-| Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa                                               |
+| Etap                     | Status    | Uwagi                                                                                                                             |
+| ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| M0 — szkielet            | gotowe    | workspace, API, web, Postgres lokalny, migracje, healthcheck; Compose nieprzetestowany (brak Dockera)                             |
+| M1 — izolacja            | gotowe    | sesje, polityka + RLS, rozmowy, pamięć, udostępnianie, audyt; testy izolacji Alfa/Beta                                            |
+| M2 — UI i zadania        | gotowe    | trwała kolejka, zgody, SSE, UI desktop/telefon, PWA; e2e                                                                          |
+| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, wyniki narzędzi → model; adaptery Anthropic/Hermes tylko na mockach (brak kluczy)                   |
+| M4 — Worker              | częściowe | protokół, symulator, Worker Rust (Linux + interop z API); na Windows tylko kompilacja, bez uruchomienia                           |
+| M5 — integracje          | częściowe | Google, Microsoft (Outlook) i Slack tylko na atrapach — połączenie z kontami i workspace NIESPRAWDZONE; Teams niezaimplementowany |
+| M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej               |
+| Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                        |
+| Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                                 |
+| Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                              |
+| Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa                  |
 
 ## Dziennik
 
@@ -314,6 +314,57 @@ i Graph odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26, szczegó
   zachowanie dzierżaw z ograniczonymi zgodami (kody AADSTS, powrót do aplikacji), semantyka i limity `$search`,
   format identyfikatorów wiadomości, `webLink` szkicu, limity 429.
 
+### Slack: wzmianki, wiadomości i wysyłka przez zgody (2026-09-26)
+
+Gałąź `claude/novaai-slack` (od `claude/novaai-microsoft-graph`). **Integracja nie została sprawdzona ze Slackiem** —
+brak aplikacji i workspace’u; całość zweryfikowana na lokalnej atrapie Slack OAuth v2, Web API i Events API
+odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26; źródła i decyzje: `docs/DECISIONS.md` D-028).
+
+- `SlackConnector` (`apps/api/src/connectors/slack.ts`): osobne połączenie każdej osoby, wyłącznie zakresy użytkownika,
+  tożsamość potwierdzana `auth.test`, opcjonalna rotacja tokenów, `auth.revoke` przy odłączeniu, mapowanie błędów
+  (token odwołany/wygasły, brak zakresu, limit zapytań, brak sieci, przekroczony czas, błędy kanału).
+- Odczyt przez Real-time Search API (`assistant.search.context`) tokenem tej osoby; najmniejsze zakresy:
+  `search:read.public`, opcjonalnie `search:read.private` oraz `search:read.im` + `search:read.mpim`. `search.messages`
+  pominięte — dokumentacja oznacza je jako przestarzałe.
+- **Treść ze Slacka nie jest zapisywana** (zasady Real-time Search API): narzędzia `slack.mentions` i `slack.search`
+  zapisują tylko liczbę i parametry; treść pobierana na żywo — w czacie („Pokaż na żywo”, `no-store`) i dla modelu
+  w turze uzupełniającej. Test przeszukuje całą bazę pod kątem treści wiadomości.
+- `slack.send`: tylko po zgodzie; nazwa kanału, członkostwo i archiwizacja ze Slacka (nie od modelu), konto nadawcy
+  w podglądzie, bez rozwijania linków, odpowiedzi w wątku; rozmowy bezpośrednie/grupowe nieobsługiwane.
+- Events API: podpisane `tokens_revoked` i `app_uninstalled` oznaczają połączenia jako „dostęp cofnięty w Slacku”,
+  usuwają tokeny i wysyłają powiadomienie właścicielowi; ponowienia (ten sam `event_id`) tylko liczone; błąd
+  przetwarzania ⇒ 500 bez zapisu dostawy, ponowienie przetwarza. Jedno konto Slack = jedna osoba NovaAI (migracja 0012).
+- Odłączenie (wszyscy dostawcy) zwraca, czy dostawca potwierdził odwołanie (Google/Slack: tak/nie, Microsoft: brak API).
+  401/`token_revoked` z API dostawcy od razu oznacza połączenie jako „wymaga ponownego połączenia”.
+- UI: karta Slack z wyborem dostępu (domyślnie tylko kanały publiczne), statusem każdego uprawnienia, stanem
+  „dostęp cofnięty w Slacku”; komunikat po odłączeniu; czytelne odmowy Slacka w czacie i krokach zadań.
+  Pole grantu zajętości w Kalendarzu nie łamie się już na telefonie. Przycisk „Pokaż na żywo” i błąd bez połączenia
+  obejrzane jednorazowo na zrzucie z ręcznie wstawionym wynikiem narzędzia (nie dołączono do repozytorium).
+- Testy (`apps/api/src/connectors/slack.test.ts`, 27, dane fikcyjne): stan bez konfiguracji; zakresy per zdolność;
+  URL autoryzacji tylko z `user_scope`; wymiana kodu z `auth.test`, tokeny zaszyfrowane, identyfikatory konta;
+  odrzucenie cudzego konta Slack; odmowa i zły kod; **izolacja** (każda osoba własnym tokenem widzi tylko swoje
+  wzmianki; rozmowa bezpośrednia Alfy i kanał bez członkostwa Bety niewidoczne dla Bety; typy rozmów zgodne z
+  wybranym dostępem); NovaAI bez narzędzi Slacka; **brak zapisu treści** (także w turze modelu); wysyłka i odpowiedź
+  w wątku tylko po zgodzie, odrzucona zgoda niczego nie wysyła, czytelne odmowy (brak członkostwa, archiwum, rozmowa
+  grupowa, rozmowa bezpośrednia, brak uprawnienia), konto odłączone po zgodzie blokuje wysyłkę; **odłączenie**
+  (`auth.revoke`, brak potwierdzenia przy niedostępnym Slacku); **zdarzenia** (odwołanie tokenów z powiadomieniem,
+  dwa ponowienia bez ponownego przetworzenia, błąd przetwarzania ⇒ 500 i przetworzenie przy ponowieniu,
+  odinstalowanie w jednym workspace bez wpływu na inny, ignorowane zdarzenia bez zapisu treści, zły podpis i stary
+  znacznik czasu); **błędy połączenia** (429 ⇒ ponowienie kroku i 503 w API na żywo, brak sieci ⇒ błąd kroku bez utraty
+  konta, token odwołany bez zdarzenia, rotacja z jednorazowym refresh tokenem i `token_expired` ⇒ odświeżenie
+  i ponowienie, brak zakresu, wyłączone wyszukiwanie, przekroczony czas odpowiedzi). Kontrola testów: zapisanie treści
+  w wyniku narzędzia i wyłączenie deduplikacji ponowień powodowały porażki odpowiednich testów.
+- Zgłoszenie skanera sekretów (`infra/compose.yaml`, hasło deweloperskie kontenera Postgres): hasło usunięte z pliku,
+  Compose wymaga `NOVA_PG_SUPERUSER_PASSWORD` z lokalnego `.env` (sprawdzone `docker compose config` — z hasłem
+  poprawna konfiguracja, bez hasła jawny błąd; kontenera nie uruchamiano — brak demona Docker). Stara wartość
+  pozostaje w historii Gita (tylko lokalny dev, loopback); przepisanie historii wymagałoby decyzji właściciela.
+- Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 27/27, api 240/240 (w tym Slack 27, Microsoft 26,
+  Google 14), web 5/5; `pnpm test:e2e` → 26/26; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
+- Niesprawdzone (wymaga aplikacji Slack i workspace’u): prawdziwe logowanie i ekran zgody, dostępność Real-time
+  Search API dla aplikacji wewnętrznej (i ustawienia „funkcji AI”), składnia zapytania o wzmianki, limity zapytań,
+  zatwierdzanie aplikacji przez administratora, faktyczne dostarczanie zdarzeń `tokens_revoked`/`app_uninstalled`
+  i ich ponowień, zachowanie przy włączonej rotacji tokenów.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -321,11 +372,12 @@ i Graph odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26, szczegó
   `x86_64-pc-windows-gnu` (bez TLS — brak kompilatora mingw; nie instalowałem pakietów systemowych). Test ręczny:
   `workers/windows/README.md`.
 - Brak kont OAuth (Google Cloud client, Microsoft, Slack) — integracje sprawdzone wyłącznie na lokalnych atrapach;
-  połączenie z Google i Microsoft NIE jest sprawdzone. Google: klient OAuth „Web application”, redirect
+  połączenie z Google, Microsoft i Slackiem NIE jest sprawdzone. Google: klient OAuth „Web application”, redirect
   `<NOVA_PUBLIC_URL>/api/connections/google/callback`, `GOOGLE_CLIENT_ID/SECRET`, weryfikacja zakresów Gmail przez
-  Google przed udostępnieniem. Microsoft: rejestracja aplikacji w Microsoft Entra (README → Integracje), redirect
-  `<NOVA_PUBLIC_URL>/api/connections/microsoft/callback`, `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT`.
-  Oba wymagają `NOVA_SECRET_KEY`.
+  Google przed udostępnieniem. Microsoft: rejestracja aplikacji w Microsoft Entra (README → Integracje),
+  `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT`. Slack: aplikacja wewnętrzna z zakresami użytkownika, redirect
+  HTTPS, Event Subscriptions (README → Integracje), `SLACK_CLIENT_ID/SECRET`, `SLACK_SIGNING_SECRET`.
+  Wszystkie wymagają `NOVA_SECRET_KEY`.
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
 
@@ -335,7 +387,8 @@ i Graph odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26, szczegó
 - Worker: procesy, uruchamianie aplikacji, brokerowane komendy / PowerShell, przeglądarka, zrzuty ekranu, UI Automation
   (spec, sekcja 6, punkty 4–5). Zaimplementowane: pliki (lista/odczyt/zapis z diffem i kopią) oraz git status/diff.
 - Microsoft Teams (wymaga zgody administratora organizacji — `ChannelMessage.Read.All`; czaty tylko konta służbowe),
-  Slack OAuth (jest tylko weryfikowany webhook Slack), Google Drive; subskrypcje zmian Graph/Gmail, załączniki.
+  Google Drive; subskrypcje zmian Graph/Gmail, załączniki. Slack: powiadomienia o nowych wzmiankach w czasie
+  rzeczywistym (wymagałyby zakresów `*:history`), wysyłka do rozmów bezpośrednich, pliki, Enterprise Grid.
 - Web Push (VAPID) — powiadomienia działają w otwartej aplikacji (SSE + lista); transkrypcja głosu po stronie serwera.
 - Zapis w kalendarzach Google i Outlook (jest odczyt: zajętość z grantem, wydarzenia Outlook dla agenta prywatnego,
   kalendarz lokalny).
@@ -343,8 +396,9 @@ i Graph odtwarzającej kontrakt z dokumentacji (sprawdzonej 2026-09-26, szczegó
 ## Następne 3 zadania
 
 1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klienci OAuth
-   Google i Microsoft (README → Integracje) i sprawdzenie połączenia na własnym koncie (logowanie, wyszukiwanie,
-   szkic, zajętość, odłączenie i cofnięcie zgody), Worker na Windows wg `workers/windows/README.md`.
-2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS, kopie zapasowe Postgres, usługa systemowa dla `start:prod`.
-3. Pamięć dokumentów i poczta z prawdziwym modelem: ocena cytowania źródeł i odporności na wstrzyknięcia (dokumenty,
-   treść e-maili) na zestawie pytań; potem Web Push (VAPID).
+   Google i Microsoft oraz aplikacja Slack (README → Integracje) i sprawdzenie na własnych kontach (logowanie, odczyt,
+   szkic/wysyłka po zgodzie, odłączenie i cofnięcie zgody, zdarzenia Slack), Worker na Windows.
+2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS (także redirect HTTPS dla Slacka), kopie zapasowe
+   Postgres, usługa systemowa dla `start:prod`.
+3. Poczta, Slack i dokumenty z prawdziwym modelem: ocena odporności na wstrzyknięcia (treść e-maili, wiadomości Slack,
+   dokumenty) i jakości odpowiedzi na zestawie pytań; potem Web Push (VAPID).

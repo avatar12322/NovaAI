@@ -88,6 +88,10 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
    `wydarzenia: 2026-10-01T00:00:00Z 2026-10-08T00:00:00Z`, `zajętość: <od> <do>`. Słowo `outlook` lub `gmail`
    po poleceniu wskazuje konto, gdy połączone są oba (np. `szukaj maili outlook: faktura`). Wysyłka i szkic zawsze
    czekają na zgodę w **Zgodach**.
+8. Po połączeniu Slacka (tryb demo): `wzmianki slack` (albo `wzmianki slack: 14` — liczba dni),
+   `szukaj na slacku: rachunek`, `napisz na slacku do C0123ABCD: treść`,
+   `odpowiedz na slacku w C0123ABCD 1758790400.000500: treść`. Treść ze Slacka pokazuje przycisk „Pokaż na żywo” —
+   NovaAI jej nie zapisuje. Wysyłka zawsze czeka na zgodę.
 
 ## Integracje (opcjonalnie, własne konta)
 
@@ -107,9 +111,20 @@ tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie w
    `offline_access`, `openid`, `profile`; `Mail.ReadWrite` tylko jeśli chcesz szkice w Outlooku. Aplikacja i tak
    prosi tylko o uprawnienia zaznaczone przez użytkownika przy łączeniu.
 
+**Slack** — aplikacja w api.slack.com/apps utworzona w Twoim workspace (aplikacja wewnętrzna — wyszukiwanie dla
+aplikacji działa tylko dla aplikacji wewnętrznych lub opublikowanych w Slack Marketplace):
+
+1. OAuth & Permissions → Redirect URLs: `<NOVA_PUBLIC_URL>/api/connections/slack/callback` (wymagany HTTPS —
+   lokalnie przez tunel). **User Token Scopes** (nie Bot): `search:read.public`, opcjonalnie `search:read.private`,
+   `search:read.im`, `search:read.mpim`, a do wysyłki `chat:write`, `channels:read`, `groups:read`.
+2. Basic Information → Client ID, Client Secret, Signing Secret → `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`,
+   `SLACK_SIGNING_SECRET`. Nie włączaj PKCE (zmienia aplikację w klienta publicznego, nieodwracalnie).
+3. Event Subscriptions → Request URL `<NOVA_PUBLIC_URL>/api/webhooks/slack`, zdarzenia aplikacji: `tokens_revoked`,
+   `app_uninstalled` (NovaAI oznacza wtedy połączenie jako „dostęp cofnięty”).
+
 W organizacji administrator może wymagać zatwierdzenia aplikacji (wtedy Microsoft pokazuje prośbę o zgodę
-administratora). Teams nie jest zaimplementowany — wymaga zgody administratora (`ChannelMessage.Read.All`) i kont
-służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft).
+administratora, a Slack — prośbę o zatwierdzenie instalacji). Teams nie jest zaimplementowany — wymaga zgody administratora (`ChannelMessage.Read.All`) i kont
+służbowych. Szczegóły, endpointy i ograniczenia: `docs/DECISIONS.md` (D-019 Google, D-027 Microsoft, D-028 Slack).
 
 ## Struktura
 
