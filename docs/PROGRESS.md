@@ -497,6 +497,26 @@ Gałąź `claude/novaai-model-providers` od `claude/novaai-services-costs`. Decy
 - Polecenia i wyniki: `pnpm check` → contracts 6/6, permissions 29/29, api 273/273, web 6/6; `pnpm test:e2e` →
   36/36; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
 
+### Poprawka: „nie mam dostępu do Twojego CV” mimo gotowego dokumentu (2026-09-26)
+
+- Zgłoszenie: z prawdziwym modelem pytanie „co ciekawego jest w moim cv” (PDF, status „gotowy”) — odpowiedź, że
+  asystent nie ma dostępu do dokumentów.
+- Przyczyna: dobór fragmentów tylko po słowach pytania („cv” pomijane jako za krótkie, polskie słowa nie występują
+  w angielskim CV) ⇒ zero fragmentów; model nie znał listy dokumentów i nie miał narzędzia do ich otwarcia.
+- Naprawa (D-031): lista dostępnych dokumentów w każdej turze (tylko tytuły, jako dane), narzędzia
+  `documents.read` i `documents.search` (tylko odczyt, bez zgody, te same uprawnienia co fragmenty, treść na żywo —
+  bez zapisu w rozmowie), reguła w prompcie systemowym. Narzędzia dokumentów są udostępniane tylko, gdy w kontekście
+  jest jakiś dokument.
+- Testy (`documents-agent.test.ts`, syntetyczne CV po angielsku — bez prawdziwych danych): pytanie „co ciekawego
+  jest w moim cv” ⇒ lista z dokumentem, brak fragmentów, `documents.read`, treść w turze uzupełniającej, w rozmowie
+  tylko tytuł i zakres, bez zgody; Beta i NovaAI nie odczytają prywatnego dokumentu Alfy nawet z prawdziwym id
+  (odmowa `document_not_available`, brak na liście); NovaAI wyszukuje we wspólnym dokumencie. Istniejący test
+  fragmentów zaktualizowany (lista przed fragmentami).
+- Polecenia i wyniki: `pnpm check` → contracts 6/6, permissions 29/29, api 276/276, web 6/6; `pnpm test:e2e` →
+  36/36; `pnpm test:prod-smoke` → 1/1; `pnpm worker:test` → 18/18.
+- Niesprawdzone: czy prawdziwy model za każdym razem sięgnie po narzędzie (zależy od modelu) — z atrapą sprawdzamy,
+  co serwer wysyła i jak obsługuje propozycję.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

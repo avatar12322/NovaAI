@@ -179,6 +179,9 @@ export const agentTurnKind: TaskKindDef = {
         if (hasDevice.rowCount === 0)
           capabilities = capabilities.filter((c) => !c.startsWith('device.'));
       }
+      // Narzędzia dokumentów tylko, gdy w tym kontekście jest jakiś dostępny dokument.
+      if (!ctx.input.catalog?.length)
+        capabilities = capabilities.filter((c) => !c.startsWith('documents.'));
       // Narzędzia poczty i szczegółów kalendarza tylko przy połączonym koncie z odpowiednią zdolnością.
       const needed = new Set(capabilities.flatMap((c) => CONNECTOR_REQUIRED.get(c) ?? []));
       if (needed.size) {

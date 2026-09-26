@@ -81,6 +81,8 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
 5. **Pamięć** — wpisy prywatne/wspólne, `Udostępnij` / `Cofnij udostępnienie`. **Dokumenty** (Pamięć → Dokumenty):
    dodaj PDF, TXT lub Markdown (do 10 MB), poczekaj na status „gotowy” i zapytaj w czacie — odpowiedź pokaże
    „Źródła” z nazwą dokumentu i stroną/fragmentem. Prywatny dokument widzisz tylko Ty; wspólny — domownicy i NovaAI.
+   Z prawdziwym modelem możesz też pytać o cały dokument („co ciekawego jest w moim CV?”, „streść umowę”) —
+   asystent zna listę Twoich dokumentów i sam je odczyta (treść nie jest zapisywana w rozmowie).
 6. **Dom** — wiadomości od domownika, aktywne wspólne zadania. **Ustawienia** — stan usług, budżet, motyw,
    integracje (połącz / odłącz konto, wybór uprawnień).
 7. Po połączeniu konta pocztowego (tryb demo): `szukaj maili: faktura`, `przeczytaj maila: <id>`,

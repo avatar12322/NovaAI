@@ -40,6 +40,16 @@ export interface ContextDocument {
   content: string;
 }
 
+/** Dokument dostępny w tym kontekście (bez treści) — model może go odczytać narzędziem `documents.read`. */
+export interface ContextCatalogEntry {
+  id: string;
+  title: string;
+  filename: string;
+  pages: number | null;
+  parts: number;
+  visibility: 'private' | 'shared';
+}
+
 export interface AgentTurnInput {
   conversationId: string;
   /** Zadanie kolejki, w ramach którego działa tura (do rozliczenia kosztów). */
@@ -49,6 +59,8 @@ export interface AgentTurnInput {
   memories: ContextMemory[];
   /** Fragmenty dokumentów pasujące do wiadomości (tylko z dokumentów dostępnych w tym kontekście). */
   documents?: ContextDocument[];
+  /** Lista dokumentów dostępnych w tym kontekście (tytuły, bez treści). */
+  catalog?: ContextCatalogEntry[];
   /**
    * Tura uzupełniająca po wykonaniu narzędzi: wiadomość użytkownika i wyniki są już w historii,
    * model formułuje odpowiedź na ich podstawie i nie dostaje narzędzi (jedna runda, bez pętli).

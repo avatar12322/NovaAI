@@ -8,6 +8,7 @@ import { queryTerms } from '../documents/text';
 import type {
   AgentTurnInput,
   AgentUserContext,
+  ContextCatalogEntry,
   ContextDocument,
   ContextMemory,
   ContextMessage,
@@ -18,6 +19,8 @@ export const MEMORY_LIMIT = 50;
 /** Fragmenty dokumentów w turze: niewiele i przycięte — koszt tokenów i mniej miejsca na wstrzyknięcia. */
 export const DOCUMENT_CHUNKS = 4;
 const DOCUMENT_CHUNK_CHARS = 1500;
+/** Lista dokumentów w kontekście (tylko tytuły) — model może je odczytać narzędziem. */
+export const DOCUMENT_CATALOG = 30;
 
 /** Zdolności, które serwer udostępnia agentowi w danym kontekście (model ich nie rozszerza). */
 export function capabilitiesFor(kind: ContextKind): string[] {
@@ -66,7 +69,7 @@ export async function buildTurnContext(
     context: contextKind,
   };
 
-  const { history, memories, documents, dropped } = await withUserTx(
+  const { history, memories, documents, catalog, dropped } = await withUserTx(
     db,
     { userId: auth.userId, scope },
     async (c) => {
@@ -157,7 +160,18 @@ export async function buildTurnContext(
               : h.content,
         };
       });
+      const catalog: ContextCatalogEntry[] = [...docs]
+        .slice(0, DOCUMENT_CATALOG)
+        .map(([id, d]) => ({
+          id,
+          title: d.title,
+          filename: d.filename,
+          pages: d.pageCount,
+          parts: d.chunkCount,
+          visibility: d.visibility,
+        }));
       return {
+        catalog,
         history: msgs.rows.reverse().map((m) => ({
           role: m.role,
           content: m.content,
@@ -207,7 +221,14 @@ export async function buildTurnContext(
   return {
     contextKind,
     scope,
-    input: { conversationId, userMessage, history: trimmedHistory, memories, documents },
+    input: {
+      conversationId,
+      userMessage,
+      history: trimmedHistory,
+      memories,
+      documents,
+      catalog,
+    },
     userContext: {
       userId: auth.userId,
       displayName: auth.displayName,

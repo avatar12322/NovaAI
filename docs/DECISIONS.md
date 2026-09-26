@@ -529,3 +529,32 @@ płatnych wywołań.
 - Poza zakresem: automatyczne pobieranie cenników (brak oficjalnego, maszynowego źródła cen), osobni dostawcy per
   domownik, natywne API Gemini, Vertex AI / Bedrock, strumieniowanie.
 - Gałąź bazowa: `claude/novaai-services-costs` (zawiera pamięć dokumentów, Microsoft, Slack i „Usługi i koszty”).
+
+## D-031 Dokumenty w rozmowie z modelem: lista dokumentów i narzędzia odczytu
+
+Zgłoszenie: z prawdziwym modelem pytanie „co ciekawego jest w moim cv” (PDF po angielsku, status „gotowy”) dało
+odpowiedź „nie mam dostępu do dokumentów”. Przyczyna: automatyczny dobór fragmentów (D-025) szuka po słowach
+pytania — „cv” (2 litery) jest pomijane, a „ciekawego” nie występuje w angielskim CV, więc do modelu nie trafił
+żaden fragment; model nie wiedział też, jakie dokumenty istnieją, i nie miał narzędzia, żeby je otworzyć.
+Wyszukiwanie po słowach nie obsłuży pytań o cały dokument („streść”, „co ciekawego”) ani pytań w innym języku
+niż dokument.
+
+- Lista dokumentów: w każdej turze model dostaje blok DOKUMENTY — dokumenty dozwolone w tym kontekście (ta sama
+  funkcja co dla fragmentów: RLS zakresu + polityka `document.read`; NovaAI — tylko wspólne), najwyżej 30, tylko
+  id, tytuł, plik, liczba stron i fragmentów. Tytuły pochodzą od użytkowników, więc blok jest w wiadomości
+  użytkownika jako oznaczone dane, nie w prompcie systemowym.
+- Narzędzia `documents.read` (dokument po kolei, do 12 fragmentów na wywołanie, z przesunięciem) i
+  `documents.search` (słowa w języku dokumentu, opcjonalnie w jednym dokumencie): tylko odczyt, bez zgody,
+  udostępniane modelowi wyłącznie wtedy, gdy lista dokumentów nie jest pusta. Autoryzacja przy planowaniu,
+  wykonaniu i ponownie przy pobraniu treści; cudzy lub niewspólny dokument ⇒ odmowa `document_not_available`
+  (bez rozróżnienia „nie istnieje” / „brak dostępu”), także gdy model poda prawdziwe id.
+- Treść na żywo, bez zapisu (jak Slack, D-028): w rozmowie zapisuje się tylko „Dokument „X”: fragmenty 1–3 z 3”;
+  treść trafia do modelu w turze uzupełniającej (D-023) jako WYNIK NARZĘDZIA (dane), limit ok. 24 tys. znaków.
+  Usunięcie dokumentu lub cofnięcie udostępnienia działa od razu — treść nie zostaje w historii rozmowy.
+- Prompt systemowy: gdy pytanie dotyczy dokumentu z listy (także nazwanego inaczej lub w innym języku), a
+  fragmentów brak lub nie wystarczają — zaproponuj `documents.read`/`documents.search` zamiast odpowiadać, że nie
+  ma dostępu. Niezaufany kontekst nadal wymusza zgodę na akcje ze skutkami (D-026); narzędzia dokumentów są
+  tylko do odczytu.
+- Automatyczny dobór fragmentów zostaje (tani, ze źródłami [D1]); narzędzia działają, gdy nie wystarcza.
+- Sprawdzone wyłącznie z atrapą dostawcy (co serwer wysyła do modelu i co robi z propozycją narzędzia) — nie
+  jakość decyzji prawdziwego modelu, czy użyje narzędzia.

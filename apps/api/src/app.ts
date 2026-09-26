@@ -19,6 +19,7 @@ import { createCostAdapters } from './services/adapters';
 import { DeviceBroker } from './devices/broker';
 import { reminderFireKind } from './reminders/service';
 import { documentIndexKind } from './documents/service';
+import { DOCUMENT_TOOLS } from './documents/tools';
 import { reminderCreateTool } from './reminders/tool';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
@@ -69,6 +70,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   for (const t of DEVICE_TOOLS) broker.register(t);
   for (const t of CONNECTOR_TOOLS) broker.register(t);
   for (const t of SLACK_TOOLS) broker.register(t);
+  for (const t of DOCUMENT_TOOLS) broker.register(t);
   broker.register(reminderCreateTool);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(

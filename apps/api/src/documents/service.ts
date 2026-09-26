@@ -400,17 +400,21 @@ interface ChunkHitRow {
  * Zapytanie działa pod RLS kontekstu (NovaAI => scope 'shared'), a każdy dokument jest dodatkowo
  * sprawdzany polityką aplikacji; rozbieżność jest audytowana i dokument pomijany.
  */
+export interface AllowedDocument {
+  title: string;
+  filename: string;
+  format: DocumentFormat;
+  visibility: 'private' | 'shared';
+  pageCount: number | null;
+  chunkCount: number;
+}
+
 export async function allowedDocuments(
   c: pg.PoolClient,
   db: Db,
   actor: Actor,
   householdId: string,
-): Promise<
-  Map<
-    string,
-    { title: string; filename: string; format: DocumentFormat; visibility: 'private' | 'shared' }
-  >
-> {
+): Promise<Map<string, AllowedDocument>> {
   const r = await c.query<{
     id: string;
     owner_user_id: string;
@@ -419,15 +423,15 @@ export async function allowedDocuments(
     title: string;
     filename: string;
     format: DocumentFormat;
+    page_count: number | null;
+    chunk_count: number;
   }>(
-    `SELECT id, owner_user_id, household_id, visibility, title, filename, format
-       FROM documents WHERE household_id = $1 AND chunk_count > 0`,
+    `SELECT id, owner_user_id, household_id, visibility, title, filename, format, page_count, chunk_count
+       FROM documents WHERE household_id = $1 AND chunk_count > 0
+      ORDER BY created_at DESC, id`,
     [householdId],
   );
-  const out = new Map<
-    string,
-    { title: string; filename: string; format: DocumentFormat; visibility: 'private' | 'shared' }
-  >();
+  const out = new Map<string, AllowedDocument>();
   let dropped = 0;
   for (const d of r.rows) {
     const decision = decide(actor, 'document.read', {
@@ -443,6 +447,8 @@ export async function allowedDocuments(
         filename: d.filename,
         format: d.format,
         visibility: d.visibility,
+        pageCount: d.page_count,
+        chunkCount: d.chunk_count,
       });
     else dropped++;
   }
