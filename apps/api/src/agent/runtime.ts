@@ -9,6 +9,11 @@ export interface ContextMessage {
   role: 'user' | 'assistant' | 'tool' | 'system';
   content: string;
   authorName?: string | null;
+  /**
+   * Wynik narzędzia z treścią pobieraną na żywo (niezapisywaną, np. Slack): narzędzie, parametry i zadanie.
+   * Nie jest wysyłane do modelu — służy do dołączenia treści w turze uzupełniającej.
+   */
+  live?: { tool: string; params: Record<string, unknown>; taskId: string | null };
 }
 
 export interface ContextMemory {

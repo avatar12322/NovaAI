@@ -93,8 +93,9 @@ export async function buildTurnContext(
         role: ContextMessage['role'];
         content: string;
         author_name: string | null;
+        meta: Record<string, unknown> | null;
       }>(
-        `SELECT m.role, m.content, u.display_name AS author_name
+        `SELECT m.role, m.content, u.display_name AS author_name, m.meta
          FROM messages m LEFT JOIN users u ON u.id = m.author_user_id
         WHERE m.conversation_id = $1 ORDER BY m.created_at DESC, m.id DESC LIMIT $2`,
         [conversationId, HISTORY_LIMIT],
@@ -157,9 +158,20 @@ export async function buildTurnContext(
         };
       });
       return {
-        history: msgs.rows
-          .reverse()
-          .map((m) => ({ role: m.role, content: m.content, authorName: m.author_name })),
+        history: msgs.rows.reverse().map((m) => ({
+          role: m.role,
+          content: m.content,
+          authorName: m.author_name,
+          ...(m.role === 'tool' && m.meta?.live && typeof m.meta.tool === 'string'
+            ? {
+                live: {
+                  tool: m.meta.tool,
+                  params: m.meta.live as Record<string, unknown>,
+                  taskId: typeof m.meta.taskId === 'string' ? m.meta.taskId : null,
+                },
+              }
+            : {}),
+        })),
         memories: allowed,
         documents,
         dropped: droppedCount,

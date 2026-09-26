@@ -35,6 +35,8 @@ const EnvSchema = z.object({
   NOVA_PUBLIC_URL: z.string().optional().default(''),
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+  SLACK_CLIENT_ID: z.string().optional().default(''),
+  SLACK_CLIENT_SECRET: z.string().optional().default(''),
   MICROSOFT_CLIENT_ID: z.string().optional().default(''),
   MICROSOFT_CLIENT_SECRET: z.string().optional().default(''),
   // Katalog logowania: common (konta osobiste i służbowe), organizations, consumers albo identyfikator dzierżawy.
@@ -73,6 +75,7 @@ export type AppConfig = {
   publicUrl: string;
   google: { clientId: string; clientSecret: string };
   microsoft: { clientId: string; clientSecret: string; tenant: string };
+  slack: { clientId: string; clientSecret: string };
   slackSigningSecret: string;
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
@@ -126,6 +129,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
       clientSecret: e.MICROSOFT_CLIENT_SECRET,
       tenant: e.MICROSOFT_TENANT,
     },
+    slack: { clientId: e.SLACK_CLIENT_ID, clientSecret: e.SLACK_CLIENT_SECRET },
     slackSigningSecret: e.SLACK_SIGNING_SECRET,
     webauthn: {
       rpId: e.NOVA_RP_ID || new URL(e.NOVA_WEB_ORIGIN).hostname,

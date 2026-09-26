@@ -327,7 +327,9 @@ export class MicrosoftConnector implements Connector {
    * wylogowałoby użytkownika ze wszystkich aplikacji). Odłączenie usuwa tokeny lokalnie; zgodę użytkownik
    * cofa na stronie konta (revocationHelp).
    */
-  async revoke(): Promise<void> {}
+  async revoke(): Promise<'unsupported'> {
+    return 'unsupported';
+  }
 
   private async api<T>(
     accessToken: string,

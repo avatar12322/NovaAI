@@ -309,7 +309,9 @@ describe('OAuth Google (kontrakt na mocku)', () => {
 
   it('odłączenie odwołuje token u dostawcy i usuwa szyfrogram', async () => {
     await connectGoogle(alfa);
-    expect((await alfa.del('/api/connections/google')).status).toBe(204);
+    const del = await alfa.del('/api/connections/google');
+    expect(del.status).toBe(200);
+    expect(del.body).toEqual({ disconnected: true, providerRevoked: true });
     expect(mock.revoked).toEqual(['1//REFRESH-1']);
     const row = await t.db.owner.query(`SELECT status, token_ciphertext FROM connections`);
     expect(row.rows[0]).toEqual({ status: 'revoked', token_ciphertext: null });

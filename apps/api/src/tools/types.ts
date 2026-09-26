@@ -60,6 +60,11 @@ export interface ToolDef<P extends Record<string, unknown> = Record<string, unkn
   authorize(ctx: ToolContext, p: P): Promise<Decision>;
   /** Wykonanie musi być idempotentne względem klucza. */
   execute(ctx: ToolContext, p: P, idempotencyKey: string): Promise<ToolResult>;
+  /**
+   * Treść, której nie wolno zapisywać (np. wyniki Slacka): wynik narzędzia zawiera tylko `output.live` (parametry),
+   * a treść jest pobierana na żywo dla modelu w turze uzupełniającej. Nie trafia do bazy.
+   */
+  live?(ctx: ToolContext, params: Record<string, unknown>): Promise<string>;
 }
 
 export class ToolDenied extends Error {

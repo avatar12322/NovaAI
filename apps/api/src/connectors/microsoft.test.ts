@@ -579,7 +579,7 @@ describe('izolacja dwóch użytkowników', () => {
     expect(await stepError('mail.read')).toBe('Odmowa: connector:provider_error');
 
     // Odłączenie przez Betę nie wpływa na Alfę.
-    expect((await beta.del('/api/connections/microsoft')).status).toBe(204);
+    expect((await beta.del('/api/connections/microsoft')).status).toBe(200);
     expect((await msInfo(alfa)).connection.status).toBe('connected');
     expect(toolText(await chat(alfa, 'szukaj maili: spotkanie'))).toContain('Spotkanie w szkole');
   });
@@ -650,7 +650,10 @@ describe('odświeżanie i cofnięcie dostępu', () => {
 
   it('odłączenie usuwa tokeny lokalnie i blokuje dalsze wywołania; Microsoft nie ma endpointu odwołania', async () => {
     await connect(alfa, 'alfa');
-    expect((await alfa.del('/api/connections/microsoft')).status).toBe(204);
+    const del = await alfa.del('/api/connections/microsoft');
+    expect(del.status).toBe(200);
+    // Microsoft nie ma API odwołania — null (Ustawienia pokazują, jak cofnąć zgodę na koncie).
+    expect(del.body).toEqual({ disconnected: true, providerRevoked: null });
     const row = await t.db.owner.query(
       `SELECT status, token_ciphertext, key_id FROM connections WHERE provider = 'microsoft'`,
     );

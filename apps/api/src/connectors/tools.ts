@@ -1,6 +1,7 @@
 import { decide } from '@nova/permissions';
 import { z } from 'zod';
 import { ToolDenied, type ToolContext, type ToolDef } from '../tools/types';
+import { mapErr } from './tool-errors';
 import {
   ConnectorError,
   type BusyInterval,
@@ -25,14 +26,6 @@ const CALENDAR_NAME: Record<Provider, string> = {
 
 /** Konto wskazane przez model lub użytkownika; brak = jedyne połączone konto z daną funkcją. */
 const Account = z.enum(['google', 'microsoft']).optional();
-
-function mapErr(err: unknown): never {
-  if (err instanceof ConnectorError) {
-    if (err.retryable) throw err;
-    throw new ToolDenied(`connector:${err.code}`);
-  }
-  throw err;
-}
 
 /** Ustalenie konta przy planowaniu — zamrożone w parametrach, więc zgoda dotyczy konkretnej skrzynki. */
 async function resolveAccount(
@@ -466,6 +459,9 @@ export const CONNECTOR_REQUIRED: ReadonlyMap<string, ConnectorCapability> = new 
   ['mail.read', 'mail.read'],
   ['mail.send', 'mail.send'],
   ['mail.draft', 'mail.draft'],
+  ['slack.mentions', 'chat.read'],
+  ['slack.search', 'chat.read'],
+  ['slack.send', 'chat.send'],
 ]);
 
 export function assertNever(x: never): never {

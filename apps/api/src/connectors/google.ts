@@ -195,12 +195,14 @@ export class GoogleConnector implements Connector {
     return this.token({ refresh_token: refreshToken, grant_type: 'refresh_token' }, refreshToken);
   }
 
-  async revoke(token: string): Promise<void> {
+  async revoke(t: { accessToken: string; refreshToken: string | null }): Promise<'revoked'> {
+    // Odwołanie refresh tokenu unieważnia też wydane z niego tokeny dostępu.
     await this.fetchJson(this.ep.revokeUrl, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ token }).toString(),
+      body: new URLSearchParams({ token: t.refreshToken ?? t.accessToken }).toString(),
     });
+    return 'revoked';
   }
 
   private async api<T>(accessToken: string, url: string, init: RequestInit = {}): Promise<T> {

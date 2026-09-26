@@ -11,6 +11,8 @@ import {
 } from './connectors/microsoft';
 import { ConnectionService } from './connectors/service';
 import type { Connector, Provider } from './connectors/types';
+import { SlackConnector, type SlackEndpoints } from './connectors/slack';
+import { SLACK_TOOLS } from './connectors/slack-tools';
 import { CONNECTOR_TOOLS } from './connectors/tools';
 import { vaultFromEnv } from './connectors/vault';
 import { DeviceBroker } from './devices/broker';
@@ -41,6 +43,8 @@ export interface AppOptions {
   googleEndpoints?: GoogleEndpoints;
   /** Adresy Microsoft identity platform i Graph (testy kontraktowe na lokalnym mocku). */
   microsoftEndpoints?: MicrosoftEndpoints;
+  /** Adresy Slack OAuth i Web API (testy kontraktowe na lokalnym mocku). */
+  slackEndpoints?: SlackEndpoints;
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -59,6 +63,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   const broker = new ToolBroker().register(memoryCreateTool).register(householdNotifyTool);
   for (const t of DEVICE_TOOLS) broker.register(t);
   for (const t of CONNECTOR_TOOLS) broker.register(t);
+  for (const t of SLACK_TOOLS) broker.register(t);
   broker.register(reminderCreateTool);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(
@@ -82,14 +87,11 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
           opts.microsoftEndpoints ?? microsoftEndpoints(config.microsoft.tenant),
         ),
       ],
+      [
+        'slack',
+        new SlackConnector(config.slack.clientId, config.slack.clientSecret, opts.slackEndpoints),
+      ],
     ]),
-    [
-      {
-        provider: 'slack',
-        title: 'Slack',
-        reason: 'nie zaimplementowano (tylko weryfikacja webhooków)',
-      },
-    ],
   );
   const signing = deviceSigningKey(config);
   const hub = new DeviceHub(signing.key, (deviceId, ownerUserId, online) => {

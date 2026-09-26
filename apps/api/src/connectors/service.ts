@@ -25,6 +25,8 @@ interface ConnRow {
   /** Zdolności wybrane przez użytkownika przy łączeniu; null = połączenie sprzed migracji 0011. */
   capabilities: ConnectorCapability[] | null;
   account_label: string | null;
+  external_team_id: string | null;
+  external_user_id: string | null;
   token_ciphertext: Buffer | null;
   key_id: string | null;
   access_expires_at: string | null;
@@ -238,27 +240,42 @@ export class ConnectionService {
     const norm = (x: readonly string[]) => (c.normalizeScopes ? c.normalizeScopes(x) : [...x]);
     const granted = norm(tokens.scopes);
     const missing = norm(st.scopes).filter((s) => !granted.includes(s));
-    await withSystemTx(this.db, async (tx) => {
-      await tx.query(
-        `UPDATE connections SET status = 'revoked', revoked_at = now(), token_ciphertext = NULL
+    try {
+      await withSystemTx(this.db, async (tx) => {
+        await tx.query(
+          `UPDATE connections SET status = 'revoked', revoked_at = now(), token_ciphertext = NULL
           WHERE owner_user_id = $1 AND provider = $2 AND status <> 'revoked'`,
-        [st.owner_user_id, provider],
-      );
-      const ins = await tx.query<{ id: string }>(
-        `INSERT INTO connections (household_id, owner_user_id, provider, status, scopes, capabilities, account_label, last_error)
-         VALUES ($1,$2,$3,'connected',$4,$5,$6,$7) RETURNING id`,
-        [
-          st.household_id,
-          st.owner_user_id,
-          provider,
-          granted,
-          st.capabilities,
-          tokens.account?.slice(0, 200) ?? null,
-          missing.length ? `brak zakresów: ${missing.join(' ')}` : null,
-        ],
-      );
-      await this.store(tx, ins.rows[0]!.id, st.owner_user_id, provider, tokens);
-    });
+          [st.owner_user_id, provider],
+        );
+        const ins = await tx.query<{ id: string }>(
+          `INSERT INTO connections (household_id, owner_user_id, provider, status, scopes, capabilities, account_label,
+                                  external_team_id, external_user_id, last_error)
+         VALUES ($1,$2,$3,'connected',$4,$5,$6,$7,$8,$9) RETURNING id`,
+          [
+            st.household_id,
+            st.owner_user_id,
+            provider,
+            granted,
+            st.capabilities,
+            tokens.account?.slice(0, 200) ?? null,
+            tokens.externalTeamId ?? null,
+            tokens.externalUserId ?? null,
+            missing.length ? `brak zakresów: ${missing.join(' ')}` : null,
+          ],
+        );
+        await this.store(tx, ins.rows[0]!.id, st.owner_user_id, provider, tokens);
+      });
+    } catch (e) {
+      // To samo konto u dostawcy jest już połączone przez inną osobę (unikalny indeks, migracja 0012).
+      // Tokenu nie odwołujemy: dostawca może zwrócić ten sam token, którego używa już tamta osoba.
+      if ((e as { constraint?: string }).constraint === 'connections_external_owner_uq')
+        throw new ConnectorError(
+          'account_in_use',
+          'To konto jest już połączone przez inną osobę w NovaAI',
+          false,
+        );
+      throw e;
+    }
     return { userId: st.owner_user_id, householdId: st.household_id };
   }
 
@@ -313,7 +330,7 @@ export class ConnectionService {
   ): Promise<string> {
     const c = this.connector(provider);
     const row = await this.row(userId, provider);
-    if (row?.status === 'error' && row.last_error === 'reauth_required')
+    if (row?.status === 'error')
       throw new ConnectorError('reauth_required', `${provider}: wymagane ponowne połączenie konta`);
     if (!row || row.status !== 'connected')
       throw new ConnectorError('not_connected', `Brak połączenia ${provider}`);
@@ -364,15 +381,20 @@ export class ConnectionService {
     try {
       return await fn(token, c);
     } catch (err) {
-      if (!(err instanceof ConnectorError) || err.code !== 'unauthorized') throw err;
+      if (!(err instanceof ConnectorError)) throw err;
+      // Token odwołany u dostawcy (np. Slack token_revoked) — stan widoczny w Ustawieniach.
+      if (err.code === 'reauth_required') await this.markReauthFor(userId, provider);
+      if (err.code !== 'unauthorized') throw err;
     }
     const fresh = await this.accessToken(userId, provider, cap, { rejected: token });
     try {
       return await fn(fresh, c);
     } catch (err) {
-      if (err instanceof ConnectorError && err.code === 'unauthorized') {
-        const row = await this.row(userId, provider);
-        if (row) await this.markReauth(row.id);
+      if (
+        err instanceof ConnectorError &&
+        (err.code === 'unauthorized' || err.code === 'reauth_required')
+      ) {
+        await this.markReauthFor(userId, provider);
         throw new ConnectorError(
           'reauth_required',
           `${provider}: wymagane ponowne połączenie konta`,
@@ -380,6 +402,11 @@ export class ConnectionService {
       }
       throw err;
     }
+  }
+
+  private async markReauthFor(userId: string, provider: Provider): Promise<void> {
+    const row = await this.row(userId, provider);
+    if (row) await this.markReauth(row.id);
   }
 
   /** Połączeni dostawcy użytkownika, którzy obsługują zdolność (wybór użytkownika i przyznane zakresy). */
@@ -416,7 +443,7 @@ export class ConnectionService {
           .map((c) => c.provider);
     for (const p of candidates) {
       const row = this.connectors.has(p) ? await this.row(userId, p) : null;
-      if (row?.status === 'error' && row.last_error === 'reauth_required')
+      if (row?.status === 'error')
         throw new ConnectorError('reauth_required', `${p}: wymagane ponowne połączenie konta`);
       if (row?.status === 'connected')
         throw new ConnectorError('scope_missing', `Połączenie ${p} nie obejmuje: ${cap}`);
@@ -429,24 +456,77 @@ export class ConnectionService {
     return (await this.row(userId, provider))?.account_label ?? null;
   }
 
-  /** Odłączenie: odwołanie u dostawcy (best effort) i usunięcie tokenów z bazy. */
-  async disconnect(userId: string, provider: Provider): Promise<boolean> {
-    const row = await this.row(userId, provider);
-    if (!row) return false;
+  /** Stan aktywnego połączenia: dostępne zdolności i identyfikatory konta u dostawcy. */
+  async meta(
+    userId: string,
+    provider: Provider,
+  ): Promise<{
+    capabilities: ConnectorCapability[];
+    externalTeamId: string | null;
+    externalUserId: string | null;
+    account: string | null;
+  } | null> {
     const c = this.connectors.get(provider);
+    const row = await this.row(userId, provider);
+    if (!c || !row || row.status !== 'connected') return null;
+    return {
+      capabilities: c.capabilities.filter((cap) => this.rowAllows(c, row, cap)),
+      externalTeamId: row.external_team_id,
+      externalUserId: row.external_user_id,
+      account: row.account_label,
+    };
+  }
+
+  /**
+   * Odłączenie: odwołanie u dostawcy (best effort) i usunięcie tokenów z bazy. `providerRevoked`: true — dostawca
+   * potwierdził; false — nie udało się (tokeny i tak usunięte lokalnie); null — dostawca nie ma takiego API.
+   */
+  async disconnect(
+    userId: string,
+    provider: Provider,
+  ): Promise<{ providerRevoked: boolean | null } | null> {
+    const row = await this.row(userId, provider);
+    if (!row) return null;
+    const c = this.connectors.get(provider);
+    let providerRevoked: boolean | null = null;
     if (c && this.vault && row.token_ciphertext) {
       try {
-        const t = this.decode(row);
-        await c.revoke(t.refreshToken ?? t.accessToken);
+        // Przy rotacji tokenów najpierw odświeżenie — wygasłym tokenem nie da się go odwołać.
+        await this.accessToken(userId, provider).catch(() => undefined);
+        const cur = await this.row(userId, provider);
+        const t = this.decode(cur?.token_ciphertext ? cur : row);
+        providerRevoked = (await c.revoke(t)) === 'revoked' ? true : null;
       } catch {
-        /* odwołanie u dostawcy nieudane — tokeny i tak usuwamy lokalnie */
+        providerRevoked = false;
       }
     }
     await this.db.owner.query(
       `UPDATE connections SET status = 'revoked', revoked_at = now(), token_ciphertext = NULL, key_id = NULL, updated_at = now() WHERE id = $1`,
       [row.id],
     );
-    return true;
+    return { providerRevoked };
+  }
+
+  /**
+   * Zdarzenie dostawcy: tokeny odwołane / aplikacja odinstalowana (`userIds` null = cały workspace). Tokeny są
+   * usuwane, a połączenie dostaje stan „wymaga ponownego połączenia” z powodem — osoba widzi, co się stało.
+   */
+  async revokedByProvider(
+    q: { query: Db['owner']['query'] },
+    provider: Provider,
+    teamId: string,
+    userIds: string[] | null,
+  ): Promise<Array<{ ownerUserId: string; householdId: string }>> {
+    const r = await q.query<{ owner_user_id: string; household_id: string }>(
+      `UPDATE connections
+          SET status = 'error', last_error = 'revoked_by_provider', token_ciphertext = NULL, key_id = NULL,
+              updated_at = now()
+        WHERE provider = $1 AND external_team_id = $2 AND ($3::text[] IS NULL OR external_user_id = ANY($3))
+          AND status <> 'revoked' AND token_ciphertext IS NOT NULL
+        RETURNING owner_user_id, household_id`,
+      [provider, teamId, userIds],
+    );
+    return r.rows.map((x) => ({ ownerUserId: x.owner_user_id, householdId: x.household_id }));
   }
 
   /** Rotacja kluczy: ponowne zaszyfrowanie tokenów bieżącym kluczem głównym. */

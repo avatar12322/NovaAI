@@ -3,10 +3,12 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { isUuid, requireAuth } from '../access';
 import { writeAudit } from '../audit';
-import { withUserTx } from '../db/pool';
+import { withSystemTx, withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
 import { forbidden, HttpError, notFound } from '../lib/errors';
 import { parse } from '../lib/validate';
+import { emitEvent } from '../events';
+import { slackLive } from './slack-tools';
 import { ConnectorError, type Provider } from './types';
 
 const ProviderParam = z.enum(['google', 'microsoft', 'slack']);
@@ -20,10 +22,22 @@ const StartBody = z.object({
         'mail.read',
         'mail.send',
         'mail.draft',
+        'chat.read',
+        'chat.read_private',
+        'chat.read_dm',
+        'chat.send',
       ]),
     )
     .min(1)
-    .max(6),
+    .max(10),
+});
+
+/** Odczyt Slacka na żywo (wyniki nie są zapisywane — zasady Real-time Search API). */
+const SlackLiveBody = z.object({
+  kind: z.enum(['mentions', 'search']),
+  query: z.string().trim().min(1).max(200).optional(),
+  days: z.number().int().min(1).max(30).default(7),
+  max: z.number().int().min(1).max(20).default(10),
 });
 
 /**
@@ -51,8 +65,14 @@ const LocalEvent = z
 
 function connectorHttpError(err: unknown): never {
   if (err instanceof ConnectorError) {
-    const status = err.code === 'not_configured' ? 503 : err.code === 'provider_error' ? 502 : 409;
-    throw new HttpError(status, err.code, err.message);
+    // Przejściowe (limit zapytań, brak sieci) — 503 „spróbuj później”; błąd dostawcy — 502; stan konta — 409.
+    const status =
+      err.code === 'not_configured' || err.retryable
+        ? 503
+        : err.code === 'provider_error'
+          ? 502
+          : 409;
+    throw new HttpError(status, err.reason ?? err.code, err.message);
   }
   throw err;
 }
@@ -159,10 +179,36 @@ export const connectorRoutes =
     app.delete<{ Params: { provider: string } }>('/connections/:provider', async (req, reply) => {
       const auth = requireAuth(req);
       const provider = parse(ProviderParam, req.params.provider) as Provider;
-      const ok = await deps.connections.disconnect(auth.userId, provider);
-      if (!ok) throw notFound('Connection');
-      await audit(req, auth.userId, auth.householdId, 'connection.disconnect', 'ok', { provider });
-      return reply.status(204).send();
+      const r = await deps.connections.disconnect(auth.userId, provider);
+      if (!r) throw notFound('Connection');
+      await audit(req, auth.userId, auth.householdId, 'connection.disconnect', 'ok', {
+        provider,
+        providerRevoked: r.providerRevoked,
+      });
+      return reply.send({ disconnected: true, providerRevoked: r.providerRevoked });
+    });
+
+    /**
+     * Wiadomości ze Slacka na żywo, tokenem WYŁĄCZNIE pytającej osoby. Odpowiedź nie jest zapisywana ani
+     * buforowana; w audycie tylko rodzaj i liczba wyników.
+     */
+    app.post('/connections/slack/live', async (req, reply) => {
+      const auth = requireAuth(req);
+      const body = parse(SlackLiveBody, req.body);
+      if (body.kind === 'search' && !body.query)
+        throw new HttpError(400, 'invalid_request', 'Brak zapytania');
+      try {
+        const items = await slackLive(deps.connections, auth.userId, body);
+        await audit(req, auth.userId, auth.householdId, 'connection.live_read', 'ok', {
+          provider: 'slack',
+          kind: body.kind,
+          count: items.length,
+        });
+        reply.header('cache-control', 'no-store');
+        return { items };
+      } catch (e) {
+        connectorHttpError(e);
+      }
     });
 
     // ---------- Kalendarz: grant free/busy dla NovaAI i kalendarz lokalny ----------
@@ -271,7 +317,8 @@ export const connectorRoutes =
           type?: string;
           challenge?: string;
           event_id?: string;
-          event?: { type?: string };
+          team_id?: unknown;
+          event?: { type?: string; tokens?: { oauth?: unknown[] } };
         };
         try {
           payload = JSON.parse(raw) as typeof payload;
@@ -284,13 +331,72 @@ export const connectorRoutes =
         const deliveryId = payload.event_id ?? '';
         if (!/^[A-Za-z0-9_-]{1,100}$/.test(deliveryId))
           throw new HttpError(400, 'no_event_id', 'Brak event_id');
-        const ins = await deps.db.owner.query(
-          `INSERT INTO webhook_deliveries (provider, delivery_id, event_type, status) VALUES ('slack', $1, $2, 'accepted')
-           ON CONFLICT (provider, delivery_id) DO NOTHING`,
-          [deliveryId, payload.event?.type?.slice(0, 60) ?? null],
-        );
-        // Przetwarzanie zdarzeń Slack (mapowanie na użytkownika, zadania) — nie zaimplementowano w tej wersji.
-        return reply.send({ ok: true, duplicate: ins.rowCount === 0 });
+        const retryNum = Number(req.headers['x-slack-retry-num'] ?? 0) || 0;
+        const retryReason = String(req.headers['x-slack-retry-reason'] ?? '').slice(0, 40);
+        // Deduplikacja i przetworzenie w jednej transakcji: ponowienie (ten sam event_id) po udanym przetworzeniu
+        // jest tylko liczone; błąd przetwarzania => wycofanie i 500, więc Slack ponowi dostawę.
+        const outcome = await withSystemTx(deps.db, async (tx) => {
+          const eventType = payload.event?.type?.slice(0, 60) ?? null;
+          const handled = eventType === 'tokens_revoked' || eventType === 'app_uninstalled';
+          const ins = await tx.query(
+            `INSERT INTO webhook_deliveries (provider, delivery_id, event_type, status) VALUES ('slack', $1, $2, $3)
+             ON CONFLICT (provider, delivery_id) DO NOTHING`,
+            [deliveryId, eventType, handled ? 'accepted' : 'ignored'],
+          );
+          if (ins.rowCount === 0) {
+            await tx.query(
+              `UPDATE webhook_deliveries SET duplicates = duplicates + 1 WHERE provider = 'slack' AND delivery_id = $1`,
+              [deliveryId],
+            );
+            return {
+              duplicate: true,
+              affected: [] as Array<{ ownerUserId: string; householdId: string }>,
+            };
+          }
+          const teamId = typeof payload.team_id === 'string' ? payload.team_id : '';
+          if (!handled || !/^[A-Z0-9]{1,32}$/.test(teamId))
+            return { duplicate: false, affected: [] };
+          const users =
+            eventType === 'tokens_revoked'
+              ? (payload.event?.tokens?.oauth ?? []).filter(
+                  (u): u is string => typeof u === 'string' && /^[A-Z0-9]{1,32}$/.test(u),
+                )
+              : null;
+          if (users && users.length === 0) return { duplicate: false, affected: [] };
+          const affected = await deps.connections.revokedByProvider(tx, 'slack', teamId, users);
+          for (const a of affected) {
+            const n = await tx.query<{ id: string }>(
+              `INSERT INTO notifications (household_id, user_id, kind, title, body, ref_type, ref_id, idempotency_key)
+               VALUES ($1, $2, 'connection', 'Slack: dostęp cofnięty', $3, 'connection', 'slack', $4)
+               ON CONFLICT (idempotency_key) DO NOTHING RETURNING id`,
+              [
+                a.householdId,
+                a.ownerUserId,
+                eventType === 'app_uninstalled'
+                  ? 'Aplikację NovaAI usunięto z workspace’u Slack. Połącz konto ponownie w Ustawieniach, jeśli chcesz dalej korzystać ze Slacka.'
+                  : 'Token NovaAI został odwołany w Slacku. Połącz konto ponownie w Ustawieniach, jeśli chcesz dalej korzystać ze Slacka.',
+                `slack:${deliveryId}:${a.ownerUserId}`,
+              ],
+            );
+            if (n.rows[0])
+              await emitEvent(tx, {
+                householdId: a.householdId,
+                ownerUserId: a.ownerUserId,
+                visibility: 'private',
+                type: 'notification.created',
+                payload: { notificationId: n.rows[0].id, kind: 'connection' },
+              });
+          }
+          return { duplicate: false, affected };
+        });
+        await audit(req, null, null, 'webhook.slack', 'ok', {
+          eventType: payload.event?.type?.slice(0, 60) ?? null,
+          duplicate: outcome.duplicate,
+          retryNum,
+          retryReason: retryReason || null,
+          affected: outcome.affected.length,
+        });
+        return reply.send({ ok: true, duplicate: outcome.duplicate });
       });
     });
   };

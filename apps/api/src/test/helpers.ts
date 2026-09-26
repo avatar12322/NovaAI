@@ -82,7 +82,10 @@ export async function createTestApp(
 export interface Client {
   cookie: string;
   get(url: string): Promise<{ status: number; body: any; headers: Record<string, unknown> }>;
-  post(url: string, payload?: unknown): Promise<{ status: number; body: any }>;
+  post(
+    url: string,
+    payload?: unknown,
+  ): Promise<{ status: number; body: any; headers: Record<string, unknown> }>;
   patch(url: string, payload?: unknown): Promise<{ status: number; body: any }>;
   put(url: string, payload?: unknown): Promise<{ status: number; body: any }>;
   del(url: string): Promise<{ status: number; body: any }>;

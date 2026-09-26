@@ -133,6 +133,40 @@ export class FakeAgentRuntime implements AgentRuntime {
       });
       lines.push('Sprawdzam wydarzenia w Twoim kalendarzu.');
     }
+    const mentions = /(?:^|\n)\s*wzmianki (?:na )?slack(?:u)?(?::\s*(\d{1,2}))?\s*$/im.exec(text);
+    if (mentions) {
+      toolCalls.push({
+        tool: 'slack.mentions',
+        params: { days: Number(mentions[1] ?? 7), max: 10 },
+        reason: 'wzmianki na Slacku',
+      });
+      lines.push('Sprawdzam Twoje wzmianki na Slacku.');
+    }
+    const slackSearch = /(?:^|\n)\s*szukaj na slacku:\s*(.+)$/im.exec(text);
+    if (slackSearch?.[1]) {
+      toolCalls.push({
+        tool: 'slack.search',
+        params: { query: slackSearch[1].trim(), days: 7, max: 10 },
+        reason: 'wyszukiwanie na Slacku',
+      });
+      lines.push('Szukam na Slacku.');
+    }
+    const slackSend =
+      /(?:^|\n)\s*(?:napisz na slacku do|odpowiedz na slacku w)\s+([A-Z0-9]+)(?:\s+(\d+\.\d+))?:\s*([\s\S]+)$/im.exec(
+        text,
+      );
+    if (slackSend?.[1] && slackSend[3]) {
+      toolCalls.push({
+        tool: 'slack.send',
+        params: {
+          channel: slackSend[1],
+          text: slackSend[3].trim(),
+          ...(slackSend[2] ? { threadTs: slackSend[2] } : {}),
+        },
+        reason: 'wiadomość na Slacku',
+      });
+      lines.push('Proponuję wysłać wiadomość na Slacku (wymaga Twojej zgody).');
+    }
     const remind =
       /(?:^|\n)\s*przypomnij (?:mi|nam)\s+(za\s+(\d{1,4})\s*(min|minut|minuty|godz|godzin|godziny|h)|(\d{4}-\d{2}-\d{2}T\S+))\s*:\s*(.+)$/im.exec(
         text,

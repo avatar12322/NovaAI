@@ -138,7 +138,13 @@ export const agentTurnKind: TaskKindDef = {
         role: 'tool',
         authorUserId: null,
         content: formatToolResult(x.step.tool!, output),
-        meta: { tool: x.step.tool, taskId: x.task.id, stepId: x.step.id },
+        meta: {
+          tool: x.step.tool,
+          taskId: x.task.id,
+          stepId: x.step.id,
+          // Parametry do odczytu na żywo (treść nie jest zapisywana — np. Slack).
+          ...(output.live && typeof output.live === 'object' ? { live: output.live } : {}),
+        },
         requestId: x.task.request_id,
       });
       await emitEvent(c, {
@@ -262,8 +268,23 @@ export const agentTurnKind: TaskKindDef = {
         return { skipped: 'no_visible_tool_results' };
       }
       await x.progress(30);
+      // Wyniki „na żywo” (np. Slack) tej tury: treść pobierana teraz, tylko do wywołania modelu — nie do bazy.
+      const history = await Promise.all(
+        ctx.input.history.map(async (m) => {
+          const def = m.live && m.live.taskId === x.task.id ? x.deps.broker.def(m.live.tool) : null;
+          if (!m.live || !def?.live) return m;
+          try {
+            return {
+              ...m,
+              content: `${m.content}\n${await def.live(x.toolContext, m.live.params)}`,
+            };
+          } catch {
+            return { ...m, content: `${m.content}\n(treść chwilowo niedostępna)` };
+          }
+        }),
+      );
       const result = await x.deps.runtime.runTurn(
-        { ...ctx.input, documents: [], taskId: x.task.id, followUp: true },
+        { ...ctx.input, history, documents: [], taskId: x.task.id, followUp: true },
         ctx.userContext,
         [],
       );
