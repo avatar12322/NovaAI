@@ -7,4 +7,6 @@ export * from './approvals';
 export * from './events';
 export * from './worker';
 export * from './documents';
+export * from './services';
+export * from './money';
 export { DOCUMENT_LIMITS } from './limits';

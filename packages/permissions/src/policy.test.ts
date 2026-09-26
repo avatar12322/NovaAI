@@ -221,6 +221,35 @@ describe('dokumenty', () => {
   });
 });
 
+describe('usługi i koszty', () => {
+  const svc = (over: Partial<ResourceMeta> = {}) => res({ type: 'service', ...over });
+  it('prywatna usługa: tylko właściciel; wspólna — domownicy czytają, zarządza właściciel', () => {
+    expect(decide(actor(ALFA), 'service.read', svc()).allow).toBe(true);
+    expect(decide(actor(BETA), 'service.read', svc()).allow).toBe(false);
+    expect(decide(actor(ALFA, 'household_agent'), 'service.read', svc()).allow).toBe(false);
+    const shared = svc({ visibility: 'shared' });
+    expect(decide(actor(BETA), 'service.read', shared).allow).toBe(true);
+    for (const a of ['service.manage', 'service.share', 'service.unshare'] as const) {
+      expect(decide(actor(BETA), a, shared).allow).toBe(false);
+      expect(decide(actor(ALFA), a, shared).allow).toBe(true);
+    }
+    expect(decide(actor(ALFA, 'user', [OTHER_H]), 'service.read', shared).allow).toBe(false);
+  });
+  it('agent nie tworzy, nie zmienia i nie udostępnia usług', () => {
+    expect(decide(actor(ALFA, 'private_agent'), 'service.manage', svc()).allow).toBe(false);
+    expect(decide(actor(ALFA, 'private_agent'), 'service.share', svc()).allow).toBe(false);
+    expect(
+      decideCreate(actor(ALFA, 'private_agent'), 'service.create', {
+        householdId: H,
+        visibility: 'private',
+      }).allow,
+    ).toBe(false);
+    expect(
+      decideCreate(actor(ALFA), 'service.create', { householdId: H, visibility: 'shared' }).allow,
+    ).toBe(true);
+  });
+});
+
 describe('wiadomości w domu', () => {
   const t = { householdId: H, targetUserId: BETA, targetActiveMember: true };
   it('członek domu może wysłać wiadomość drugiemu członkowi (zgoda wymagana osobno)', () => {

@@ -35,6 +35,9 @@ const EnvSchema = z.object({
   NOVA_PUBLIC_URL: z.string().optional().default(''),
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+  // Klucze administracyjne do odczytu raportów kosztów (Usługi i koszty). Puste => adapter „niepodłączony”.
+  ANTHROPIC_ADMIN_API_KEY: z.string().optional().default(''),
+  OPENAI_ADMIN_API_KEY: z.string().optional().default(''),
   SLACK_CLIENT_ID: z.string().optional().default(''),
   SLACK_CLIENT_SECRET: z.string().optional().default(''),
   MICROSOFT_CLIENT_ID: z.string().optional().default(''),
@@ -76,6 +79,7 @@ export type AppConfig = {
   google: { clientId: string; clientSecret: string };
   microsoft: { clientId: string; clientSecret: string; tenant: string };
   slack: { clientId: string; clientSecret: string };
+  costAdapterKeys: { anthropic: string; openai: string };
   slackSigningSecret: string;
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
@@ -130,6 +134,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
       tenant: e.MICROSOFT_TENANT,
     },
     slack: { clientId: e.SLACK_CLIENT_ID, clientSecret: e.SLACK_CLIENT_SECRET },
+    costAdapterKeys: { anthropic: e.ANTHROPIC_ADMIN_API_KEY, openai: e.OPENAI_ADMIN_API_KEY },
     slackSigningSecret: e.SLACK_SIGNING_SECRET,
     webauthn: {
       rpId: e.NOVA_RP_ID || new URL(e.NOVA_WEB_ORIGIN).hostname,

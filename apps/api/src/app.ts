@@ -15,6 +15,7 @@ import { SlackConnector, type SlackEndpoints } from './connectors/slack';
 import { SLACK_TOOLS } from './connectors/slack-tools';
 import { CONNECTOR_TOOLS } from './connectors/tools';
 import { vaultFromEnv } from './connectors/vault';
+import { createCostAdapters } from './services/adapters';
 import { DeviceBroker } from './devices/broker';
 import { reminderFireKind } from './reminders/service';
 import { documentIndexKind } from './documents/service';
@@ -45,6 +46,8 @@ export interface AppOptions {
   microsoftEndpoints?: MicrosoftEndpoints;
   /** Adresy Slack OAuth i Web API (testy kontraktowe na lokalnym mocku). */
   slackEndpoints?: SlackEndpoints;
+  /** Adresy API raportów kosztów (testy kontraktowe na lokalnym mocku). */
+  costAdapterBases?: { anthropic?: string; openai?: string };
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -136,6 +139,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     broker,
     devices,
     connections,
+    costAdapters: createCostAdapters(config.costAdapterKeys, opts.costAdapterBases),
     events,
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',

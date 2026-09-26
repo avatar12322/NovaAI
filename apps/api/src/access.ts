@@ -35,6 +35,7 @@ const META_SQL: Partial<Record<ResourceType, string>> = {
   approval: `SELECT owner_user_id, household_id, 'private'::text AS visibility FROM approvals WHERE id = $1`,
   device: `SELECT owner_user_id, household_id, 'private'::text AS visibility FROM devices WHERE id = $1`,
   document: `SELECT owner_user_id, household_id, visibility FROM documents WHERE id = $1`,
+  service: `SELECT owner_user_id, household_id, visibility FROM services WHERE id = $1`,
 };
 
 const READ_ACTION: Partial<Record<ResourceType, Action>> = {
@@ -44,6 +45,7 @@ const READ_ACTION: Partial<Record<ResourceType, Action>> = {
   approval: 'approval.read',
   device: 'device.read',
   document: 'document.read',
+  service: 'service.read',
 };
 
 export async function loadMeta(

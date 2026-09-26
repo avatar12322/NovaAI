@@ -5,6 +5,7 @@ import type { ConnectionService } from './connectors/service';
 import type { DeviceBroker } from './devices/broker';
 import type { EventHub } from './events';
 import type { ModelGateway } from './model/gateway';
+import type { CostAdapterRegistry } from './services/adapters';
 import type { ToolBroker } from './tools/broker';
 
 /** Zależności aplikacji przekazywane do modułów i kolejki. */
@@ -19,6 +20,8 @@ export interface AppDeps {
   broker: ToolBroker;
   devices: DeviceBroker;
   connections: ConnectionService;
+  /** Adaptery raportów kosztów dostawców (klucze tylko w konfiguracji serwera). */
+  costAdapters: CostAdapterRegistry;
   events: EventHub;
   /** Budzenie kolejki po utworzeniu zadania (no-op, gdy kolejka wyłączona). */
   kickQueue: () => void;

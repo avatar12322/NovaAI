@@ -33,7 +33,8 @@ export type ResourceType =
   | 'calendar'
   | 'notification'
   | 'budget'
-  | 'document';
+  | 'document'
+  | 'service';
 
 export interface ResourceMeta {
   type: ResourceType;
@@ -90,6 +91,12 @@ export const ACTIONS = [
   'document.share',
   'document.unshare',
   'document.reindex',
+  'service.read',
+  'service.create',
+  /** Edycja, usunięcie, wpisy kosztów, import faktur, odnowienie, synchronizacja adaptera. */
+  'service.manage',
+  'service.share',
+  'service.unshare',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -123,6 +130,9 @@ const OWNER_ONLY: ReadonlySet<Action> = new Set<Action>([
   'document.share',
   'document.unshare',
   'document.reindex',
+  'service.manage',
+  'service.share',
+  'service.unshare',
 ]);
 
 /** Działania zarządzające uprawnieniami — nigdy nie wykonuje ich agent (model). */
@@ -140,6 +150,10 @@ const HUMAN_ONLY: ReadonlySet<Action> = new Set<Action>([
   'document.share',
   'document.unshare',
   'document.reindex',
+  'service.create',
+  'service.manage',
+  'service.share',
+  'service.unshare',
 ]);
 
 /** Działania odczytu/zapisu, dla których „shared” daje dostęp członkom domu. */
@@ -149,6 +163,7 @@ const SHARED_READABLE: ReadonlySet<Action> = new Set<Action>([
   'memory.read',
   'task.read',
   'document.read',
+  'service.read',
 ]);
 
 function isShared(res: ResourceMeta): boolean {
@@ -227,7 +242,7 @@ export function decideCreate(
   actor: Actor,
   action: Extract<
     Action,
-    'conversation.create' | 'memory.create' | 'task.create' | 'document.create'
+    'conversation.create' | 'memory.create' | 'task.create' | 'document.create' | 'service.create'
   >,
   target: { householdId: string; visibility: Visibility },
 ): Decision {

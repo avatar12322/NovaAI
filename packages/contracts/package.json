@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./limits": "./src/limits.ts",
-    "./event-types": "./src/event-types.ts"
+    "./event-types": "./src/event-types.ts",
+    "./money": "./src/money.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
