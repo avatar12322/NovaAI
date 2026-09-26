@@ -4,6 +4,7 @@ import { withUserTx } from '../db/pool';
 import { emitEvent } from '../events';
 import { insertMessage } from '../modules/conversations';
 import { writeAudit } from '../audit';
+import { CONNECTOR_REQUIRED } from '../connectors/tools';
 import { ToolDenied } from '../tools/types';
 import type { StepSpec } from './tasks';
 import type { MessageSource } from '@nova/contracts';
@@ -172,23 +173,18 @@ export const agentTurnKind: TaskKindDef = {
         if (hasDevice.rowCount === 0)
           capabilities = capabilities.filter((c) => !c.startsWith('device.'));
       }
-      // Narzędzia poczty tylko przy połączonym koncie z odpowiednim zakresem.
-      if (capabilities.some((c) => c.startsWith('mail.'))) {
-        const conns = x.deps.connections;
-        const uid = x.principal.userId;
-        const canRead = await conns.hasScope(
-          uid,
-          'google',
-          'https://www.googleapis.com/auth/gmail.readonly',
-        );
-        const canSend = await conns.hasScope(
-          uid,
-          'google',
-          'https://www.googleapis.com/auth/gmail.send',
-        );
-        capabilities = capabilities.filter(
-          (c) => !c.startsWith('mail.') || (c === 'mail.send' ? canSend : canRead),
-        );
+      // Narzędzia poczty i szczegółów kalendarza tylko przy połączonym koncie z odpowiednią zdolnością.
+      const needed = new Set(capabilities.flatMap((c) => CONNECTOR_REQUIRED.get(c) ?? []));
+      if (needed.size) {
+        const available = new Set<string>();
+        for (const cap of needed) {
+          if ((await x.deps.connections.capable(x.principal.userId, cap)).length)
+            available.add(cap);
+        }
+        capabilities = capabilities.filter((c) => {
+          const cap = CONNECTOR_REQUIRED.get(c);
+          return !cap || available.has(cap);
+        });
       }
       const result = await x.deps.runtime.runTurn(
         { ...ctx.input, taskId: x.task.id },
@@ -351,6 +347,27 @@ export function formatToolResult(tool: string, out: Record<string, unknown>): st
     body = (out.messages as Array<{ id: string; from: string; subject: string }>)
       .map((m) => `[${m.id}] ${m.from}: ${m.subject}`)
       .join('\n');
+  } else if (Array.isArray(out.events)) {
+    const evs = out.events as Array<{
+      start: string;
+      end: string;
+      allDay: boolean;
+      subject: string;
+      location: string;
+    }>;
+    body = evs.length
+      ? evs
+          .map(
+            (e) =>
+              `${e.start} – ${e.end}${e.allDay ? ' (cały dzień)' : ''}: ${e.subject || '(bez tytułu)'}${e.location ? ` — ${e.location}` : ''}`,
+          )
+          .join('\n')
+      : 'Brak wydarzeń w tym zakresie';
+  } else if (typeof out.draftId === 'string') {
+    body = typeof out.webLink === 'string' && out.webLink ? `Szkic: ${out.webLink}` : '';
+  } else if (typeof out.content === 'string' && typeof out.sha256 !== 'string') {
+    // E-mail: nagłówki i treść (niezaufane dane).
+    body = `Od: ${String(out.from ?? '')}\nDo: ${String(out.to ?? '')}\nData: ${String(out.date ?? '')}\n---\n${out.content}`;
   } else if (typeof out.content === 'string') {
     body = `sha256: ${String(out.sha256 ?? '')}\n---\n${out.content}`;
   } else if (typeof out.output === 'string') {

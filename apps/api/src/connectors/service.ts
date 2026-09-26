@@ -6,6 +6,7 @@ import {
   ConnectorError,
   type Connector,
   type ConnectorCapability,
+  type ConnectorNote,
   type Provider,
   type TokenSet,
 } from './types';
@@ -21,6 +22,9 @@ interface ConnRow {
   provider: Provider;
   status: 'connected' | 'revoked' | 'error';
   scopes: string[];
+  /** Zdolności wybrane przez użytkownika przy łączeniu; null = połączenie sprzed migracji 0011. */
+  capabilities: ConnectorCapability[] | null;
+  account_label: string | null;
   token_ciphertext: Buffer | null;
   key_id: string | null;
   access_expires_at: string | null;
@@ -40,15 +44,26 @@ export interface ConnectionInfo {
   capabilities: readonly ConnectorCapability[];
   configured: boolean;
   reason: string | null;
+  /** Uprawnienia dostawcy, o które poprosimy dla każdej zdolności (np. „Mail.ReadBasic”). */
+  permissions: Partial<Record<ConnectorCapability, string[]>>;
+  notes: readonly ConnectorNote[];
+  revocationHelp: string | null;
   connection: {
     status: string;
     scopes: string[];
+    /** Zdolności faktycznie dostępne (wybór użytkownika ∩ przyznane zakresy). */
+    capabilities: ConnectorCapability[];
+    account: string | null;
     updatedAt: string;
     lastError: string | null;
   } | null;
 }
 
 const aad = (userId: string, provider: string, connId: string) => `${userId}|${provider}|${connId}`;
+
+/** Krótka nazwa uprawnienia do wyświetlenia („gmail.readonly”, „Mail.Read”). */
+const shownScopes = (c: Connector, scopes: string[]) =>
+  c.normalizeScopes ? c.normalizeScopes(scopes) : scopes.map((s) => s.split('/').pop() ?? s);
 
 /**
  * Połączenia OAuth per użytkownik. Tokeny wyłącznie zaszyfrowane (Vault), nigdy w logach ani odpowiedziach.
@@ -60,7 +75,12 @@ export class ConnectionService {
     private readonly config: AppConfig,
     private readonly vault: Vault | null,
     readonly connectors: ReadonlyMap<Provider, Connector>,
-    readonly unsupported: ReadonlyArray<{ provider: Provider; title: string; reason: string }> = [],
+    readonly unsupported: ReadonlyArray<{
+      provider: Provider;
+      title: string;
+      reason: string;
+      notes?: readonly ConnectorNote[];
+    }> = [],
   ) {}
 
   redirectUri(provider: Provider): string {
@@ -84,6 +104,13 @@ export class ConnectionService {
     return c.configurationError();
   }
 
+  /** Zdolność dostępna w połączeniu: wybrana przez użytkownika i objęta przyznanymi zakresami. */
+  private rowAllows(c: Connector, row: ConnRow, cap: ConnectorCapability): boolean {
+    if (!c.capabilities.includes(cap)) return false;
+    if (row.capabilities && !row.capabilities.includes(cap)) return false;
+    return c.allows(cap, row.scopes);
+  }
+
   private async row(userId: string, provider: Provider): Promise<ConnRow | null> {
     const r = await this.db.owner.query<ConnRow>(
       `SELECT * FROM connections WHERE owner_user_id = $1 AND provider = $2 AND status <> 'revoked'`,
@@ -103,10 +130,17 @@ export class ConnectionService {
         capabilities: c.capabilities,
         configured: err === null,
         reason: err,
+        permissions: Object.fromEntries(
+          c.capabilities.map((cap) => [cap, shownScopes(c, c.scopesFor([cap]))]),
+        ),
+        notes: c.notes ?? [],
+        revocationHelp: c.revocationHelp ?? null,
         connection: row
           ? {
               status: row.status,
               scopes: row.scopes,
+              capabilities: c.capabilities.filter((cap) => this.rowAllows(c, row, cap)),
+              account: row.account_label,
               updatedAt: row.updated_at,
               lastError: row.last_error,
             }
@@ -120,6 +154,9 @@ export class ConnectionService {
         capabilities: [],
         configured: false,
         reason: u.reason,
+        permissions: {},
+        notes: u.notes ?? [],
+        revocationHelp: null,
         connection: null,
       });
     }
@@ -138,13 +175,14 @@ export class ConnectionService {
     if (unknown.length)
       throw new ConnectorError('scope_missing', `Nieobsługiwane zdolności: ${unknown.join(', ')}`);
     const scopes = c.scopesFor(caps);
+    const chosen = [...new Set(caps)].sort();
     const state = randomBytes(32).toString('base64url');
     const verifier = randomBytes(32).toString('base64url');
     const challenge = createHash('sha256').update(verifier).digest('base64url');
     const enc = this.vault!.encrypt(verifier, `oauth|${userId}|${provider}`);
     await this.db.owner.query(
-      `INSERT INTO oauth_states (owner_user_id, household_id, provider, state_hash, verifier_cipher, key_id, scopes, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO oauth_states (owner_user_id, household_id, provider, state_hash, verifier_cipher, key_id, scopes, capabilities, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [
         userId,
         householdId,
@@ -153,6 +191,7 @@ export class ConnectionService {
         enc.blob,
         enc.keyId,
         scopes,
+        chosen,
         new Date(Date.now() + STATE_TTL_MS),
       ],
     );
@@ -179,10 +218,11 @@ export class ConnectionService {
         verifier_cipher: Buffer;
         key_id: string;
         scopes: string[];
+        capabilities: ConnectorCapability[] | null;
       }>(
         `UPDATE oauth_states SET used_at = now()
           WHERE state_hash = $1 AND provider = $2 AND used_at IS NULL AND expires_at > now()
-          RETURNING id, owner_user_id, household_id, verifier_cipher, key_id, scopes`,
+          RETURNING id, owner_user_id, household_id, verifier_cipher, key_id, scopes, capabilities`,
         [sha256(state), provider],
       );
       return r.rows[0] ?? null;
@@ -194,7 +234,10 @@ export class ConnectionService {
       `oauth|${st.owner_user_id}|${provider}`,
     );
     const tokens = await c.exchangeCode(code, verifier, this.redirectUri(provider));
-    const missing = st.scopes.filter((s) => !tokens.scopes.includes(s));
+    // Porównanie w postaci kanonicznej (Microsoft zwraca np. „Mail.Read” zamiast pełnego URI, bez zakresów OIDC).
+    const norm = (x: readonly string[]) => (c.normalizeScopes ? c.normalizeScopes(x) : [...x]);
+    const granted = norm(tokens.scopes);
+    const missing = norm(st.scopes).filter((s) => !granted.includes(s));
     await withSystemTx(this.db, async (tx) => {
       await tx.query(
         `UPDATE connections SET status = 'revoked', revoked_at = now(), token_ciphertext = NULL
@@ -202,13 +245,15 @@ export class ConnectionService {
         [st.owner_user_id, provider],
       );
       const ins = await tx.query<{ id: string }>(
-        `INSERT INTO connections (household_id, owner_user_id, provider, status, scopes, last_error)
-         VALUES ($1,$2,$3,'connected',$4,$5) RETURNING id`,
+        `INSERT INTO connections (household_id, owner_user_id, provider, status, scopes, capabilities, account_label, last_error)
+         VALUES ($1,$2,$3,'connected',$4,$5,$6,$7) RETURNING id`,
         [
           st.household_id,
           st.owner_user_id,
           provider,
-          tokens.scopes,
+          granted,
+          st.capabilities,
+          tokens.account?.slice(0, 200) ?? null,
           missing.length ? `brak zakresów: ${missing.join(' ')}` : null,
         ],
       );
@@ -248,31 +293,140 @@ export class ConnectionService {
     ) as StoredTokens;
   }
 
-  /** Token dostępu z automatycznym odświeżeniem; wymaga zakresu, jeśli podano. */
-  async accessToken(userId: string, provider: Provider, requiredScope?: string): Promise<string> {
+  private async markReauth(connId: string): Promise<void> {
+    await this.db.owner.query(
+      `UPDATE connections SET status = 'error', last_error = 'reauth_required', updated_at = now()
+        WHERE id = $1 AND status = 'connected'`,
+      [connId],
+    );
+  }
+
+  /**
+   * Token dostępu z automatycznym odświeżeniem; wymaga zdolności, jeśli podano. `rejected` = token odrzucony
+   * przez API (401) — wymusza odświeżenie, chyba że inny proces już go podmienił.
+   */
+  async accessToken(
+    userId: string,
+    provider: Provider,
+    cap?: ConnectorCapability,
+    opts: { rejected?: string } = {},
+  ): Promise<string> {
     const c = this.connector(provider);
     const row = await this.row(userId, provider);
+    if (row?.status === 'error' && row.last_error === 'reauth_required')
+      throw new ConnectorError('reauth_required', `${provider}: wymagane ponowne połączenie konta`);
     if (!row || row.status !== 'connected')
       throw new ConnectorError('not_connected', `Brak połączenia ${provider}`);
-    if (requiredScope && !row.scopes.includes(requiredScope))
-      throw new ConnectorError('scope_missing', `Brak zakresu ${requiredScope}`);
+    if (cap && !this.rowAllows(c, row, cap))
+      throw new ConnectorError('scope_missing', `Połączenie ${provider} nie obejmuje: ${cap}`);
     const t = this.decode(row);
-    if (t.expiresAt - REFRESH_MARGIN_MS > Date.now()) return t.accessToken;
-    if (!t.refreshToken)
-      throw new ConnectorError('reauth_required', 'Brak refresh token — połącz ponownie');
+    if (t.accessToken !== opts.rejected && t.expiresAt - REFRESH_MARGIN_MS > Date.now())
+      return t.accessToken;
     try {
-      const fresh = await c.refresh(t.refreshToken);
-      await this.store(this.db.owner, row.id, userId, provider, fresh);
-      return fresh.accessToken;
-    } catch (err) {
-      if (err instanceof ConnectorError && err.code === 'reauth_required') {
-        await this.db.owner.query(
-          `UPDATE connections SET status = 'error', last_error = 'reauth_required', updated_at = now() WHERE id = $1`,
+      // Odświeżenie pod blokadą wiersza: równoległe zadania nie zużywają tego samego refresh tokenu,
+      // a obrócony refresh token (Microsoft) zastępuje poprzedni atomowo.
+      return await withSystemTx(this.db, async (tx) => {
+        const r = await tx.query<ConnRow>(
+          `SELECT * FROM connections WHERE id = $1 AND status = 'connected' FOR UPDATE`,
           [row.id],
+        );
+        const locked = r.rows[0];
+        if (!locked) throw new ConnectorError('not_connected', `Brak połączenia ${provider}`);
+        const cur = this.decode(locked);
+        if (cur.accessToken !== opts.rejected && cur.expiresAt - REFRESH_MARGIN_MS > Date.now())
+          return cur.accessToken;
+        if (!cur.refreshToken)
+          throw new ConnectorError('reauth_required', 'Brak refresh token — połącz ponownie');
+        const fresh = await c.refresh(cur.refreshToken);
+        await this.store(tx, locked.id, userId, provider, fresh);
+        return fresh.accessToken;
+      });
+    } catch (err) {
+      if (err instanceof ConnectorError && err.code === 'reauth_required')
+        await this.markReauth(row.id);
+      throw err;
+    }
+  }
+
+  /**
+   * Wywołanie API dostawcy w imieniu użytkownika. Gdy API odrzuci token (401 — np. unieważniony przed
+   * czasem), jedno wymuszone odświeżenie i jedno ponowienie; drugie 401 => wymagane ponowne połączenie.
+   * Ponowienie jest bezpieczne także dla wysyłki: odrzucone żądanie nie zostało wykonane.
+   */
+  async call<T>(
+    userId: string,
+    provider: Provider,
+    cap: ConnectorCapability,
+    fn: (token: string, c: Connector) => Promise<T>,
+  ): Promise<T> {
+    const c = this.connector(provider);
+    const token = await this.accessToken(userId, provider, cap);
+    try {
+      return await fn(token, c);
+    } catch (err) {
+      if (!(err instanceof ConnectorError) || err.code !== 'unauthorized') throw err;
+    }
+    const fresh = await this.accessToken(userId, provider, cap, { rejected: token });
+    try {
+      return await fn(fresh, c);
+    } catch (err) {
+      if (err instanceof ConnectorError && err.code === 'unauthorized') {
+        const row = await this.row(userId, provider);
+        if (row) await this.markReauth(row.id);
+        throw new ConnectorError(
+          'reauth_required',
+          `${provider}: wymagane ponowne połączenie konta`,
         );
       }
       throw err;
     }
+  }
+
+  /** Połączeni dostawcy użytkownika, którzy obsługują zdolność (wybór użytkownika i przyznane zakresy). */
+  async capable(userId: string, cap: ConnectorCapability): Promise<Provider[]> {
+    if (!this.vault) return [];
+    const r = await this.db.owner.query<ConnRow>(
+      `SELECT * FROM connections WHERE owner_user_id = $1 AND status = 'connected' ORDER BY provider`,
+      [userId],
+    );
+    return r.rows
+      .filter((row) => {
+        const c = this.connectors.get(row.provider);
+        return !!c && !c.configurationError() && this.rowAllows(c, row, cap);
+      })
+      .map((row) => row.provider);
+  }
+
+  /**
+   * Wybór konta dla zdolności: wskazane (musi być połączone) albo jedyne pasujące. Brak konta => czytelny
+   * powód (nie połączono / wymagane ponowne połączenie / brak uprawnienia); kilka kont => trzeba wskazać.
+   */
+  async resolve(userId: string, cap: ConnectorCapability, preferred?: Provider): Promise<Provider> {
+    const ok = await this.capable(userId, cap);
+    if (preferred ? ok.includes(preferred) : ok.length === 1) return preferred ?? ok[0]!;
+    if (!preferred && ok.length > 1)
+      throw new ConnectorError(
+        'ambiguous_account',
+        `Połączono kilka kont z tą funkcją (${ok.join(', ')}) — wskaż konto`,
+      );
+    const candidates = preferred
+      ? [preferred]
+      : [...this.connectors.values()]
+          .filter((c) => c.capabilities.includes(cap))
+          .map((c) => c.provider);
+    for (const p of candidates) {
+      const row = this.connectors.has(p) ? await this.row(userId, p) : null;
+      if (row?.status === 'error' && row.last_error === 'reauth_required')
+        throw new ConnectorError('reauth_required', `${p}: wymagane ponowne połączenie konta`);
+      if (row?.status === 'connected')
+        throw new ConnectorError('scope_missing', `Połączenie ${p} nie obejmuje: ${cap}`);
+    }
+    throw new ConnectorError('not_connected', `Brak połączonego konta z funkcją ${cap}`);
+  }
+
+  /** Etykieta podłączonego konta (np. adres) — do podglądu zgody. */
+  async accountLabel(userId: string, provider: Provider): Promise<string | null> {
+    return (await this.row(userId, provider))?.account_label ?? null;
   }
 
   /** Odłączenie: odwołanie u dostawcy (best effort) i usunięcie tokenów z bazy. */
@@ -312,12 +466,5 @@ export class ConnectionService {
       });
     }
     return r.rows.length;
-  }
-
-  /** Połączenie z danym zakresem (do wyboru źródła free/busy). */
-  async hasScope(userId: string, provider: Provider, scope: string): Promise<boolean> {
-    if (!this.connectors.has(provider) || !this.vault) return false;
-    const row = await this.row(userId, provider);
-    return !!row && row.status === 'connected' && row.scopes.includes(scope);
   }
 }

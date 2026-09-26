@@ -81,32 +81,57 @@ export class FakeAgentRuntime implements AgentRuntime {
       });
       lines.push('Sprawdzam zajętość w kalendarzach, które zostały udostępnione.');
     }
-    const mailSend = /(?:^|\n)\s*wyślij mail do\s+(\S+?):\s*([^|\n]+)\|\s*([\s\S]+)$/im.exec(text);
-    if (mailSend?.[1] && mailSend[2] && mailSend[3]) {
+    // Opcjonalne słowo konta po poleceniu: „outlook” / „gmail” (bez niego — jedyne połączone konto).
+    const acct = (w: string | undefined) =>
+      w ? { account: /^outlook$/i.test(w) ? 'microsoft' : 'google' } : {};
+    const outgoing =
+      /(?:^|\n)\s*(wyślij mail|szkic maila)(?:\s+(outlook|gmail))?\s+do\s+(\S+?):\s*([^|\n]+)\|\s*([\s\S]+)$/im.exec(
+        text,
+      );
+    if (outgoing?.[1] && outgoing[3] && outgoing[4] && outgoing[5]) {
+      const draft = outgoing[1].toLowerCase().startsWith('szkic');
       toolCalls.push({
-        tool: 'mail.send',
-        params: { to: mailSend[1], subject: mailSend[2].trim(), body: mailSend[3].trim() },
-        reason: 'prośba o wysłanie e-maila',
+        tool: draft ? 'mail.draft' : 'mail.send',
+        params: {
+          to: outgoing[3],
+          subject: outgoing[4].trim(),
+          body: outgoing[5].trim(),
+          ...acct(outgoing[2]),
+        },
+        reason: draft ? 'prośba o szkic e-maila' : 'prośba o wysłanie e-maila',
       });
-      lines.push(`Proponuję wysłać e-mail do ${mailSend[1]} (wymaga Twojej zgody).`);
+      lines.push(
+        draft
+          ? `Proponuję zapisać szkic e-maila do ${outgoing[3]} (wymaga Twojej zgody; nic nie zostanie wysłane).`
+          : `Proponuję wysłać e-mail do ${outgoing[3]} (wymaga Twojej zgody).`,
+      );
     }
-    const mailRead = /(?:^|\n)\s*przeczytaj maila:\s*(\S+)\s*$/im.exec(text);
-    if (mailRead?.[1]) {
+    const mailRead = /(?:^|\n)\s*przeczytaj maila(?:\s+(outlook|gmail))?:\s*(\S+)\s*$/im.exec(text);
+    if (mailRead?.[2]) {
       toolCalls.push({
         tool: 'mail.read',
-        params: { messageId: mailRead[1] },
+        params: { messageId: mailRead[2], ...acct(mailRead[1]) },
         reason: 'odczyt e-maila',
       });
       lines.push('Odczytuję wiadomość.');
     }
-    const mailSearch = /(?:^|\n)\s*szukaj maili:\s*(.+)$/im.exec(text);
-    if (mailSearch?.[1]) {
+    const mailSearch = /(?:^|\n)\s*szukaj maili(?:\s+(outlook|gmail))?:\s*(.+)$/im.exec(text);
+    if (mailSearch?.[2]) {
       toolCalls.push({
         tool: 'mail.search',
-        params: { query: mailSearch[1].trim(), max: 10 },
+        params: { query: mailSearch[2].trim(), max: 10, ...acct(mailSearch[1]) },
         reason: 'wyszukiwanie e-maili',
       });
       lines.push('Szukam w poczcie.');
+    }
+    const events = /(?:^|\n)\s*wydarzenia(?:\s+(outlook|gmail))?:\s*(\S+)\s+(\S+)\s*$/im.exec(text);
+    if (events?.[2] && events[3]) {
+      toolCalls.push({
+        tool: 'calendar.events',
+        params: { from: events[2], to: events[3], max: 50, ...acct(events[1]) },
+        reason: 'wydarzenia z kalendarza',
+      });
+      lines.push('Sprawdzam wydarzenia w Twoim kalendarzu.');
     }
     const remind =
       /(?:^|\n)\s*przypomnij (?:mi|nam)\s+(za\s+(\d{1,4})\s*(min|minut|minuty|godz|godzin|godziny|h)|(\d{4}-\d{2}-\d{2}T\S+))\s*:\s*(.+)$/im.exec(

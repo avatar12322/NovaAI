@@ -4,7 +4,13 @@ import type { AppConfig } from './config';
 import type { Db } from './db/pool';
 import type { AppDeps } from './deps';
 import { GoogleConnector, type GoogleEndpoints } from './connectors/google';
+import {
+  MicrosoftConnector,
+  microsoftEndpoints,
+  type MicrosoftEndpoints,
+} from './connectors/microsoft';
 import { ConnectionService } from './connectors/service';
+import type { Connector, Provider } from './connectors/types';
 import { CONNECTOR_TOOLS } from './connectors/tools';
 import { vaultFromEnv } from './connectors/vault';
 import { DeviceBroker } from './devices/broker';
@@ -33,6 +39,8 @@ export interface AppOptions {
   env?: NodeJS.ProcessEnv;
   /** Adresy Google (testy kontraktowe na lokalnym mocku). */
   googleEndpoints?: GoogleEndpoints;
+  /** Adresy Microsoft identity platform i Graph (testy kontraktowe na lokalnym mocku). */
+  microsoftEndpoints?: MicrosoftEndpoints;
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -57,7 +65,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     db,
     config,
     vault,
-    new Map([
+    new Map<Provider, Connector>([
       [
         'google',
         new GoogleConnector(
@@ -66,13 +74,16 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
           opts.googleEndpoints,
         ),
       ],
+      [
+        'microsoft',
+        new MicrosoftConnector(
+          config.microsoft.clientId,
+          config.microsoft.clientSecret,
+          opts.microsoftEndpoints ?? microsoftEndpoints(config.microsoft.tenant),
+        ),
+      ],
     ]),
     [
-      {
-        provider: 'microsoft',
-        title: 'Microsoft 365 (Outlook, Teams)',
-        reason: 'nie zaimplementowano w tej wersji',
-      },
       {
         provider: 'slack',
         title: 'Slack',

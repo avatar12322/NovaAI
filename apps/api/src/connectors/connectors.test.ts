@@ -193,7 +193,7 @@ async function chat(c: Client, content: string, space: 'private' | 'shared' = 'p
 }
 
 describe('stan integracji', () => {
-  it('bez klienta OAuth: „not configured” z powodem; Microsoft/Slack oznaczone jako niezaimplementowane', async () => {
+  it('bez klienta OAuth: „not configured” z powodem; Slack oznaczony jako niezaimplementowany', async () => {
     const plain = await createTestApp();
     const noVault = await createTestApp({ NOVA_SECRET_KEY: '' });
     try {
@@ -205,6 +205,8 @@ describe('stan integracji', () => {
       });
       expect(items.find((x: any) => x.provider === 'microsoft')).toMatchObject({
         configured: false,
+        reason: expect.stringContaining('MICROSOFT_CLIENT_ID'),
+        connection: null,
       });
       expect(
         (await a.post('/api/connections/google/start', { capabilities: ['calendar.freebusy'] }))
@@ -241,7 +243,9 @@ describe('OAuth Google (kontrakt na mocku)', () => {
   it('callback wymienia kod z weryfikatorem PKCE; tokeny zaszyfrowane i niedostępne dla roli aplikacji', async () => {
     const { callback } = await connectGoogle(alfa);
     expect(callback.statusCode).toBe(302);
-    expect(callback.headers.location).toBe('http://localhost:5173/#/settings?integration=ok');
+    expect(callback.headers.location).toBe(
+      'http://localhost:5173/#/settings?integration=ok&provider=google',
+    );
     const list = (await alfa.get('/api/connections')).body.items.find(
       (x: any) => x.provider === 'google',
     );

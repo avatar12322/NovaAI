@@ -12,10 +12,35 @@ import { ConnectorError, type Provider } from './types';
 const ProviderParam = z.enum(['google', 'microsoft', 'slack']);
 const StartBody = z.object({
   capabilities: z
-    .array(z.enum(['calendar.freebusy', 'mail.search', 'mail.read', 'mail.send']))
+    .array(
+      z.enum([
+        'calendar.freebusy',
+        'calendar.read',
+        'mail.search',
+        'mail.read',
+        'mail.send',
+        'mail.draft',
+      ]),
+    )
     .min(1)
-    .max(4),
+    .max(6),
 });
+
+/**
+ * Powód odmowy z przekierowania dostawcy. Microsoft zgłasza wymóg zgody administratora organizacji kodami
+ * AADSTS w `error_description` (np. 90094 — uprawnienie wymaga administratora, 65001 — brak zgody) albo
+ * błędem `consent_required`. Opis nie jest zapisywany — tylko wyprowadzony krótki powód.
+ */
+export function callbackErrorReason(error: string, description: string | undefined): string {
+  const d = description ?? '';
+  if (
+    error === 'consent_required' ||
+    /AADSTS(90094|900941|90099|65001)\b/.test(d) ||
+    /admin(istrator)?\s+(approval|consent|permission)/i.test(d)
+  )
+    return 'zgoda_administratora';
+  return 'odmowa';
+}
 const LocalEvent = z
   .object({
     title: z.string().trim().min(1).max(200),
@@ -89,11 +114,13 @@ export const connectorRoutes =
     app.get<{ Params: { provider: string }; Querystring: Record<string, string | undefined> }>(
       '/connections/:provider/callback',
       async (req, reply: FastifyReply) => {
+        const provider = ProviderParam.safeParse(req.params.provider);
         const back = (status: 'ok' | 'error', reason?: string) =>
           reply.redirect(
-            `${deps.config.publicUrl}/#/settings?integration=${status}${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`,
+            `${deps.config.publicUrl}/#/settings?integration=${status}` +
+              (provider.success ? `&provider=${provider.data}` : '') +
+              (reason ? `&reason=${encodeURIComponent(reason)}` : ''),
           );
-        const provider = ProviderParam.safeParse(req.params.provider);
         const state = req.query.state ?? '';
         const code = req.query.code ?? '';
         if (
@@ -104,10 +131,15 @@ export const connectorRoutes =
           state.length > 200 ||
           code.length > 2000
         ) {
+          const reason = req.query.error
+            ? callbackErrorReason(req.query.error, req.query.error_description)
+            : 'nieprawidlowe_zadanie';
           await audit(req, null, null, 'connection.callback', 'deny', {
-            reason: req.query.error ?? 'invalid_request',
+            provider: provider.success ? provider.data : null,
+            error: (req.query.error ?? 'invalid_request').slice(0, 60),
+            reason,
           });
-          return back('error', req.query.error ? 'odmowa' : 'nieprawidlowe_zadanie');
+          return back('error', reason);
         }
         try {
           const r = await deps.connections.callback(provider.data as Provider, state, code);

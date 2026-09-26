@@ -101,6 +101,11 @@ export class GoogleConnector implements Connector {
     return [...new Set(caps.map((c) => SCOPES[c]).filter((s): s is string => !!s))].sort();
   }
 
+  allows(cap: ConnectorCapability, granted: readonly string[]): boolean {
+    const scope = SCOPES[cap];
+    return !!scope && granted.includes(scope);
+  }
+
   authorizeUrl(a: {
     state: string;
     codeChallenge: string;
@@ -203,7 +208,8 @@ export class GoogleConnector implements Connector {
       ...init,
       headers: { ...(init.headers ?? {}), authorization: `Bearer ${accessToken}` },
     });
-    if (status === 401) throw new ConnectorError('reauth_required', 'google: token odrzucony');
+    // 401: serwis odświeża token i ponawia raz (ConnectionService.call); dopiero drugie 401 => reauth.
+    if (status === 401) throw new ConnectorError('unauthorized', 'google: token odrzucony');
     if (status === 403)
       throw new ConnectorError('scope_missing', 'google: brak uprawnień (zakres)');
     if (status >= 400)

@@ -35,6 +35,14 @@ const EnvSchema = z.object({
   NOVA_PUBLIC_URL: z.string().optional().default(''),
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+  MICROSOFT_CLIENT_ID: z.string().optional().default(''),
+  MICROSOFT_CLIENT_SECRET: z.string().optional().default(''),
+  // Katalog logowania: common (konta osobiste i służbowe), organizations, consumers albo identyfikator dzierżawy.
+  MICROSOFT_TENANT: z
+    .string()
+    .regex(/^(common|organizations|consumers|[0-9a-fA-F-]{36}|[A-Za-z0-9.-]{1,100}\.[A-Za-z]{2,})$/)
+    .optional()
+    .default('common'),
   SLACK_SIGNING_SECRET: z.string().optional().default(''),
   NOVA_RP_ID: z.string().optional().default(''),
   NOVA_RP_NAME: z.string().optional().default('NovaAI'),
@@ -64,6 +72,7 @@ export type AppConfig = {
   /** Publiczny adres aplikacji (redirect OAuth). Domyślnie NOVA_WEB_ORIGIN. */
   publicUrl: string;
   google: { clientId: string; clientSecret: string };
+  microsoft: { clientId: string; clientSecret: string; tenant: string };
   slackSigningSecret: string;
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
@@ -112,6 +121,11 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     secretKeysOld: e.NOVA_SECRET_KEYS_OLD,
     publicUrl: (e.NOVA_PUBLIC_URL || e.NOVA_WEB_ORIGIN).replace(/\/$/, ''),
     google: { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET },
+    microsoft: {
+      clientId: e.MICROSOFT_CLIENT_ID,
+      clientSecret: e.MICROSOFT_CLIENT_SECRET,
+      tenant: e.MICROSOFT_TENANT,
+    },
     slackSigningSecret: e.SLACK_SIGNING_SECRET,
     webauthn: {
       rpId: e.NOVA_RP_ID || new URL(e.NOVA_WEB_ORIGIN).hostname,
