@@ -291,4 +291,5 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 1. Uruchomienie z prawdziwymi usługami przez właściciela: klucz modelu + cennik w `models.local.json`, klient OAuth Google,
    Worker na Windows wg `workers/windows/README.md` (w tym test junction).
 2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS, kopie zapasowe Postgres, usługa systemowa dla `start:prod`.
-3. Web Push (VAPID) dla przypomnień i zgód poza otwartą aplikacją; transkrypcja serwerowa po decyzji o kosztach.
+3. Pamięć dokumentów z prawdziwym modelem: ocena cytowania źródeł i odporności na wstrzyknięcia na zestawie pytań;
+   rozważyć wyszukiwanie semantyczne (pgvector + lokalne embeddingi) i OCR skanów. Potem Web Push (VAPID).
