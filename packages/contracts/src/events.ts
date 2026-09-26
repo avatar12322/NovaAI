@@ -19,6 +19,7 @@ export const EventType = z.enum([
   'budget.blocked',
   'budget.changed',
   'device.status',
+  'document.updated',
 ]);
 export type EventType = z.infer<typeof EventType>;
 

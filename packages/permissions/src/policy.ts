@@ -32,7 +32,8 @@ export type ResourceType =
   | 'connection'
   | 'calendar'
   | 'notification'
-  | 'budget';
+  | 'budget'
+  | 'document';
 
 export interface ResourceMeta {
   type: ResourceType;
@@ -83,6 +84,12 @@ export const ACTIONS = [
   'budget.manage',
   'household.notify',
   'reminder.create',
+  'document.read',
+  'document.create',
+  'document.delete',
+  'document.share',
+  'document.unshare',
+  'document.reindex',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -112,6 +119,10 @@ const OWNER_ONLY: ReadonlySet<Action> = new Set<Action>([
   'device.git.read',
   'connection.read',
   'connection.manage',
+  'document.delete',
+  'document.share',
+  'document.unshare',
+  'document.reindex',
 ]);
 
 /** Działania zarządzające uprawnieniami — nigdy nie wykonuje ich agent (model). */
@@ -124,6 +135,11 @@ const HUMAN_ONLY: ReadonlySet<Action> = new Set<Action>([
   'connection.manage',
   'budget.manage',
   'task.cancel',
+  'document.create',
+  'document.delete',
+  'document.share',
+  'document.unshare',
+  'document.reindex',
 ]);
 
 /** Działania odczytu/zapisu, dla których „shared” daje dostęp członkom domu. */
@@ -132,6 +148,7 @@ const SHARED_READABLE: ReadonlySet<Action> = new Set<Action>([
   'conversation.write',
   'memory.read',
   'task.read',
+  'document.read',
 ]);
 
 function isShared(res: ResourceMeta): boolean {
@@ -208,10 +225,14 @@ export function decide(
 /** Tworzenie nowego zasobu w domu (właściciel = aktor, zawsze z sesji). */
 export function decideCreate(
   actor: Actor,
-  action: Extract<Action, 'conversation.create' | 'memory.create' | 'task.create'>,
+  action: Extract<
+    Action,
+    'conversation.create' | 'memory.create' | 'task.create' | 'document.create'
+  >,
   target: { householdId: string; visibility: Visibility },
 ): Decision {
   if (!actor.userId) return deny('no_actor');
+  if (HUMAN_ONLY.has(action) && actor.context !== 'user') return deny('human_only_action');
   if (!actor.activeHouseholdIds.has(target.householdId)) return deny('not_active_member');
   if (actor.context === 'household_agent' && target.visibility !== 'shared') {
     return deny('household_agent_shared_only');

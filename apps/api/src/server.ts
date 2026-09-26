@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
-import { LIMITS } from '@nova/contracts';
+import { DOCUMENT_LIMITS, LIMITS } from '@nova/contracts';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { resolveSession, SESSION_COOKIE, type AuthContext } from './auth/session';
 import { passkeyRoutes } from './auth/passkeys';
@@ -14,6 +14,7 @@ import { approvalRoutes } from './modules/approvals';
 import { budgetRoutes } from './modules/budget';
 import { connectorRoutes } from './connectors/routes';
 import { reminderRoutes } from './reminders/routes';
+import { documentRoutes } from './documents/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -136,6 +137,17 @@ export async function buildServer(
       });
     }
     const e = err as { statusCode?: number; code?: string; message?: string };
+    if (e.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+      return reply.status(413).send({
+        error: {
+          code: 'too_large',
+          message: req.url.startsWith('/api/documents')
+            ? `Plik przekracza limit ${Math.round(DOCUMENT_LIMITS.maxBytes / 1024 / 1024)} MB`
+            : 'Żądanie jest za duże',
+          requestId: req.id,
+        },
+      });
+    }
     if (e.statusCode && e.statusCode >= 400 && e.statusCode < 500) {
       return reply.status(e.statusCode).send({
         error: {
@@ -172,6 +184,7 @@ export async function buildServer(
         await api.register(deviceRoutes(deps, opts.deviceServerPublicKey));
       await api.register(connectorRoutes(deps));
       await api.register(reminderRoutes(deps));
+      await api.register(documentRoutes(deps));
     },
     { prefix: '/api' },
   );

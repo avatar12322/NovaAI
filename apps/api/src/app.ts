@@ -9,6 +9,7 @@ import { CONNECTOR_TOOLS } from './connectors/tools';
 import { vaultFromEnv } from './connectors/vault';
 import { DeviceBroker } from './devices/broker';
 import { reminderFireKind } from './reminders/service';
+import { documentIndexKind } from './documents/service';
 import { reminderCreateTool } from './reminders/tool';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
@@ -133,7 +134,8 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   })
     .registerKind('agent.turn', agentTurnKind)
     .registerKind('demo.workflow', demoWorkflowKind(opts.demoStepMs ?? 400))
-    .registerKind('reminder.fire', reminderFireKind);
+    .registerKind('reminder.fire', reminderFireKind)
+    .registerKind('document.index', documentIndexKind);
   if (config.queueEnabled) deps.kickQueue = () => runner.kick();
   deps.queueStatus = () => (runner.isRunning ? 'running' : 'disabled');
   return { deps, runner, deviceServerPublicKey: signing.publicRaw };

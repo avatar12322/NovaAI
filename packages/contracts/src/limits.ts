@@ -8,3 +8,13 @@ export const LIMITS = {
   titleChars: 200,
   bodyBytes: 256 * 1024,
 } as const;
+
+/** Pamięć dokumentów: limity widoczne też w UI (przed wysłaniem pliku). */
+export const DOCUMENT_LIMITS = {
+  maxBytes: 10 * 1024 * 1024,
+  maxDocumentsPerUser: 200,
+  maxTotalBytesPerUser: 200 * 1024 * 1024,
+  maxPages: 500,
+  maxChars: 2_000_000,
+  extensions: ['.pdf', '.txt', '.md', '.markdown'],
+} as const;

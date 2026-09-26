@@ -1,6 +1,6 @@
 // Bundel produkcyjny API: kod źródłowy (w tym pakiety @nova/* w TS) → dist/*.js dla czystego Node.
 // Zależności z node_modules pozostają zewnętrzne (instalowane przez `pnpm install --prod`).
-import { readFileSync } from 'node:fs';
+import { copyFileSync, readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -19,3 +19,9 @@ await build({
   external,
   logLevel: 'info',
 });
+
+// Wątek odczytu PDF jest ładowany w czasie działania przez `new URL('./pdf-worker.mjs', import.meta.url)`.
+copyFileSync(
+  new URL('../src/documents/pdf-worker.mjs', import.meta.url),
+  new URL('../dist/pdf-worker.mjs', import.meta.url),
+);

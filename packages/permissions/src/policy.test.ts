@@ -188,6 +188,39 @@ describe('tworzenie i zakres', () => {
   });
 });
 
+describe('dokumenty', () => {
+  const doc = (over: Partial<ResourceMeta> = {}) => res({ type: 'document', ...over });
+  it('prywatny dokument: tylko właściciel; ani druga osoba, ani NovaAI', () => {
+    expect(decide(actor(ALFA), 'document.read', doc()).allow).toBe(true);
+    expect(decide(actor(ALFA, 'private_agent'), 'document.read', doc()).allow).toBe(true);
+    expect(decide(actor(BETA), 'document.read', doc()).allow).toBe(false);
+    expect(decide(actor(BETA, 'private_agent'), 'document.read', doc()).allow).toBe(false);
+    expect(decide(actor(ALFA, 'household_agent'), 'document.read', doc()).allow).toBe(false);
+  });
+  it('wspólny dokument: członkowie domu i NovaAI czytają; zarządza tylko właściciel', () => {
+    const shared = doc({ visibility: 'shared' });
+    expect(decide(actor(BETA), 'document.read', shared).allow).toBe(true);
+    expect(decide(actor(BETA, 'household_agent'), 'document.read', shared).allow).toBe(true);
+    for (const a of ['document.delete', 'document.unshare', 'document.reindex'] as const)
+      expect(decide(actor(BETA), a, shared).allow).toBe(false);
+    expect(decide(actor(ALFA), 'document.unshare', shared).allow).toBe(true);
+    expect(decide(actor(ALFA, 'user', [OTHER_H]), 'document.read', shared).allow).toBe(false);
+  });
+  it('agent nie dodaje, nie usuwa i nie udostępnia dokumentów', () => {
+    expect(decide(actor(ALFA, 'private_agent'), 'document.delete', doc()).allow).toBe(false);
+    expect(decide(actor(ALFA, 'private_agent'), 'document.share', doc()).allow).toBe(false);
+    expect(
+      decideCreate(actor(ALFA, 'private_agent'), 'document.create', {
+        householdId: H,
+        visibility: 'private',
+      }).allow,
+    ).toBe(false);
+    expect(
+      decideCreate(actor(ALFA), 'document.create', { householdId: H, visibility: 'private' }).allow,
+    ).toBe(true);
+  });
+});
+
 describe('wiadomości w domu', () => {
   const t = { householdId: H, targetUserId: BETA, targetActiveMember: true };
   it('członek domu może wysłać wiadomość drugiemu członkowi (zgoda wymagana osobno)', () => {

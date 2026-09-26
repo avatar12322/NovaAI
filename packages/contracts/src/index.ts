@@ -6,3 +6,5 @@ export * from './tasks';
 export * from './approvals';
 export * from './events';
 export * from './worker';
+export * from './documents';
+export { DOCUMENT_LIMITS } from './limits';
