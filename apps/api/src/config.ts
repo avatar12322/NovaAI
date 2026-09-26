@@ -40,6 +40,20 @@ const EnvSchema = z.object({
   // Klucze administracyjne do odczytu raportów kosztów (Usługi i koszty). Puste => adapter „niepodłączony”.
   ANTHROPIC_ADMIN_API_KEY: z.string().optional().default(''),
   OPENAI_ADMIN_API_KEY: z.string().optional().default(''),
+  // Głos ElevenLabs (odczyt odpowiedzi na głos). Pusty klucz => głos przeglądarki.
+  ELEVENLABS_API_KEY: z.string().optional().default(''),
+  ELEVENLABS_VOICE_ID: z
+    .string()
+    .regex(/^[A-Za-z0-9]{10,40}$/)
+    .optional()
+    .default('o2xdfKUpc1Bwq7RchZuW'),
+  ELEVENLABS_MODEL_ID: z
+    .string()
+    .regex(/^[a-z0-9_]{3,40}$/)
+    .optional()
+    .default('eleven_flash_v2_5'),
+  /** Miesięczny limit znaków na dom (0 = bez limitu po stronie NovaAI). */
+  ELEVENLABS_MONTHLY_CHARS: z.coerce.number().int().min(0).default(30_000),
   SLACK_CLIENT_ID: z.string().optional().default(''),
   SLACK_CLIENT_SECRET: z.string().optional().default(''),
   MICROSOFT_CLIENT_ID: z.string().optional().default(''),
@@ -84,6 +98,8 @@ export type AppConfig = {
   microsoft: { clientId: string; clientSecret: string; tenant: string };
   slack: { clientId: string; clientSecret: string };
   costAdapterKeys: { anthropic: string; openai: string };
+  /** Synteza mowy ElevenLabs; klucz tylko po stronie serwera. */
+  tts: { apiKey: string; voiceId: string; modelId: string; monthlyChars: number };
   slackSigningSecret: string;
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
@@ -143,6 +159,12 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     },
     slack: { clientId: e.SLACK_CLIENT_ID, clientSecret: e.SLACK_CLIENT_SECRET },
     costAdapterKeys: { anthropic: e.ANTHROPIC_ADMIN_API_KEY, openai: e.OPENAI_ADMIN_API_KEY },
+    tts: {
+      apiKey: e.ELEVENLABS_API_KEY,
+      voiceId: e.ELEVENLABS_VOICE_ID,
+      modelId: e.ELEVENLABS_MODEL_ID,
+      monthlyChars: e.ELEVENLABS_MONTHLY_CHARS,
+    },
     slackSigningSecret: e.SLACK_SIGNING_SECRET,
     webauthn: {
       rpId: e.NOVA_RP_ID || new URL(e.NOVA_WEB_ORIGIN).hostname,

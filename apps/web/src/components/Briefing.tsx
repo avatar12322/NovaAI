@@ -74,7 +74,7 @@ export function BriefingPanel() {
           <h2>{b.greeting}</h2>
           <p className="muted small">{capitalize(b.dateLabel)}</p>
         </div>
-        <SpeakButton text={b.summary} label="Przeczytaj przegląd" />
+        <SpeakButton text={b.summary} label="Przeczytaj przegląd" source={{ briefing: true }} />
       </header>
       <ul className="briefing-items">
         <Item icon="bell" title="Dziś w kalendarzu" index={0}>

@@ -18,6 +18,9 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
     trace: 'retain-on-failure',
+    // Zawieszona akcja kończy się błędem z nazwą lokatora, a nie ogólnym przekroczeniem czasu testu.
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
     locale: 'pl-PL',
     timezoneId: 'Europe/Warsaw',
   },

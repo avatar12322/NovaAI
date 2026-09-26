@@ -108,6 +108,7 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
 function ServiceStatus() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [model, setModel] = useState<ModelStatus | null>(null);
+  const [voice, setVoice] = useState<Awaited<ReturnType<typeof api.ttsStatus>> | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     api
@@ -118,6 +119,10 @@ function ServiceStatus() {
       .modelStatus()
       .then(setModel)
       .catch(() => setModel(null));
+    api
+      .ttsStatus()
+      .then(setVoice)
+      .catch(() => setVoice(null));
   }, []);
   return (
     <section className="panel">
@@ -143,6 +148,24 @@ function ServiceStatus() {
               </Badge>
             ) : (
               '—'
+            )}
+          </dd>
+          <dt>Głos</dt>
+          <dd className="voice-status">
+            {voice?.provider === 'elevenlabs' ? (
+              <>
+                <Badge tone="ok">ElevenLabs</Badge>{' '}
+                <span className="small muted">
+                  głos <span className="mono">{voice.voiceId}</span>, model{' '}
+                  <span className="mono">{voice.modelId}</span> · w tym miesiącu {voice.monthChars}
+                  {voice.monthlyLimit ? ` z ${voice.monthlyLimit}` : ''} znaków
+                </span>
+              </>
+            ) : (
+              <span className="small muted">
+                głos przeglądarki (ElevenLabs: ustaw{' '}
+                <span className="mono">ELEVENLABS_API_KEY</span> w .env)
+              </span>
             )}
           </dd>
           <dt>Model</dt>

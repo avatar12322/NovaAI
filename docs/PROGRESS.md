@@ -570,6 +570,26 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   kafelki, odczyt przez atrapę syntezy). Zrzut: `docs/screens/*-21-briefing.png`.
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 285/285, web 12/12; `pnpm test:e2e` → 44/44.
 
+### Głos ElevenLabs (2026-09-26)
+
+- Odczyt odpowiedzi, rozmowa głosowa i przegląd dnia głosem ElevenLabs (głos `o2xdfKUpc1Bwq7RchZuW`, model
+  `eleven_flash_v2_5`), gdy w `.env` jest `ELEVENLABS_API_KEY`; w przeciwnym razie albo po błędzie — głos
+  przeglądarki. Serwer czyta tylko widoczne odpowiedzi i własny przegląd; limit znaków na dom, pamięć podręczna,
+  limit zapytań, audyt bez treści (D-033). Migracja `0016_tts_usage.sql`.
+- Testy: `voice/tts.test.ts` (atrapa ElevenLabs: adres, nagłówek `xi-api-key`, ciało, MP3, zużycie znaków, pamięć
+  podręczna bez drugiego wywołania, cudza prywatna odpowiedź i wiadomość użytkownika ⇒ 404, dowolny tekst ⇒ 400,
+  odpowiedź wspólna dla domownika, przegląd dnia, klucz odrzucony ⇒ 502 bez treści odpowiedzi dostawcy, limit ⇒
+  429, brak klucza ⇒ 503), e2e `elevenlabs.spec.ts` (przegląd i odpowiedź przez `/api/tts`, status w Ustawieniach,
+  powrót do głosu przeglądarki przy błędzie).
+- Niesprawdzone: prawdziwe konto ElevenLabs i brzmienie wybranego głosu po polsku (brak klucza w sesji; zakaz
+  płatnych wywołań w testach).
+- Stabilność e2e: jedna porażka w pełnym przebiegu (nie w izolacji) okazała się wyścigiem w teście — na desktopie
+  lista otwiera najnowszą rozmowę, a test pisał, zanim otworzyła się nowa (po przełączeniu pole było puste).
+  Wspólny pomocnik `newConversation` czeka na pusty stan nowej rozmowy (tak robiły już starsze testy); limity
+  czasu akcji (10 s) i nawigacji (15 s) wskazują teraz dokładny krok zamiast ogólnego przekroczenia czasu testu.
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 291/291, web 12/12; `pnpm test:e2e` → 48/48 (dwa przebiegi po
+  poprawce); `pnpm test:prod-smoke` → 1/1 (CSP z `media-src blob:`).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

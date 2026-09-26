@@ -302,6 +302,30 @@ export const api = {
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
   briefing: () => get<Briefing>('/briefing'),
+  ttsStatus: () =>
+    get<{
+      provider: 'elevenlabs' | null;
+      voiceId: string | null;
+      modelId: string | null;
+      monthChars: number;
+      monthlyLimit: number | null;
+    }>('/tts/status'),
+  /** Dźwięk (MP3) z serwera — tylko dla widocznej odpowiedzi asystenta albo przeglądu dnia. */
+  tts: async (source: { messageId: string } | { briefing: true }): Promise<Blob> => {
+    let res: Response;
+    try {
+      res = await fetch('/api/tts', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', 'x-nova-csrf': '1' },
+        body: JSON.stringify(source),
+      });
+    } catch {
+      throw new ApiError(0, 'offline', 'Brak połączenia z serwerem');
+    }
+    if (!res.ok) throw new ApiError(res.status, 'tts', `Głos niedostępny (${res.status})`);
+    return res.blob();
+  },
   // ---------- Modele AI i klucze API (klucz tylko wysyłany, nigdy odczytywany) ----------
   modelProviders: () => get<ModelsOverview>('/model/providers'),
   addModelProvider: (body: Record<string, unknown>) =>

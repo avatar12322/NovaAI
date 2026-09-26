@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginAs, shot } from './helpers';
+import { loginAs, shot, newConversation } from './helpers';
 
 /**
  * Rozmowa głosowa bez rąk: słuchanie → wysłanie rozpoznanej wypowiedzi → odpowiedź odczytana na głos → znowu
@@ -45,8 +45,7 @@ test('rozmowa głosowa: mówię, asystent odpowiada na głos i słucha dalej', a
     window.speechSynthesis.cancel = () => undefined;
   });
   await loginAs(page, 'Alfa (test)');
-  await page.goto('/#/chat/private');
-  await page.getByRole('button', { name: 'Nowa' }).click();
+  await newConversation(page);
 
   await page.getByRole('button', { name: 'Rozmowa głosowa' }).click();
   const bar = page.locator('.voice-bar');

@@ -1,16 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
-import { shot, loginAs } from './helpers';
+import { expect, test } from '@playwright/test';
+import { shot, loginAs, newConversation } from './helpers';
 
 /**
  * Animacje asystenta: wskaźnik pracy z etapem i „kulą”, wejście nowych wiadomości, odsłanianie odpowiedzi;
  * wiadomości z historii bez animacji; „ogranicz ruch” wyłącza animacje. Tryb demo (bez modelu).
  */
-
-async function newConversation(page: Page) {
-  await page.goto('/#/chat/private');
-  await page.getByRole('button', { name: 'Nowa' }).click();
-  await expect(page.locator('#composer-input')).toBeVisible();
-}
 
 test('asystent „myśli” z etapem, nowa odpowiedź wchodzi z animacją; historia bez animacji', async ({
   page,

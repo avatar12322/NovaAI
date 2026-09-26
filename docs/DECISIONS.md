@@ -573,3 +573,24 @@ niż dokument.
 - Fragmenty łączone co ~50 ms; każdy niesie przesunięcie i numer próby (kolejny model po błędzie zaczyna tekst
   od nowa). Klient dokleja tylko fragmenty ciągłe; zgubiony fragment nie psuje odpowiedzi, bo na końcu zastępuje
   ją zapisana wiadomość (bez ponownej animacji). Czytnik ekranu dostaje pełną odpowiedź po zapisaniu.
+
+## D-033 Głos ElevenLabs po stronie serwera
+
+Prośba: odczyt głosem ElevenLabs, głos `o2xdfKUpc1Bwq7RchZuW`, klucz w `.env`. Dokumentacja (sprawdzona 2026-09-26):
+`POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}`, nagłówek `xi-api-key`, ciało `{ text, model_id }`,
+`output_format` (domyślnie `mp3_44100_128`), błąd walidacji 422; modele: `eleven_flash_v2_5` (polski, ~75 ms,
+o połowę tańszy znak w API), `eleven_multilingual_v2` (polski, wyższa jakość, domyślny w API). **Nie sprawdzone
+na prawdziwym koncie** — testy na lokalnej atrapie.
+
+- Klucz tylko na serwerze (`ELEVENLABS_API_KEY`); głos i model w `.env` (`ELEVENLABS_VOICE_ID`, domyślnie podany
+  głos; `ELEVENLABS_MODEL_ID`, domyślnie `eleven_flash_v2_5` — rozmowa głosowa potrzebuje małego opóźnienia).
+- Serwer czyta wyłącznie to, co użytkownik widzi: odpowiedź asystenta z dostępnej rozmowy (po id, przez RLS) albo
+  własny przegląd dnia — `POST /api/tts` nie przyjmuje dowolnego tekstu, więc nie jest otwartym pośrednikiem
+  płatnego API. Tekst bez odnośników [D1] i znaczników, najwyżej ok. 2500 znaków (koniec zdania + „Dalsza część
+  jest w czacie”).
+- Koszt: miesięczny limit znaków na dom (`ELEVENLABS_MONTHLY_CHARS`, domyślnie 30 000; tabela `tts_usage` tylko
+  z liczbą znaków), pamięć podręczna ostatnich 30 odczytów (ponowny odczyt bez kosztu), 30 odczytów na minutę na
+  osobę. Audyt `tts.synthesize` z liczbą znaków, bez treści i klucza; błędy dostawcy bez treści odpowiedzi.
+- Przeglądarka: jeden odtwarzacz mowy; bez klucza, po przekroczeniu limitu, błędzie sieci lub odtwarzania — głos
+  przeglądarki. CSP: `media-src 'self' blob:` (dźwięk z odpowiedzi API). Ustawienia pokazują dostawcę głosu,
+  głos, model i zużycie znaków w miesiącu.

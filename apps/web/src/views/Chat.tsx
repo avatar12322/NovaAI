@@ -325,7 +325,7 @@ function ConversationPane({
       .find((m) => m.role === 'assistant' && m.meta.taskId === taskId);
     if (!reply) return; // odpowiedź jeszcze się wczytuje
     voiceTurn.current = null;
-    voice.speak(reply.content);
+    voice.speak(reply.content, { messageId: reply.id });
   }, [thinking, messages, voice]);
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -647,7 +647,7 @@ function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: bo
       {m.role === 'assistant' && (
         <Sources sources={(m.meta.sources as MessageSource[] | undefined) ?? []} />
       )}
-      {m.role === 'assistant' && <SpeakButton text={m.content} />}
+      {m.role === 'assistant' && <SpeakButton text={m.content} source={{ messageId: m.id }} />}
       {proposed.some((p) => p.approval) && (
         <p className="msg-note">
           <Icon name="shield" size={14} /> Akcja czeka na Twoją zgodę —{' '}

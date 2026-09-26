@@ -18,6 +18,7 @@ import { documentRoutes } from './documents/routes';
 import { serviceRoutes } from './services/routes';
 import { modelProviderRoutes } from './model/routes';
 import { briefingRoutes } from './briefing/routes';
+import { ttsRoutes } from './voice/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -41,6 +42,8 @@ const WEB_CSP = [
   "img-src 'self' data:",
   "font-src 'self' data:",
   "connect-src 'self'",
+  // Odczyt na głos (ElevenLabs): audio z odpowiedzi API odtwarzane jako blob.
+  "media-src 'self' blob:",
   "manifest-src 'self'",
   "worker-src 'self'",
   "object-src 'none'",
@@ -191,6 +194,7 @@ export async function buildServer(
       await api.register(serviceRoutes(deps));
       await api.register(modelProviderRoutes(deps));
       await api.register(briefingRoutes(deps));
+      await api.register(ttsRoutes(deps));
     },
     { prefix: '/api' },
   );

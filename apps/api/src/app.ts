@@ -26,6 +26,7 @@ import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
 import { emitEvent, EventHub } from './events';
 import { LiveHub } from './live';
+import { ElevenLabsTts } from './voice/elevenlabs';
 import { ModelAgentRuntime } from './model/agent-runtime';
 import { AutoAgentRuntime } from './model/auto-runtime';
 import { loadModelsConfig, type ModelsConfig } from './model/config';
@@ -52,6 +53,8 @@ export interface AppOptions {
   slackEndpoints?: SlackEndpoints;
   /** Adresy API raportów kosztów (testy kontraktowe na lokalnym mocku). */
   costAdapterBases?: { anthropic?: string; openai?: string };
+  /** Adres API ElevenLabs (testy kontraktowe na lokalnym mocku). */
+  ttsBase?: string;
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -150,6 +153,14 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     costAdapters: createCostAdapters(config.costAdapterKeys, opts.costAdapterBases),
     events,
     live: new LiveHub(),
+    tts: config.tts.apiKey
+      ? new ElevenLabsTts({
+          apiKey: config.tts.apiKey,
+          voiceId: config.tts.voiceId,
+          modelId: config.tts.modelId,
+          baseUrl: opts.ttsBase,
+        })
+      : null,
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',
   };

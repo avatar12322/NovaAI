@@ -28,3 +28,17 @@ export async function logout(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Wyloguj' }).last().click();
   await expect(page.getByRole('heading', { name: 'Wybierz konto testowe' })).toBeVisible();
 }
+
+/**
+ * Nowa rozmowa gotowa do pisania. Na desktopie lista otwiera najnowszą rozmowę automatycznie — pole wiadomości
+ * bywa więc widoczne, zanim otworzy się nowa rozmowa (wpisany tekst przepadłby po przełączeniu). Czekamy na pusty
+ * stan nowej rozmowy.
+ */
+export async function newConversation(
+  page: Page,
+  space: 'private' | 'shared' = 'private',
+): Promise<void> {
+  await page.goto(`/#/chat/${space}`);
+  await page.getByRole('button', { name: 'Nowa' }).click();
+  await expect(page.getByText('Napisz pierwszą wiadomość')).toBeVisible();
+}

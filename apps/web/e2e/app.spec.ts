@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { shot, loginAs, logout } from './helpers';
+import { shot, loginAs, logout, newConversation } from './helpers';
 
 /**
  * Smoke/e2e UI na prawdziwym API (baza nova_e2e) — desktop i telefon.
@@ -12,9 +12,8 @@ test('logowanie testowe, czat prywatny, pamięć i jawne udostępnienie', async 
   await loginAs(page, 'Alfa (test)');
   await shot(page, '01-chat-empty');
 
-  await page.getByRole('button', { name: 'Nowa' }).click();
+  await newConversation(page);
   const input = page.getByLabel('Wiadomość');
-  await expect(input).toBeVisible();
   await input.fill(`zapamiętaj: herbata jaśminowa ${tag}`);
   await input.press('Enter');
   await expect(page.locator('.msg-assistant').filter({ hasText: 'Proponuję zapisać' })).toBeVisible(
@@ -84,8 +83,7 @@ test('zadanie z postępem, Approval Center i wiadomość do domownika', async ({
 test('NovaAI: rozmowa wspólna widoczna dla obojga', async ({ page }) => {
   const text = `lista zakupów ${test.info().project.name}-${Date.now()}`;
   await loginAs(page, 'Alfa (test)');
-  await page.goto('/#/chat/shared');
-  await page.getByRole('button', { name: 'Nowa' }).click();
+  await newConversation(page, 'shared');
   await page.getByLabel('Wiadomość').fill(text);
   await page.getByLabel('Wiadomość').press('Enter');
   await expect(page.locator('.msg-assistant').filter({ hasText: 'NovaAI' }).last()).toBeVisible({

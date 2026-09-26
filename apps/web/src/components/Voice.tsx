@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { speak, stopSpeech, type SpeechSource } from '../lib/speech';
 import { Icon } from './Icon';
 
 /**
@@ -113,37 +114,39 @@ export function useSpeaking(): boolean {
   return on;
 }
 
-export function SpeakButton({ text, label }: { text: string; label?: string }) {
+export function SpeakButton({
+  text,
+  label,
+  source,
+}: {
+  text: string;
+  label?: string;
+  /** Źródło dla głosu z serwera (ElevenLabs); bez niego — głos przeglądarki. */
+  source?: SpeechSource;
+}) {
   const [speaking, setSpeaking] = useState(false);
+  const active = useRef(false);
   // Przerwanie odczytu przy zamknięciu widoku (np. zmiana rozmowy).
   useEffect(
     () => () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        announce(false);
-      }
+      if (active.current) stopSpeech();
     },
     [],
   );
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  if (typeof window === 'undefined' || !('speechSynthesis' in window || source)) return null;
   const toggle = () => {
-    window.speechSynthesis.cancel();
     if (speaking) {
-      setSpeaking(false);
-      announce(false);
+      stopSpeech();
       return;
     }
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'pl-PL';
-    const stop = () => {
-      setSpeaking(false);
-      announce(false);
-    };
-    u.onend = stop;
-    u.onerror = stop;
+    active.current = true;
     setSpeaking(true);
     announce(true);
-    window.speechSynthesis.speak(u);
+    void speak(text, source, () => {
+      active.current = false;
+      setSpeaking(false);
+      announce(false);
+    });
   };
   return (
     <button
@@ -242,7 +245,7 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
         c.active = false;
         c.rec?.stop();
         c.rec = null;
-        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        stopSpeech();
         announce(false);
         setState('off');
         setError(message ?? null);
@@ -274,22 +277,16 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
     stop() {
       ctl.current!.stop();
     },
-    /** Odczyt odpowiedzi, potem znowu słuchanie (o ile rozmowa trwa). */
-    speak(text: string) {
+    /** Odczyt odpowiedzi (głos z serwera, gdy znane źródło), potem znowu słuchanie (o ile rozmowa trwa). */
+    speak(text: string, source?: SpeechSource) {
       const c = ctl.current!;
       if (!c.active) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(speakable(text) || 'Gotowe.');
-      u.lang = 'pl-PL';
-      const next = () => {
-        announce(false);
-        if (c.active) c.listen();
-      };
-      u.onend = next;
-      u.onerror = next;
       setState('speaking');
       announce(true);
-      window.speechSynthesis.speak(u);
+      void speak(speakable(text) || 'Gotowe.', source, () => {
+        announce(false);
+        if (c.active) c.listen();
+      });
     },
   };
 }

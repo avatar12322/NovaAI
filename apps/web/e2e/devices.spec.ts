@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WorkerSimulator } from '../../api/src/devices/simulator';
+import { newConversation } from './helpers';
 
 /**
  * Pełna ścieżka urządzenia w UI: kod parowania → symulator Workera (protokół v1) → grant z formularza →
@@ -44,8 +45,7 @@ test('parowanie urządzenia, grant katalogu i lista plików z czatu', async ({ p
       });
     }
 
-    await page.goto('/#/chat/private');
-    await page.getByRole('button', { name: 'Nowa' }).click();
+    await newConversation(page);
     await page.getByLabel('Wiadomość').fill(`pliki: ${root}`);
     await page.getByLabel('Wiadomość').press('Enter');
     await expect(page.locator('.msg').filter({ hasText: marker })).toBeVisible({ timeout: 15_000 });

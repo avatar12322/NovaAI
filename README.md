@@ -113,6 +113,11 @@ cennik” (klucza z `.env` nie trzeba wpisywać ponownie). Ustawienia z aplikacj
 platform.openai.com/api-keys (OpenAI), aistudio.google.com/apikey (Gemini). Każde wywołanie modelu jest płatne
 według cennika dostawcy — ustaw limit w Ustawienia → Koszt modeli. Szczegóły: `docs/DECISIONS.md` D-030.
 
+**Głos ElevenLabs** (opcjonalnie) — wklej klucz do `.env` jako `ELEVENLABS_API_KEY` (głos
+`ELEVENLABS_VOICE_ID` jest już ustawiony) i uruchom serwer ponownie. Odpowiedzi, rozmowa głosowa i przegląd dnia
+będą czytane tym głosem; bez klucza — głosem przeglądarki. Limit znaków na miesiąc: `ELEVENLABS_MONTHLY_CHARS`.
+Szczegóły: `docs/DECISIONS.md` D-033.
+
 Bez konfiguracji integracje są oznaczone jako „niedostępne”. Wymagany jest też `NOVA_SECRET_KEY` (szyfrowanie
 tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie widzi cudzej poczty.
 
