@@ -9,7 +9,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 | M0 — szkielet            | gotowe    | workspace, API, web, Postgres lokalny, migracje, healthcheck; Compose nieprzetestowany (brak Dockera)                     |
 | M1 — izolacja            | gotowe    | sesje, polityka + RLS, rozmowy, pamięć, udostępnianie, audyt; testy izolacji Alfa/Beta                                    |
 | M2 — UI i zadania        | gotowe    | trwała kolejka, zgody, SSE, UI desktop/telefon, PWA; e2e                                                                  |
-| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, adaptery Anthropic/Hermes — tylko na mockach (brak kluczy); Honcho niezaimplementowany      |
+| M3 — model i pamięć      | częściowe | brama modeli, budżet, broker, wyniki narzędzi → model; adaptery Anthropic/Hermes tylko na mockach (brak kluczy)           |
 | M4 — Worker              | częściowe | protokół, symulator, Worker Rust (Linux + interop z API); na Windows tylko kompilacja, bez uruchomienia                   |
 | M5 — integracje          | częściowe | Google (kalendarz free/busy, Gmail) na mockach, Slack webhook; brak kont OAuth; Microsoft/Slack OAuth niezaimplementowane |
 | M6 — głos i proaktywność | częściowe | przypomnienia, powiadomienia w aplikacji, dyktowanie/odczyt w przeglądarce; brak Web Push i transkrypcji serwerowej       |
@@ -208,6 +208,15 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   `GOOGLE_CLIENT_ID/SECRET`, `NOVA_SECRET_KEY`; weryfikacja zakresów Gmail przez Google przed udostępnieniem.
 - Brak kluczy API i instalacji Hermesa — adaptery modeli nie były uruchomione przeciwko prawdziwym usługom
   (świadomie: zakaz płatnych wywołań). Ceny modeli do uzupełnienia przez właściciela z oficjalnego cennika.
+
+## Niezaimplementowane (poza blokadami)
+
+- Pamięć `knowledge` jako dokumenty z RAG i cytatami (jest tylko rodzaj wpisu pamięci) oraz adapter Honcho dla `episodic`.
+- Worker: procesy, uruchamianie aplikacji, brokerowane komendy / PowerShell, przeglądarka, zrzuty ekranu, UI Automation
+  (spec, sekcja 6, punkty 4–5). Zaimplementowane: pliki (lista/odczyt/zapis z diffem i kopią) oraz git status/diff.
+- Integracje Microsoft (Outlook/Calendar/Teams) i Slack OAuth (jest tylko weryfikowany webhook Slack); Google Drive.
+- Web Push (VAPID) — powiadomienia działają w otwartej aplikacji (SSE + lista); transkrypcja głosu po stronie serwera.
+- Edycja kalendarza Google (jest tylko odczyt zajętości z grantem i kalendarz lokalny).
 
 ## Następne 3 zadania
 
