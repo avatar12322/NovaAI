@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, type VoiceStatus } from './api';
 
 /**
  * Jeden odtwarzacz mowy dla całej aplikacji: głos ElevenLabs z serwera (gdy skonfigurowany i znane jest źródło —
@@ -7,14 +7,16 @@ import { api } from './api';
  */
 export type SpeechSource = { messageId: string } | { briefing: true };
 
-let status: Promise<boolean> | null = null;
-/** Czy serwer ma głos ElevenLabs (sprawdzane raz na sesję strony). */
-export function serverVoice(): Promise<boolean> {
-  status ??= api
-    .ttsStatus()
-    .then((s) => s.provider === 'elevenlabs')
-    .catch(() => false);
+let status: Promise<VoiceStatus | null> | null = null;
+/** Głos z serwera (synteza i rozpoznawanie mowy) — sprawdzany raz na sesję strony. */
+export function voiceStatus(): Promise<VoiceStatus | null> {
+  status ??= api.ttsStatus().catch(() => null);
   return status;
+}
+
+/** Czy serwer ma głos ElevenLabs do odczytu. */
+function serverVoice(): Promise<boolean> {
+  return voiceStatus().then((s) => s?.provider === 'elevenlabs');
 }
 
 let seq = 0;

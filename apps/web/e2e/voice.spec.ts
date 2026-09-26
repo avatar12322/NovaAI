@@ -35,6 +35,9 @@ test('rozmowa głosowa: mówię, asystent odpowiada na głos i słucha dalej', a
       stop() {
         setTimeout(() => this.onend?.(), 0);
       }
+      abort() {
+        this.stop();
+      }
     }
     w.SpeechRecognition = FakeRecognition;
     w.webkitSpeechRecognition = FakeRecognition;

@@ -12,12 +12,27 @@ import { parse } from '../lib/validate';
 import { TtsError } from './elevenlabs';
 
 /**
- * Odczyt na głos głosem ElevenLabs. Serwer czyta wyłącznie to, co użytkownik i tak widzi: odpowiedź asystenta
- * z dostępnej rozmowy (po id, przez RLS) albo własny przegląd dnia — to nie jest ogólny zamiennik tekstu na mowę.
- * Koszt: miesięczny limit znaków na dom, pamięć podręczna (ponowny odczyt bez kosztu) i limit zapytań na osobę.
+ * Głos ElevenLabs.
+ * - Odczyt na głos: serwer czyta wyłącznie to, co użytkownik i tak widzi — odpowiedź asystenta z dostępnej
+ *   rozmowy (po id, przez RLS) albo własny przegląd dnia; to nie jest ogólny zamiennik tekstu na mowę. Koszt:
+ *   miesięczny limit znaków na dom, pamięć podręczna (ponowny odczyt bez kosztu) i limit zapytań na osobę.
+ * - Rozpoznawanie mowy: zapas, gdy przeglądarka nie rozpoznaje mowy. Krótkie nagranie (do 30 s) → tekst dla
+ *   zalogowanego użytkownika; nic nie jest zapisywane poza liczbą sekund (limit minut na dom) i audytem bez treści.
  */
 const MAX_CHARS = 2500;
 const CACHE_MAX = 30;
+const STT_MAX_BYTES = 3 * 1024 * 1024;
+const STT_MIN_BYTES = 512;
+/** Dźwięk z MediaRecorder w przeglądarkach (Chrome/Edge/Firefox: webm/ogg, Safari: mp4) oraz typowe pliki. */
+const STT_TYPES = new Set([
+  'audio/webm',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/aac',
+]);
 
 /** Tekst do odczytu: bez odnośników [D1] i znaczników Markdown; długie odpowiedzi skracane na końcu zdania. */
 export function speakableText(text: string): string {
@@ -37,11 +52,17 @@ const TtsBody = z.union([
   z.object({ briefing: z.literal(true) }),
 ]);
 
-export const ttsRoutes =
+export const voiceRoutes =
   (deps: AppDeps): FastifyPluginAsync =>
   async (app) => {
     const limiter = new RateLimiter(30, 60_000);
+    const sttLimiter = new RateLimiter(20, 60_000);
     const cache = new Map<string, Buffer>();
+    app.addContentTypeParser(
+      /^audio\//,
+      { parseAs: 'buffer', bodyLimit: STT_MAX_BYTES },
+      (_req, body, done) => done(null, body),
+    );
 
     const household = (req: FastifyRequest) => {
       const auth = requireAuth(req);
@@ -58,16 +79,91 @@ export const ttsRoutes =
         )
       ).rows[0]!.n;
 
+    const monthSeconds = async (householdId: string) =>
+      Number(
+        (
+          await deps.db.owner.query<{ s: string }>(
+            `SELECT coalesce(sum(seconds), 0) AS s FROM stt_usage
+              WHERE household_id = $1
+                AND created_at >= date_trunc('month', now() AT TIME ZONE 'Europe/Warsaw') AT TIME ZONE 'Europe/Warsaw'`,
+            [householdId],
+          )
+        ).rows[0]!.s,
+      );
+
     app.get('/tts/status', async (req) => {
       const { householdId } = household(req);
-      const tts = deps.tts;
+      const { tts, stt } = deps;
       return {
         provider: tts ? 'elevenlabs' : null,
         voiceId: tts?.voiceId ?? null,
         modelId: tts?.modelId ?? null,
         monthChars: tts ? await monthChars(householdId) : 0,
         monthlyLimit: deps.config.tts.monthlyChars || null,
+        stt: stt
+          ? {
+              provider: 'elevenlabs',
+              modelId: stt.modelId,
+              monthMinutes: Math.ceil((await monthSeconds(householdId)) / 60),
+              monthlyLimitMinutes: deps.config.stt.monthlyMinutes,
+            }
+          : null,
       };
+    });
+
+    app.post('/stt', async (req) => {
+      const { auth, householdId } = household(req);
+      const stt = deps.stt;
+      if (!stt)
+        throw new HttpError(
+          503,
+          'stt_not_configured',
+          'Rozpoznawanie mowy przez serwer nie jest skonfigurowane (ELEVENLABS_API_KEY)',
+        );
+      const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
+      const audio = req.body;
+      if (!STT_TYPES.has(type) || !Buffer.isBuffer(audio))
+        throw badRequest('Nieobsługiwany format nagrania');
+      if (audio.length < STT_MIN_BYTES) throw badRequest('Nagranie jest za krótkie');
+      if (!sttLimiter.hit(auth.userId))
+        throw new HttpError(429, 'rate_limited', 'Zbyt wiele nagrań — spróbuj za chwilę');
+      const limitSeconds = deps.config.stt.monthlyMinutes * 60;
+      if ((await monthSeconds(householdId)) >= limitSeconds)
+        throw new HttpError(
+          429,
+          'stt_limit',
+          `Wyczerpany miesięczny limit rozpoznawania mowy (${deps.config.stt.monthlyMinutes} min)`,
+        );
+      const audit = (outcome: 'ok' | 'error', details: Record<string, unknown>) =>
+        writeAudit(deps.db, {
+          actorKind: 'user',
+          actorUserId: auth.userId,
+          ownerUserId: auth.userId,
+          householdId,
+          source: 'api',
+          action: 'stt.transcribe',
+          resourceType: 'audio',
+          resourceId: null,
+          outcome,
+          correlationId: req.id,
+          details: { provider: 'elevenlabs', bytes: audio.length, ...details },
+        });
+      let result;
+      try {
+        result = await stt.transcribe(audio, type);
+      } catch (e) {
+        if (!(e instanceof TtsError)) throw e;
+        await audit('error', { reason: e.code });
+        throw new HttpError(502, `stt_${e.code}`, e.message);
+      }
+      // Bez długości w odpowiedzi liczymy najgorszy przypadek (maksymalna długość nagrania w aplikacji).
+      const seconds = Math.round((result.seconds ?? 30) * 100) / 100;
+      await deps.db.owner.query(
+        'INSERT INTO stt_usage (household_id, user_id, seconds) VALUES ($1, $2, $3)',
+        [householdId, auth.userId, seconds],
+      );
+      await audit('ok', { seconds });
+      return { text: result.text };
     });
 
     app.post('/tts', async (req, reply) => {

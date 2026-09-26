@@ -606,6 +606,25 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 291/291, web 15/15; `pnpm test:e2e` → 50/50;
   `pnpm test:prod-smoke` → 1/1.
 
+### Rozpoznawanie mowy: czytelne błędy i zapas przez ElevenLabs (2026-09-26)
+
+- Zgłoszenie: „Rozmowa głosowa” i dyktowanie → „Błąd rozpoznawania mowy”. Przyczyna po stronie aplikacji: każdy kod
+  błędu przeglądarki poza `not-allowed` dawał ten sam komunikat, a przeglądarki bez usługi rozpoznawania (Brave,
+  Opera, Vivaldi — błąd `network`; Firefox bez API) nie miały żadnej alternatywy. Dokładnej przeglądarki
+  zgłaszającego nie znam — w Chromium w tej sesji rozpoznawania nie da się odtworzyć (brak zdarzeń).
+- Teraz: konkretna przyczyna i co zrobić dla każdego kodu, widoczna nad polem wiadomości; po awarii usługi
+  przeglądarki — nagranie rozpoznane przez serwer (ElevenLabs `scribe_v2`, ten sam klucz, limit minut, osobna
+  zgoda), bez ponownego klikania (D-034). Migracja `0017_stt_usage.sql`.
+- Testy: `voice/tts.test.ts` (+5: żądanie wg dokumentacji — multipart, `model_id`, `language_code`, plik;
+  zużycie sekund; audyt bez treści i klucza; walidacja formatu, długości, logowania, CSRF, 413; klucz odrzucony ⇒
+  502 bez treści dostawcy; brak długości ⇒ 30 s; limit minut ⇒ 429; 0 minut / brak klucza ⇒ 503),
+  `lib/listen.test.ts` (koniec wypowiedzi: mowa od razu, po ciszy, trzask, głośne tło, limit 30 s; komunikaty),
+  e2e `voice-fallback.spec.ts` (przeglądarka z błędem `network` → prawdziwe nagranie z generatora tonu, wykrycie
+  końca, wysyłka do atrapy `/api/stt`, tekst w polu; rozmowa głosowa przez serwer z odpowiedzią na głos; stan
+  w Ustawieniach; bez zapasu — konkretny komunikat, bez nagrywania). Zrzut: `docs/screens/*-23-voice-error.png`.
+- Niesprawdzone: prawdziwe konto ElevenLabs (rozpoznawanie po polsku, opóźnienie) i prawdziwe przeglądarki
+  Brave/Opera/Firefox z mikrofonem.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

@@ -315,6 +315,7 @@ function ConversationPane({
   // Rozmowa głosowa: rozpoznana wypowiedź od razu idzie do asystenta, a ostatnia odpowiedź tej tury jest
   // odczytywana na głos (potem znowu słuchanie).
   const voiceTurn = useRef<string | null>(null);
+  const [micError, setMicError] = useState<string | null>(null);
   const voice = useVoiceConversation((text) => {
     void sendText(text).then((taskId) => {
       if (taskId) voiceTurn.current = taskId;
@@ -399,9 +400,9 @@ function ConversationPane({
         <div ref={bottom} />
       </div>
       {voice.state !== 'off' && <VoiceBar state={voice.state} onStop={voice.stop} />}
-      {voice.error && voice.state === 'off' && (
+      {(voice.error ?? micError) && voice.state === 'off' && (
         <p className="note note-warn voice-note" role="status">
-          {voice.error}
+          {voice.error ?? micError}
         </p>
       )}
       <form className="composer" onSubmit={(e) => void send(e)}>
@@ -419,7 +420,10 @@ function ConversationPane({
             space === 'shared' ? 'Napisz do NovaAI (widoczne dla domowników)…' : 'Napisz wiadomość…'
           }
         />
-        <DictationButton onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))} />
+        <DictationButton
+          onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+          onError={setMicError}
+        />
         {voice.supported && (
           <button
             type="button"
@@ -427,7 +431,11 @@ function ConversationPane({
             aria-pressed={voice.state !== 'off'}
             aria-label={voice.state !== 'off' ? 'Zakończ rozmowę głosową' : 'Rozmowa głosowa'}
             title="Rozmowa głosowa: mów, asystent odpowie na głos"
-            onClick={() => (voice.state !== 'off' ? voice.stop() : voice.start())}
+            onClick={() => {
+              setMicError(null);
+              if (voice.state !== 'off') voice.stop();
+              else void voice.start();
+            }}
           >
             <Icon name="voice" />
           </button>

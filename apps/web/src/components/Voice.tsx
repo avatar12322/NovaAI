@@ -1,99 +1,149 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  browserRecognition,
+  createRecognition,
+  FALLBACK_CODES,
+  markBrowserBroken,
+  preferredEngine,
+  recognitionErrorText,
+  serverRecognition,
+  type Engine,
+  type RecognitionLike,
+} from '../lib/listen';
 import { speak, stopSpeech, type SpeechSource } from '../lib/speech';
 import { Icon } from './Icon';
 
 /**
- * Głos bez kosztów serwera: dyktowanie przez Web Speech API przeglądarki i odczyt przez speechSynthesis.
- * Dyktowanie wymaga jawnej zgody — w Chrome/Edge rozpoznawanie mowy odbywa się na serwerach dostawcy przeglądarki.
+ * Głos: dyktowanie i rozmowa głosowa. Rozpoznawanie mowy przeglądarki (bez kosztów), a gdy przeglądarka go nie ma
+ * albo jej usługa nie działa — nagranie rozpoznane przez serwer (ElevenLabs). Każdy sposób wymaga jawnej zgody,
+ * bo w obu nagranie trafia do zewnętrznej usługi. Odczyt: ElevenLabs albo speechSynthesis przeglądarki.
  */
-interface RecognitionLike {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  start(): void;
-  stop(): void;
-}
+const CONSENT: Record<Engine, { key: string; text: string }> = {
+  browser: {
+    key: 'nova-voice-consent',
+    text: 'Rozpoznawanie mowy używa usługi przeglądarki. W Chrome/Edge nagranie jest przetwarzane na serwerach dostawcy przeglądarki. Włączyć?',
+  },
+  server: {
+    key: 'nova-voice-consent-server',
+    text: 'Ta przeglądarka nie rozpoznaje mowy sama. NovaAI może wysłać krótkie nagranie (do 30 s) przez swój serwer do ElevenLabs — rozliczane w planie ElevenLabs, w miesięcznym limicie minut domu. NovaAI nie zapisuje nagrania. Włączyć?',
+  },
+};
 
-type RecognitionCtor = new () => RecognitionLike;
-
-function recognitionCtor(): RecognitionCtor | null {
-  const w = window as unknown as {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
-const CONSENT_KEY = 'nova-voice-consent';
-
-function hasConsent(): boolean {
+/** Jednorazowa zgoda na dany sposób rozpoznawania mowy (dyktowanie i rozmowa głosowa). */
+function askVoiceConsent(engine: Engine): boolean {
+  const { key, text } = CONSENT[engine];
   try {
-    return localStorage.getItem(CONSENT_KEY) === '1';
+    if (localStorage.getItem(key) === '1') return true;
   } catch {
-    return false;
+    /* bez pamięci — pytamy za każdym razem */
   }
-}
-
-/** Jednorazowa zgoda na rozpoznawanie mowy przeglądarki (dyktowanie i rozmowa głosowa). */
-function askVoiceConsent(): boolean {
-  if (hasConsent()) return true;
-  const ok = window.confirm(
-    'Dyktowanie używa rozpoznawania mowy przeglądarki. W Chrome/Edge nagranie jest przetwarzane na serwerach dostawcy przeglądarki. Włączyć dyktowanie?',
-  );
-  if (!ok) return false;
+  if (!window.confirm(text)) return false;
   try {
-    localStorage.setItem(CONSENT_KEY, '1');
+    localStorage.setItem(key, '1');
   } catch {
     /* zgoda tylko na tę sesję */
   }
   return true;
 }
 
-export function DictationButton({ onText }: { onText: (text: string) => void }) {
-  const [listening, setListening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const rec = useRef<RecognitionLike | null>(null);
-  const Ctor = recognitionCtor();
-  useEffect(() => () => rec.current?.stop(), []);
-  if (!Ctor) return null;
+const transcript = (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) =>
+  Array.from(e.results)
+    .map((res) => res[0]?.transcript ?? '')
+    .join(' ')
+    .trim();
 
-  const toggle = () => {
+/** Czy da się słuchać: rozpoznawanie przeglądarki albo przez serwer (sprawdzane po stanie serwera). */
+function useListening(): boolean {
+  const [server, setServer] = useState(false);
+  useEffect(() => {
+    let on = true;
+    void serverRecognition().then((ok) => on && setServer(ok));
+    return () => {
+      on = false;
+    };
+  }, []);
+  return browserRecognition() !== null || server;
+}
+
+/** Sposób rozpoznawania na start albo komunikat, dlaczego się nie da. */
+async function startEngine(): Promise<Engine | { error: string }> {
+  const engine = preferredEngine();
+  if (engine === 'server' && !(await serverRecognition()))
+    return { error: recognitionErrorText(browserRecognition() ? 'network' : 'unsupported') };
+  return engine ?? { error: recognitionErrorText('unsupported') };
+}
+
+export function DictationButton({
+  onText,
+  onError,
+}: {
+  onText: (text: string) => void;
+  /** Komunikat błędu do pokazania przy polu wiadomości (null — wyczyść). */
+  onError: (message: string | null) => void;
+}) {
+  const [listening, setListening] = useState(false);
+  const rec = useRef<RecognitionLike | null>(null);
+  const available = useListening();
+  useEffect(() => () => rec.current?.abort(), []);
+  if (!available) return null;
+
+  const begin = (engine: Engine) => {
+    if (!askVoiceConsent(engine)) {
+      setListening(false);
+      return;
+    }
+    const r = createRecognition(engine);
+    let fellBack = false;
+    r.onresult = (e) => {
+      const text = transcript(e);
+      if (text) onText(text);
+    };
+    r.onerror = (e) => {
+      if (e.error === 'aborted') return;
+      if (engine === 'browser' && FALLBACK_CODES.has(e.error)) {
+        // Usługa przeglądarki nie działa — to samo nagranie przez serwer, bez ponownego klikania.
+        fellBack = true;
+        void serverRecognition().then((ok) => {
+          if (ok) {
+            markBrowserBroken();
+            begin('server');
+          } else {
+            setListening(false);
+            onError(recognitionErrorText(e.error));
+          }
+        });
+        return;
+      }
+      onError(recognitionErrorText(e.error, e.message));
+    };
+    r.onend = () => {
+      if (rec.current === r) rec.current = null;
+      if (!fellBack) setListening(false);
+    };
+    rec.current = r;
+    onError(null);
+    setListening(true);
+    r.start();
+  };
+
+  const toggle = async () => {
     if (listening) {
       rec.current?.stop();
       return;
     }
-    if (!askVoiceConsent()) return;
-    const r = new Ctor();
-    r.lang = 'pl-PL';
-    r.interimResults = false;
-    r.continuous = false;
-    r.onresult = (e) => {
-      const text = Array.from(e.results)
-        .map((res) => res[0]?.transcript ?? '')
-        .join(' ')
-        .trim();
-      if (text) onText(text);
-    };
-    r.onerror = (e) =>
-      setError(e.error === 'not-allowed' ? 'Brak dostępu do mikrofonu' : 'Błąd rozpoznawania mowy');
-    r.onend = () => setListening(false);
-    rec.current = r;
-    setError(null);
-    setListening(true);
-    r.start();
+    const engine = await startEngine();
+    if (typeof engine === 'object') onError(engine.error);
+    else begin(engine);
   };
 
   return (
     <button
       type="button"
       className={`btn ${listening ? 'btn-primary' : ''}`}
-      onClick={toggle}
+      onClick={() => void toggle()}
       aria-pressed={listening}
       aria-label={listening ? 'Zatrzymaj dyktowanie' : 'Dyktowanie głosowe'}
-      title={error ?? (listening ? 'Słucham…' : 'Dyktuj')}
+      title={listening ? 'Słucham…' : 'Dyktuj'}
     >
       <Icon name="mic" />
     </button>
@@ -185,17 +235,19 @@ const NO_SPEECH_LIMIT = 3;
 
 /**
  * Rozmowa głosowa bez rąk: słuchaj → wyślij → (odpowiedź) → odczytaj → słuchaj znowu, aż do „Zakończ”.
- * Rozpoznawanie mowy przeglądarki (za zgodą) i speechSynthesis — bez kosztów serwera. Cisza kilka razy z rzędu
- * albo błąd mikrofonu kończy rozmowę.
+ * Cisza kilka razy z rzędu albo błąd mikrofonu kończy rozmowę; awaria usługi rozpoznawania przeglądarki
+ * przełącza na rozpoznawanie przez serwer (gdy dostępne).
  */
 export function useVoiceConversation(onUtterance: (text: string) => void) {
   const [state, setState] = useState<VoiceState>('off');
   const [error, setError] = useState<string | null>(null);
+  const listening = useListening();
   const cb = useRef(onUtterance);
   cb.current = onUtterance;
   // Sterownik w ref: stabilne funkcje, bez zależności między callbackami.
   const ctl = useRef<{
     active: boolean;
+    engine: Engine;
     rec: RecognitionLike | null;
     silent: number;
     listen(): void;
@@ -204,21 +256,16 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
   if (!ctl.current) {
     const c = {
       active: false,
+      engine: 'browser' as Engine,
       rec: null as RecognitionLike | null,
       silent: 0,
       listen() {
-        const Ctor = recognitionCtor();
-        if (!c.active || !Ctor) return;
-        const r = new Ctor();
-        r.lang = 'pl-PL';
-        r.interimResults = false;
-        r.continuous = false;
+        if (!c.active) return;
+        const r = createRecognition(c.engine);
         let heard = false;
+        let fellBack = false;
         r.onresult = (e) => {
-          const text = Array.from(e.results)
-            .map((res) => res[0]?.transcript ?? '')
-            .join(' ')
-            .trim();
+          const text = transcript(e);
           if (!text || !c.active) return;
           heard = true;
           c.silent = 0;
@@ -227,13 +274,23 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
         };
         r.onerror = (e) => {
           if (e.error === 'no-speech' || e.error === 'aborted') return;
-          c.stop(
-            e.error === 'not-allowed' ? 'Brak dostępu do mikrofonu' : 'Błąd rozpoznawania mowy',
-          );
+          if (c.engine === 'browser' && FALLBACK_CODES.has(e.error)) {
+            fellBack = true;
+            void serverRecognition().then((ok) => {
+              if (!c.active) return;
+              if (ok && askVoiceConsent('server')) {
+                markBrowserBroken();
+                c.engine = 'server';
+                c.listen();
+              } else c.stop(recognitionErrorText(e.error));
+            });
+            return;
+          }
+          c.stop(recognitionErrorText(e.error, e.message));
         };
         r.onend = () => {
           if (c.rec === r) c.rec = null;
-          if (!c.active || heard) return;
+          if (!c.active || heard || fellBack) return;
           if (++c.silent > NO_SPEECH_LIMIT) c.stop('Nic nie słychać — rozmowa głosowa zakończona.');
           else c.listen();
         };
@@ -243,7 +300,7 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
       },
       stop(message?: string) {
         c.active = false;
-        c.rec?.stop();
+        c.rec?.abort();
         c.rec = null;
         stopSpeech();
         announce(false);
@@ -260,17 +317,23 @@ export function useVoiceConversation(onUtterance: (text: string) => void) {
     };
   }, []);
 
-  const supported =
-    typeof window !== 'undefined' && recognitionCtor() !== null && 'speechSynthesis' in window;
+  const supported = listening && typeof window !== 'undefined' && 'speechSynthesis' in window;
   return {
     supported,
     state,
     error,
-    start() {
+    async start() {
       const c = ctl.current!;
-      if (!supported || c.active || !askVoiceConsent()) return;
+      if (!supported || c.active) return;
+      const engine = await startEngine();
+      if (typeof engine === 'object') {
+        setError(engine.error);
+        return;
+      }
+      if (!askVoiceConsent(engine)) return;
       setError(null);
       c.active = true;
+      c.engine = engine;
       c.silent = 0;
       c.listen();
     },

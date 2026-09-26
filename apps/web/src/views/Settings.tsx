@@ -168,6 +168,20 @@ function ServiceStatus() {
               </span>
             )}
           </dd>
+          <dt>Rozpoznawanie mowy</dt>
+          <dd className="stt-status small muted">
+            przeglądarka
+            {voice?.stt ? (
+              <>
+                {' '}
+                · zapasowo ElevenLabs (<span className="mono">{voice.stt.modelId}</span>), gdy
+                przeglądarka nie rozpoznaje mowy · w tym miesiącu {voice.stt.monthMinutes} z{' '}
+                {voice.stt.monthlyLimitMinutes} min
+              </>
+            ) : (
+              ' (bez zapasu przez serwer — działa w Chrome i Edge)'
+            )}
+          </dd>
           <dt>Model</dt>
           <dd>
             {model ? (

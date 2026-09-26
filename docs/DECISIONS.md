@@ -594,3 +594,28 @@ na prawdziwym koncie** — testy na lokalnej atrapie.
 - Przeglądarka: jeden odtwarzacz mowy; bez klucza, po przekroczeniu limitu, błędzie sieci lub odtwarzania — głos
   przeglądarki. CSP: `media-src 'self' blob:` (dźwięk z odpowiedzi API). Ustawienia pokazują dostawcę głosu,
   głos, model i zużycie znaków w miesiącu.
+
+## D-034 Rozpoznawanie mowy: przeglądarka, a w zapasie ElevenLabs przez serwer
+
+Zgłoszenie: „Rozmowa głosowa” i dyktowanie kończyły się ogólnym „Błąd rozpoznawania mowy”. Każdy kod błędu Web
+Speech API poza `not-allowed` dawał ten sam komunikat. Najczęstsza przyczyna na `localhost`: przeglądarka ma
+`webkitSpeechRecognition`, ale bez usługi rozpoznawania (Brave, Opera, Vivaldi, Chromium bez usług Google) —
+błąd `network`; Firefox nie ma API wcale. Kody wg MDN `SpeechRecognitionErrorEvent.error` (sprawdzone 2026-09-26).
+
+- Każdy kod ma konkretny komunikat z tym, co zrobić (zgoda na mikrofon, mikrofon zajęty lub zablokowany w Windows,
+  przeglądarka bez usługi, brak polskiego…), widoczny nad polem wiadomości — nie tylko w podpowiedzi przycisku.
+- Zapas: po `network`, `service-not-allowed` albo `language-not-supported` (mikrofon działa, zawiodła usługa) —
+  albo gdy przeglądarka nie ma API — nagranie z mikrofonu (MediaRecorder) rozpoznawane przez serwer w ElevenLabs,
+  bez ponownego klikania; do końca sesji karty od razu przez serwer. Koniec wypowiedzi wykrywany po poziomie dźwięku
+  (1,2 s ciszy; najwyżej 30 s; bez mowy przez 8 s — „nic nie słychać”), żeby nie płacić za ciszę.
+- Dokumentacja ElevenLabs (sprawdzona 2026-09-26): `POST https://api.elevenlabs.io/v1/speech-to-text`,
+  `multipart/form-data` z `file` i `model_id` (`scribe_v2`; `scribe_v1` przestarzały), opcjonalnie
+  `language_code` (wysyłamy `pol`); odpowiedź `{ text, words, audio_duration_secs, … }`; rozliczenie za długość
+  nagrania. **Nie sprawdzone na prawdziwym koncie** — testy na lokalnej atrapie.
+- `POST /api/stt`: surowe bajty `audio/webm|ogg|mp4|mpeg|wav|aac` (0,5 KB – 3 MB), tylko zalogowany członek domu,
+  CSRF, 20 nagrań na minutę na osobę, miesięczny limit minut na dom (`ELEVENLABS_STT_MONTHLY_MINUTES`, domyślnie
+  60; 0 wyłącza). Zużycie z `audio_duration_secs` (bez niego liczymy 30 s) w `stt_usage` — bez treści. Nagranie
+  i tekst nie są zapisywane; audyt `stt.transcribe` z liczbą bajtów i sekund, bez treści i klucza; błędy dostawcy
+  bez treści odpowiedzi.
+- Osobna, jednorazowa zgoda na wysyłanie nagrań do ElevenLabs (inna niż zgoda na usługę przeglądarki).
+  Ustawienia pokazują model i zużycie minut w miesiącu.

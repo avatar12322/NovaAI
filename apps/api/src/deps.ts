@@ -6,7 +6,7 @@ import type { Vault } from './connectors/vault';
 import type { DeviceBroker } from './devices/broker';
 import type { EventHub } from './events';
 import type { LiveHub } from './live';
-import type { ElevenLabsTts } from './voice/elevenlabs';
+import type { ElevenLabsStt, ElevenLabsTts } from './voice/elevenlabs';
 import type { ModelGateway } from './model/gateway';
 import type { CostAdapterRegistry } from './services/adapters';
 import type { ToolBroker } from './tools/broker';
@@ -32,6 +32,8 @@ export interface AppDeps {
   live: LiveHub;
   /** Głos ElevenLabs (null bez klucza — wtedy głos przeglądarki). */
   tts: ElevenLabsTts | null;
+  /** Rozpoznawanie mowy ElevenLabs — zapas dla przeglądarek bez rozpoznawania mowy (null: wyłączone). */
+  stt: ElevenLabsStt | null;
   /** Budzenie kolejki po utworzeniu zadania (no-op, gdy kolejka wyłączona). */
   kickQueue: () => void;
   /** Stan pętli kolejki w tym procesie (do healthchecka). */

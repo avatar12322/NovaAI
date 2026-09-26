@@ -26,7 +26,7 @@ import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
 import { emitEvent, EventHub } from './events';
 import { LiveHub } from './live';
-import { ElevenLabsTts } from './voice/elevenlabs';
+import { ElevenLabsStt, ElevenLabsTts } from './voice/elevenlabs';
 import { ModelAgentRuntime } from './model/agent-runtime';
 import { AutoAgentRuntime } from './model/auto-runtime';
 import { loadModelsConfig, type ModelsConfig } from './model/config';
@@ -161,6 +161,14 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
           baseUrl: opts.ttsBase,
         })
       : null,
+    stt:
+      config.tts.apiKey && config.stt.monthlyMinutes > 0
+        ? new ElevenLabsStt({
+            apiKey: config.tts.apiKey,
+            modelId: config.stt.modelId,
+            baseUrl: opts.ttsBase,
+          })
+        : null,
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',
   };

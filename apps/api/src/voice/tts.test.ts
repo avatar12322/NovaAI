@@ -15,16 +15,37 @@ let server: Server;
 let base: string;
 let captured: Array<{ url: string; headers: IncomingMessage['headers']; body: any }> = [];
 let status = 200;
+/** Długość nagrania w odpowiedzi atrapy rozpoznawania mowy (undefined = pole pominięte). */
+let sttSeconds: number | undefined = 4.2;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
-    let raw = '';
-    req.on('data', (d) => (raw += d));
+    const chunks: Buffer[] = [];
+    req.on('data', (d: Buffer) => chunks.push(d));
     req.on('end', () => {
-      captured.push({ url: req.url!, headers: req.headers, body: raw ? JSON.parse(raw) : null });
+      const raw = Buffer.concat(chunks);
+      const json = String(req.headers['content-type']).startsWith('application/json');
+      captured.push({
+        url: req.url!,
+        headers: req.headers,
+        body: json ? JSON.parse(raw.toString('utf8')) : raw.toString('latin1'),
+      });
       if (req.headers['xi-api-key'] !== KEY || status !== 200) {
         res.writeHead(status === 200 ? 401 : status, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ detail: { message: `secret-detail ${KEY}` } }));
+        return;
+      }
+      if (req.url === '/v1/speech-to-text') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            language_code: 'pol',
+            language_probability: 0.98,
+            text: ' Co mam dziś w planie? ',
+            words: [],
+            ...(sttSeconds === undefined ? {} : { audio_duration_secs: sttSeconds }),
+          }),
+        );
         return;
       }
       res.writeHead(200, { 'content-type': 'audio/mpeg' });
@@ -63,6 +84,7 @@ describe('głos ElevenLabs', () => {
     beta = await login(t.app, 'beta');
     captured = [];
     status = 200;
+    sttSeconds = 4.2;
   });
 
   async function reply(
@@ -185,6 +207,147 @@ describe('limit i brak konfiguracji', () => {
       expect(res.body.error.code).toBe('tts_not_configured');
     } finally {
       await plain.close();
+    }
+  });
+});
+
+describe('rozpoznawanie mowy ElevenLabs (zapas dla przeglądarki)', () => {
+  let t: TestApp;
+  let alfa: Client;
+  const AUDIO = Buffer.alloc(4096, 7); // atrapa nagrania — treść bez znaczenia dla atrapy API
+  beforeAll(async () => {
+    t = await createTestApp({ ELEVENLABS_API_KEY: KEY }, { ttsBase: base });
+  });
+  afterAll(async () => t.close());
+  beforeEach(async () => {
+    await truncateAll(t.db);
+    t.seed = await seedDev(t.db, 'test');
+    alfa = await login(t.app, 'alfa');
+    captured = [];
+    status = 200;
+    sttSeconds = 4.2;
+  });
+  const stt = (
+    c: Client | null,
+    body: Buffer | string,
+    type = 'audio/webm;codecs=opus',
+    csrf = true,
+  ) =>
+    t.app.inject({
+      method: 'POST',
+      url: '/api/stt',
+      headers: {
+        'content-type': type,
+        ...(c ? { cookie: c.cookie } : {}),
+        ...(csrf ? { 'x-nova-csrf': '1' } : {}),
+      },
+      payload: body,
+    });
+
+  it('nagranie → tekst: żądanie wg dokumentacji, zużycie sekund, audyt bez treści i klucza', async () => {
+    const res = await stt(alfa, AUDIO);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ text: 'Co mam dziś w planie?' });
+
+    expect(captured).toHaveLength(1);
+    const c = captured[0]!;
+    expect(c.url).toBe('/v1/speech-to-text');
+    expect(c.headers['xi-api-key']).toBe(KEY);
+    expect(c.headers['content-type']).toMatch(/^multipart\/form-data; boundary=/);
+    expect(c.body).toMatch(/name="model_id"\r\n\r\nscribe_v2\r\n/);
+    expect(c.body).toMatch(/name="language_code"\r\n\r\npol\r\n/);
+    expect(c.body).toMatch(/name="file"; filename="nagranie"\r\nContent-Type: audio\/webm\r\n/);
+    expect(c.body).toContain(AUDIO.toString('latin1'));
+
+    const s = (await alfa.get('/api/tts/status')).body;
+    expect(s.stt).toEqual({
+      provider: 'elevenlabs',
+      modelId: 'scribe_v2',
+      monthMinutes: 1,
+      monthlyLimitMinutes: 60,
+    });
+    const usage = await t.db.owner.query(`SELECT seconds::float AS s FROM stt_usage`);
+    expect(usage.rows).toEqual([{ s: 4.2 }]);
+    const audit = await t.db.owner.query(
+      `SELECT outcome, details::text FROM audit_log WHERE action = 'stt.transcribe'`,
+    );
+    expect(audit.rows).toHaveLength(1);
+    expect(audit.rows[0].outcome).toBe('ok');
+    expect(audit.rows[0].details).not.toContain('planie');
+    expect(audit.rows[0].details).not.toContain(KEY);
+  });
+
+  it('walidacja: format, długość, logowanie i CSRF — bez wywołania ElevenLabs', async () => {
+    expect((await stt(alfa, AUDIO, 'audio/flac')).statusCode).toBe(400);
+    expect((await stt(alfa, Buffer.alloc(100, 1))).statusCode).toBe(400);
+    expect((await stt(alfa, '{"text":"x"}', 'application/json')).statusCode).toBe(400);
+    expect((await stt(null, AUDIO)).statusCode).toBe(401);
+    expect((await stt(alfa, AUDIO, 'audio/webm', false)).statusCode).toBe(403);
+    expect((await stt(alfa, Buffer.alloc(3 * 1024 * 1024 + 1, 1))).statusCode).toBe(413);
+    expect(captured).toHaveLength(0);
+  });
+
+  it('klucz odrzucony => 502 bez treści odpowiedzi dostawcy i bez zużycia', async () => {
+    status = 401;
+    const res = await stt(alfa, AUDIO);
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error.code).toBe('stt_rejected');
+    expect(res.body).not.toContain('secret-detail');
+    expect(res.body).not.toContain(KEY);
+    expect((await t.db.owner.query('SELECT 1 FROM stt_usage')).rows).toHaveLength(0);
+  });
+
+  it('bez długości w odpowiedzi liczone jest 30 s (najgorszy przypadek)', async () => {
+    sttSeconds = undefined;
+    expect((await stt(alfa, AUDIO)).statusCode).toBe(200);
+    const usage = await t.db.owner.query(`SELECT seconds::float AS s FROM stt_usage`);
+    expect(usage.rows).toEqual([{ s: 30 }]);
+  });
+});
+
+describe('rozpoznawanie mowy: limit i wyłączenie', () => {
+  it('limit minut => 429 po wyczerpaniu; 0 minut albo brak klucza => wyłączone (503)', async () => {
+    const limited = await createTestApp(
+      { ELEVENLABS_API_KEY: KEY, ELEVENLABS_STT_MONTHLY_MINUTES: '1' },
+      { ttsBase: base },
+    );
+    try {
+      const c = await login(limited.app, 'alfa');
+      const send = () =>
+        limited.app.inject({
+          method: 'POST',
+          url: '/api/stt',
+          headers: { cookie: c.cookie, 'x-nova-csrf': '1', 'content-type': 'audio/ogg' },
+          payload: Buffer.alloc(2048, 3),
+        });
+      sttSeconds = 61;
+      expect((await send()).statusCode).toBe(200);
+      const res = await send();
+      expect(res.statusCode).toBe(429);
+      expect(res.json().error.code).toBe('stt_limit');
+    } finally {
+      sttSeconds = 4.2;
+      await limited.close();
+    }
+    for (const env of [
+      { ELEVENLABS_API_KEY: KEY, ELEVENLABS_STT_MONTHLY_MINUTES: '0' },
+      {} as Record<string, string>,
+    ]) {
+      const off = await createTestApp(env, { ttsBase: base });
+      try {
+        const c = await login(off.app, 'alfa');
+        expect((await c.get('/api/tts/status')).body.stt).toBeNull();
+        const res = await off.app.inject({
+          method: 'POST',
+          url: '/api/stt',
+          headers: { cookie: c.cookie, 'x-nova-csrf': '1', 'content-type': 'audio/webm' },
+          payload: Buffer.alloc(2048, 3),
+        });
+        expect(res.statusCode).toBe(503);
+        expect(res.json().error.code).toBe('stt_not_configured');
+      } finally {
+        await off.close();
+      }
     }
   });
 });

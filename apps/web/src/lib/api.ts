@@ -83,13 +83,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 /** Wysyłka pliku jako surowych bajtów (bez multipart); typ ustala serwer z rozszerzenia i treści. */
-async function uploadFile<T>(path: string, file: Blob): Promise<T> {
+async function uploadFile<T>(
+  path: string,
+  file: Blob,
+  contentType = 'application/octet-stream',
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'content-type': 'application/octet-stream', 'x-nova-csrf': '1' },
+      headers: { 'content-type': contentType, 'x-nova-csrf': '1' },
       body: file,
     });
   } catch {
@@ -203,6 +207,21 @@ export interface ModelStatus {
   providers: Array<{ name: string; kind: string; configured: boolean; reason: string | null }>;
 }
 
+/** Głos z serwera: synteza (odczyt) i rozpoznawanie mowy ElevenLabs; null — niedostępne. */
+export interface VoiceStatus {
+  provider: 'elevenlabs' | null;
+  voiceId: string | null;
+  modelId: string | null;
+  monthChars: number;
+  monthlyLimit: number | null;
+  stt: {
+    provider: 'elevenlabs';
+    modelId: string;
+    monthMinutes: number;
+    monthlyLimitMinutes: number;
+  } | null;
+}
+
 export const api = {
   health: () => get<HealthResponse>('/health'),
   me: () => get<MeResponse>('/me'),
@@ -302,14 +321,9 @@ export const api = {
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
   briefing: () => get<Briefing>('/briefing'),
-  ttsStatus: () =>
-    get<{
-      provider: 'elevenlabs' | null;
-      voiceId: string | null;
-      modelId: string | null;
-      monthChars: number;
-      monthlyLimit: number | null;
-    }>('/tts/status'),
+  ttsStatus: () => get<VoiceStatus>('/tts/status'),
+  /** Rozpoznawanie mowy przez serwer (ElevenLabs) — zapas, gdy przeglądarka nie rozpoznaje mowy. */
+  stt: (audio: Blob) => uploadFile<{ text: string }>('/stt', audio, audio.type || 'audio/webm'),
   /** Dźwięk (MP3) z serwera — tylko dla widocznej odpowiedzi asystenta albo przeglądu dnia. */
   tts: async (source: { messageId: string } | { briefing: true }): Promise<Blob> => {
     let res: Response;

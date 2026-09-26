@@ -118,6 +118,12 @@ według cennika dostawcy — ustaw limit w Ustawienia → Koszt modeli. Szczegó
 będą czytane tym głosem; bez klucza — głosem przeglądarki. Limit znaków na miesiąc: `ELEVENLABS_MONTHLY_CHARS`.
 Szczegóły: `docs/DECISIONS.md` D-033.
 
+**Dyktowanie i rozmowa głosowa** używają rozpoznawania mowy przeglądarki (Chrome, Edge). Brave, Opera i Vivaldi
+mają to API bez działającej usługi (błąd `network`), Firefox nie ma go wcale — wtedy, z tym samym kluczem
+ElevenLabs, NovaAI nagrywa wypowiedź i rozpoznaje ją przez serwer (`scribe_v2`, limit minut na miesiąc:
+`ELEVENLABS_STT_MONTHLY_MINUTES`, 0 wyłącza). Bez klucza aplikacja podaje konkretną przyczynę błędu i co zrobić.
+Szczegóły: `docs/DECISIONS.md` D-034.
+
 Bez konfiguracji integracje są oznaczone jako „niedostępne”. Wymagany jest też `NOVA_SECRET_KEY` (szyfrowanie
 tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie widzi cudzej poczty.
 

@@ -54,6 +54,14 @@ const EnvSchema = z.object({
     .default('eleven_flash_v2_5'),
   /** Miesięczny limit znaków na dom (0 = bez limitu po stronie NovaAI). */
   ELEVENLABS_MONTHLY_CHARS: z.coerce.number().int().min(0).default(30_000),
+  // Rozpoznawanie mowy ElevenLabs — zapas, gdy przeglądarka nie rozpoznaje mowy (np. Brave, Opera, Firefox).
+  ELEVENLABS_STT_MODEL_ID: z
+    .string()
+    .regex(/^[a-z0-9_]{3,40}$/)
+    .optional()
+    .default('scribe_v2'),
+  /** Miesięczny limit minut nagrań na dom; 0 = rozpoznawanie przez ElevenLabs wyłączone. */
+  ELEVENLABS_STT_MONTHLY_MINUTES: z.coerce.number().int().min(0).default(60),
   SLACK_CLIENT_ID: z.string().optional().default(''),
   SLACK_CLIENT_SECRET: z.string().optional().default(''),
   MICROSOFT_CLIENT_ID: z.string().optional().default(''),
@@ -100,6 +108,8 @@ export type AppConfig = {
   costAdapterKeys: { anthropic: string; openai: string };
   /** Synteza mowy ElevenLabs; klucz tylko po stronie serwera. */
   tts: { apiKey: string; voiceId: string; modelId: string; monthlyChars: number };
+  /** Rozpoznawanie mowy ElevenLabs (ten sam klucz co `tts`); `monthlyMinutes` 0 = wyłączone. */
+  stt: { modelId: string; monthlyMinutes: number };
   slackSigningSecret: string;
   /** WebAuthn: identyfikator RP (domena), nazwa i dozwolone originy. */
   webauthn: { rpId: string; rpName: string; origins: string[] };
@@ -165,6 +175,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
       modelId: e.ELEVENLABS_MODEL_ID,
       monthlyChars: e.ELEVENLABS_MONTHLY_CHARS,
     },
+    stt: { modelId: e.ELEVENLABS_STT_MODEL_ID, monthlyMinutes: e.ELEVENLABS_STT_MONTHLY_MINUTES },
     slackSigningSecret: e.SLACK_SIGNING_SECRET,
     webauthn: {
       rpId: e.NOVA_RP_ID || new URL(e.NOVA_WEB_ORIGIN).hostname,
