@@ -53,3 +53,20 @@ export interface MessageDelta {
   offset: number;
   delta: string;
 }
+
+/** Poranny przegląd („Dzień dobry”): tylko to, co użytkownik i tak widzi w aplikacji. */
+export interface Briefing {
+  greeting: string;
+  /** Dzień w strefie Europe/Warsaw (RRRR-MM-DD) i jego opis, np. „sobota, 26 września”. */
+  date: string;
+  dateLabel: string;
+  reminders: Array<{ id: string; text: string; dueAt: string; shared: boolean }>;
+  events: Array<{ id: string; title: string; startsAt: string; endsAt: string }>;
+  approvals: number;
+  activeTasks: number;
+  unread: number;
+  renewals: Array<{ serviceId: string; name: string; renewsOn: string; daysLeft: number }>;
+  budget: { spent: number; hardLimit: number | null; currency: string; state: string };
+  /** Krótki tekst do odczytania na głos. */
+  summary: string;
+}

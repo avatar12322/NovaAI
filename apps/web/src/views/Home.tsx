@@ -1,5 +1,6 @@
 import type { MeResponse, Notification, Task } from '@nova/contracts';
 import { useCallback, useEffect, useState } from 'react';
+import { BriefingPanel } from '../components/Briefing';
 import { Badge, EmptyState, ErrorNote, Spinner, statusTone } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
@@ -42,6 +43,7 @@ export function HomeView({ me }: { me: MeResponse }) {
           Otwórz NovaAI
         </a>
       </header>
+      <BriefingPanel />
       <RemindersPanel />
       {/* Błąd dotyczy wiadomości i zadań — pokazujemy go przy nich, nie nad całą stroną. */}
       {error && <ErrorNote error={error} onRetry={load} />}

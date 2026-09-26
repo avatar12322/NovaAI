@@ -29,7 +29,7 @@ import type {
   TaskPage,
 } from '@nova/contracts';
 import type { CostAdapterInfo, CostEntryInfo, CostSummary, ServiceInfo } from '@nova/contracts';
-import type { ModelsOverview, ProviderCheckResult } from '@nova/contracts';
+import type { Briefing, ModelsOverview, ProviderCheckResult } from '@nova/contracts';
 
 export class ApiError extends Error {
   constructor(
@@ -301,6 +301,7 @@ export const api = {
     paidCallsEnabled: boolean;
   }) => request<BudgetStatus>('PUT', '/budget', b),
   modelStatus: () => get<ModelStatus>('/model/status'),
+  briefing: () => get<Briefing>('/briefing'),
   // ---------- Modele AI i klucze API (klucz tylko wysyłany, nigdy odczytywany) ----------
   modelProviders: () => get<ModelsOverview>('/model/providers'),
   addModelProvider: (body: Record<string, unknown>) =>

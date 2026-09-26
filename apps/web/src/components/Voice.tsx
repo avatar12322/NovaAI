@@ -113,7 +113,7 @@ export function useSpeaking(): boolean {
   return on;
 }
 
-export function SpeakButton({ text }: { text: string }) {
+export function SpeakButton({ text, label }: { text: string; label?: string }) {
   const [speaking, setSpeaking] = useState(false);
   // Przerwanie odczytu przy zamknięciu widoku (np. zmiana rozmowy).
   useEffect(
@@ -148,10 +148,10 @@ export function SpeakButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className={`btn btn-ghost btn-sm${speaking ? ' speaking' : ''}`}
+      className={`btn ${label ? '' : 'btn-ghost '}btn-sm${speaking ? ' speaking' : ''}`}
       onClick={toggle}
       aria-pressed={speaking}
-      aria-label={speaking ? 'Zatrzymaj odczyt' : 'Odczytaj odpowiedź'}
+      aria-label={speaking ? 'Zatrzymaj odczyt' : (label ?? 'Odczytaj odpowiedź')}
     >
       {speaking ? (
         <span className="eq" aria-hidden="true">
@@ -162,6 +162,7 @@ export function SpeakButton({ text }: { text: string }) {
       ) : (
         <Icon name="speaker" size={14} />
       )}
+      {label && <span>{speaking ? 'Zatrzymaj' : label}</span>}
     </button>
   );
 }

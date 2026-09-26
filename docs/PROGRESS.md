@@ -559,6 +559,17 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Niesprawdzone: prawdziwy mikrofon i rozpoznawanie mowy w Chrome/Edge/Safari (środowisko bez audio).
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 281/281, web 12/12; `pnpm test:e2e` → 42/42.
 
+### Przegląd dnia (2026-09-26)
+
+- „Dom” zaczyna się od przeglądu dnia: powitanie wg pory dnia (Europe/Warsaw), wydarzenia z kalendarza lokalnego,
+  przypomnienia na dziś, zgody i zadania w toku, nieprzeczytane wiadomości, odnowienia usług w ciągu 7 dni,
+  koszt modeli z limitem; „Przeczytaj przegląd” czyta krótkie podsumowanie na głos. `GET /api/briefing` — tylko
+  przez RLS użytkownika (własne prywatne + wspólne), bez wywołań modelu.
+- Testy: `briefing.test.ts` (dzień Alfy z każdą sekcją i tekstem do odczytu; Beta nie widzi prywatnych danych
+  Alfy, widzi wspólne przypomnienie; pusty dzień; odmiana liczebników), e2e `briefing.spec.ts` (powitanie,
+  kafelki, odczyt przez atrapę syntezy). Zrzut: `docs/screens/*-21-briefing.png`.
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 285/285, web 12/12; `pnpm test:e2e` → 44/44.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
