@@ -64,6 +64,42 @@ beforeAll(async () => {
           ],
           has_more: false,
         });
+      if (c.method === 'POST' && c.url === '/anthropic/v1/messages' && c.body.stream) {
+        // Strumień Messages API (tak rozmawia NovaAI z Claude): zdarzenia SSE.
+        const ev = (type: string, data: Record<string, unknown>) =>
+          `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.end(
+          ev('message_start', {
+            message: {
+              id: 'msg_1',
+              type: 'message',
+              role: 'assistant',
+              model: c.body.model,
+              content: [],
+              stop_reason: null,
+              stop_sequence: null,
+              usage: { input_tokens: 1000, output_tokens: 1 },
+            },
+          }) +
+            ev('content_block_start', { index: 0, content_block: { type: 'text', text: '' } }) +
+            ev('content_block_delta', {
+              index: 0,
+              delta: { type: 'text_delta', text: 'Odpowiedź Claude ' },
+            }) +
+            ev('content_block_delta', {
+              index: 0,
+              delta: { type: 'text_delta', text: '(atrapa).' },
+            }) +
+            ev('content_block_stop', { index: 0 }) +
+            ev('message_delta', {
+              delta: { stop_reason: 'end_turn', stop_sequence: null },
+              usage: { output_tokens: 500 },
+            }) +
+            ev('message_stop', {}),
+        );
+        return;
+      }
       if (c.method === 'POST' && c.url === '/anthropic/v1/messages')
         return send(200, {
           id: 'msg_1',

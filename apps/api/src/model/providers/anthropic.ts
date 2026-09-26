@@ -36,26 +36,32 @@ export class AnthropicProvider implements ModelProvider {
   async complete(req: ProviderRequest): Promise<ProviderResponse> {
     let res: Anthropic.Message;
     try {
-      res = await this.client.messages.create(
-        {
-          model: req.model,
-          max_tokens: req.maxTokens,
-          system: req.system,
-          messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
-          ...(req.tools.length
-            ? {
-                tools: req.tools.map((t) => ({
-                  name: toProviderToolName(t.name),
-                  description: t.description,
-                  input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
-                })),
-                tool_choice: { type: 'auto' as const },
-              }
-            : {}),
-          ...(req.effort ? { output_config: { effort: req.effort } } : {}),
-        },
-        { signal: req.signal },
-      );
+      const params = {
+        model: req.model,
+        max_tokens: req.maxTokens,
+        system: req.system,
+        messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+        ...(req.tools.length
+          ? {
+              tools: req.tools.map((t) => ({
+                name: toProviderToolName(t.name),
+                description: t.description,
+                input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
+              })),
+              tool_choice: { type: 'auto' as const },
+            }
+          : {}),
+        ...(req.effort ? { output_config: { effort: req.effort } } : {}),
+      };
+      if (req.onText) {
+        // Strumieniowanie: fragmenty tekstu na żywo, a wynik (narzędzia, usage) z pełnej wiadomości.
+        const stream = this.client.messages.stream(params, { signal: req.signal });
+        const onText = req.onText;
+        stream.on('text', (delta) => onText(delta));
+        res = await stream.finalMessage();
+      } else {
+        res = await this.client.messages.create(params, { signal: req.signal });
+      }
     } catch (err) {
       throw mapError(err);
     }

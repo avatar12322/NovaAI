@@ -1,5 +1,6 @@
 import { isLocalBaseUrl } from '@nova/contracts';
 import type { Db } from '../db/pool';
+import type { TextStream } from '../live';
 import { BudgetBlocked, BudgetService } from './budget';
 import {
   isPaid,
@@ -35,6 +36,8 @@ export interface GatewayRequest {
   system: string;
   messages: ChatMessage[];
   tools: ToolSpec[];
+  /** Tekst na żywo (jeśli dostawca strumieniuje); `reset` przed każdą próbą kolejnego modelu z trasy. */
+  stream?: TextStream;
 }
 
 interface GatewayResult extends ProviderResponse {
@@ -336,6 +339,7 @@ export class ModelGateway {
           : 'config:unverified',
       });
       try {
+        req.stream?.reset();
         const res = await provider.complete({
           model: m.model,
           system: req.system,
@@ -343,6 +347,7 @@ export class ModelGateway {
           tools: req.tools,
           maxTokens: m.maxTokens,
           effort: m.effort,
+          ...(req.stream ? { onText: req.stream.push } : {}),
         });
         const estimated = res.usage === null;
         const usage = res.usage ?? {

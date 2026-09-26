@@ -18,7 +18,10 @@ interface Captured {
 let server: Server;
 let base: string;
 let captured: Captured[] = [];
-let respond: (c: Captured) => { status: number; body: unknown } = () => ({ status: 200, body: {} });
+let respond: (c: Captured) => { status: number; body?: unknown; sse?: string } = () => ({
+  status: 200,
+  body: {},
+});
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -33,6 +36,11 @@ beforeAll(async () => {
       };
       captured.push(c);
       const r = respond(c);
+      if (r.sse !== undefined) {
+        res.writeHead(r.status, { 'content-type': 'text/event-stream' });
+        res.end(r.sse);
+        return;
+      }
       res.writeHead(r.status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(r.body));
     });
@@ -72,6 +80,57 @@ const req = (over: Partial<ProviderRequest> = {}): ProviderRequest => ({
 describe('AnthropicProvider (SDK) — kontrakt Messages API', () => {
   const provider = () =>
     new AnthropicProvider({ apiKey: SECRET, baseURL: base, maxRetries: 0, timeoutMs: 5000 });
+
+  it('strumieniowanie: fragmenty tekstu na żywo, a narzędzia i usage z pełnej wiadomości', async () => {
+    // Sekwencja zdarzeń strumienia Messages API (message_start → bloki → message_delta → message_stop).
+    const ev = (type: string, data: Record<string, unknown>) =>
+      `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+    respond = () => ({
+      status: 200,
+      sse:
+        ev('message_start', {
+          message: {
+            id: 'msg_s',
+            type: 'message',
+            role: 'assistant',
+            model: 'model-from-config',
+            content: [],
+            stop_reason: null,
+            stop_sequence: null,
+            usage: { input_tokens: 120, output_tokens: 1 },
+          },
+        }) +
+        ev('content_block_start', { index: 0, content_block: { type: 'text', text: '' } }) +
+        ev('content_block_delta', { index: 0, delta: { type: 'text_delta', text: 'Zapisuję ' } }) +
+        ev('content_block_delta', {
+          index: 0,
+          delta: { type: 'text_delta', text: 'to w pamięci.' },
+        }) +
+        ev('content_block_stop', { index: 0 }) +
+        ev('content_block_start', {
+          index: 1,
+          content_block: { type: 'tool_use', id: 'tu_1', name: 'memory__create', input: {} },
+        }) +
+        ev('content_block_delta', {
+          index: 1,
+          delta: { type: 'input_json_delta', partial_json: '{"content":"kawa"}' },
+        }) +
+        ev('content_block_stop', { index: 1 }) +
+        ev('message_delta', {
+          delta: { stop_reason: 'tool_use', stop_sequence: null },
+          usage: { output_tokens: 42 },
+        }) +
+        ev('message_stop', {}),
+    });
+    const deltas: string[] = [];
+    const r = await provider().complete({ ...req(), onText: (d) => deltas.push(d) });
+    expect(captured[0]!.body.stream).toBe(true);
+    expect(deltas).toEqual(['Zapisuję ', 'to w pamięci.']);
+    expect(r.text).toBe('Zapisuję to w pamięci.');
+    expect(r.toolCalls).toEqual([{ name: 'memory.create', input: { content: 'kawa' } }]);
+    expect(r.usage).toMatchObject({ inputTokens: 120, outputTokens: 42 });
+    expect(r.stopReason).toBe('tool_use');
+  });
 
   it('wysyła poprawne żądanie i mapuje tekst, tool_use i usage', async () => {
     respond = () => ({

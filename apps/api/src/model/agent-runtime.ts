@@ -170,6 +170,7 @@ export class ModelAgentRuntime implements AgentRuntime {
         system: this.systemPrompt(ctx, input),
         messages: this.messages(input, ctx),
         tools: input.followUp ? [] : this.tools.describe(allowedCapabilities),
+        ...(input.stream ? { stream: input.stream } : {}),
       });
       const usage = {
         provider: res.provider,

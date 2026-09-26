@@ -1,3 +1,5 @@
+import type { TextStream } from '../live';
+
 /**
  * Kontrakt silnika agenta. Dostawca (Fake, Hermes, bezpośredni model) jest ukryty za interfejsem.
  * Runtime NIE ma dostępu do bazy — dostaje wyłącznie kontekst zbudowany i przefiltrowany przez serwer.
@@ -61,6 +63,8 @@ export interface AgentTurnInput {
   documents?: ContextDocument[];
   /** Lista dokumentów dostępnych w tym kontekście (tytuły, bez treści). */
   catalog?: ContextCatalogEntry[];
+  /** Tekst odpowiedzi na żywo (runtime ze strumieniowaniem); ostateczna odpowiedź i tak w wyniku tury. */
+  stream?: TextStream;
   /**
    * Tura uzupełniająca po wykonaniu narzędzi: wiadomość użytkownika i wyniki są już w historii,
    * model formułuje odpowiedź na ich podstawie i nie dostaje narzędzi (jedna runda, bez pętli).

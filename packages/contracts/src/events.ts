@@ -37,3 +37,19 @@ export const Notification = z.object({
   readAt: z.string().nullable(),
 });
 export type Notification = z.infer<typeof Notification>;
+
+/**
+ * Fragment odpowiedzi modelu w trakcie pisania — ulotne zdarzenie SSE `message.delta` (bez id, bez zapisu
+ * w bazie; pełna odpowiedź przychodzi potem jako `message.created`).
+ */
+export interface MessageDelta {
+  conversationId: string;
+  taskId: string;
+  /** Krok tury: 'reply' albo 'followup'. */
+  step: string;
+  /** Kolejna próba (inny model po błędzie) zaczyna tekst od nowa. */
+  attempt: number;
+  /** Długość tekstu przed tym fragmentem — klient dokleja tylko fragmenty ciągłe. */
+  offset: number;
+  delta: string;
+}

@@ -1,3 +1,4 @@
+import { canSee } from '../live';
 import { ListEventsQuery, type Notification, type NovaEvent } from '@nova/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 import { authorize, isUuid, requireAuth } from '../access';
@@ -95,11 +96,18 @@ export const eventRoutes =
       const unsubscribe = deps.events.subscribe((id) => {
         if (id > lastId) pump();
       });
+      // Tekst odpowiedzi na żywo: tylko dla odbiorców rozmowy (jak `conversation.read`), bez id i bez zapisu.
+      let viewer = auth;
+      const unsubscribeLive = deps.live.subscribe((e) => {
+        if (closed || !canSee(e.target, viewer)) return;
+        res.write(`event: ${e.type}\ndata: ${JSON.stringify(e.payload)}\n\n`);
+      });
       pump();
       const keepalive = setInterval(() => !closed && res.write(': keepalive\n\n'), KEEPALIVE_MS);
       const recheck = setInterval(() => {
         void resolveSession(deps.db, deps.config, token).then((s) => {
           if (!s) close();
+          else viewer = s;
         });
       }, SESSION_RECHECK_MS);
 
@@ -107,6 +115,7 @@ export const eventRoutes =
         if (closed) return;
         closed = true;
         unsubscribe();
+        unsubscribeLive();
         clearInterval(keepalive);
         clearInterval(recheck);
         res.end();

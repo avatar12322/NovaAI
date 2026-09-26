@@ -1819,3 +1819,8 @@ label.check {
     transform: none;
   }
 }
+
+/* Odpowiedź na żywo (strumieniowanie modelu) */
+.msg-live .msg-meta {
+  gap: 6px;
+}

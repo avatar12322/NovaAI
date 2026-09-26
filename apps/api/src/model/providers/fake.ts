@@ -35,6 +35,8 @@ export class FakeProvider implements ModelProvider {
             cacheReadTokens: 0,
             cacheWriteTokens: 0,
           });
+    // Strumieniowanie jak u dostawcy: tekst w kawałkach, zanim wróci wynik.
+    if (req.onText) for (let i = 0; i < text.length; i += 12) req.onText(text.slice(i, i + 12));
     // Jak prawdziwy model: bez udostępnionych narzędzi nie ma wywołań narzędzi.
     const toolCalls = req.tools.length ? (this.behavior.toolCalls ?? []) : [];
     return { text, toolCalls, usage, stopReason: 'end_turn' };

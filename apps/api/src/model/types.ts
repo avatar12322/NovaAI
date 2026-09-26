@@ -21,6 +21,8 @@ export interface ProviderRequest {
   maxTokens: number;
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   signal?: AbortSignal;
+  /** Fragmenty tekstu w trakcie generowania (dostawcy ze strumieniowaniem); wynik końcowy bez zmian. */
+  onText?: (delta: string) => void;
 }
 
 export interface ProviderUsage {

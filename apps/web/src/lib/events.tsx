@@ -1,14 +1,25 @@
-import type { NovaEvent } from '@nova/contracts';
+import type { MessageDelta, NovaEvent } from '@nova/contracts';
 import { EVENT_TYPES } from '@nova/contracts/event-types';
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 type Listener = (e: NovaEvent) => void;
+type DeltaListener = (d: MessageDelta) => void;
 
 interface EventsCtx {
   connected: boolean;
   recent: NovaEvent[];
   subscribe(fn: Listener): () => void;
   onResync(fn: () => void): () => void;
+  /** Tekst odpowiedzi na żywo (ulotne `message.delta` — poza listą aktywności). */
+  subscribeDelta(fn: DeltaListener): () => void;
 }
 
 const Ctx = createContext<EventsCtx>({
@@ -16,6 +27,7 @@ const Ctx = createContext<EventsCtx>({
   recent: [],
   subscribe: () => () => undefined,
   onResync: () => () => undefined,
+  subscribeDelta: () => () => undefined,
 });
 
 /**
@@ -27,6 +39,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState<NovaEvent[]>([]);
   const listeners = useRef(new Set<Listener>());
   const resyncListeners = useRef(new Set<() => void>());
+  const deltaListeners = useRef(new Set<DeltaListener>());
 
   useEffect(() => {
     if (typeof EventSource === 'undefined') return;
@@ -47,24 +60,43 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       }
     };
     EVENT_TYPES.forEach((t) => es.addEventListener(t, on as EventListener));
+    es.addEventListener('message.delta', ((m: MessageEvent<string>) => {
+      try {
+        const d = JSON.parse(m.data) as MessageDelta;
+        deltaListeners.current.forEach((l) => l(d));
+      } catch {
+        /* ignoruj uszkodzony fragment */
+      }
+    }) as EventListener);
     return () => es.close();
   }, []);
 
-  const subscribe = (fn: Listener) => {
+  const subscribe = useCallback((fn: Listener) => {
     listeners.current.add(fn);
     return () => {
       listeners.current.delete(fn);
     };
-  };
+  }, []);
 
-  const onResync = (fn: () => void) => {
+  const onResync = useCallback((fn: () => void) => {
     resyncListeners.current.add(fn);
     return () => {
       resyncListeners.current.delete(fn);
     };
-  };
+  }, []);
 
-  return <Ctx.Provider value={{ connected, recent, subscribe, onResync }}>{children}</Ctx.Provider>;
+  const subscribeDelta = useCallback((fn: DeltaListener) => {
+    deltaListeners.current.add(fn);
+    return () => {
+      deltaListeners.current.delete(fn);
+    };
+  }, []);
+
+  return (
+    <Ctx.Provider value={{ connected, recent, subscribe, onResync, subscribeDelta }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export const useEvents = () => useContext(Ctx);
@@ -92,4 +124,17 @@ export function useEventEffect(
       b();
     };
   }, [subscribe, onResync]);
+}
+
+/** Fragmenty odpowiedzi na żywo dla jednej rozmowy. */
+export function useDeltaEffect(conversationId: string, fn: (d: MessageDelta) => void): void {
+  const { subscribeDelta } = useEvents();
+  const cb = useRef(fn);
+  cb.current = fn;
+  useEffect(() => {
+    const off = subscribeDelta((d) => {
+      if (d.conversationId === conversationId) cb.current(d);
+    });
+    return off;
+  }, [subscribeDelta, conversationId]);
 }

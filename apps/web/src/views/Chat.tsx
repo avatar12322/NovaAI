@@ -14,7 +14,8 @@ import { Icon } from '../components/Icon';
 import { DictationButton, SpeakButton, useSpeaking } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError, type SlackLiveItem } from '../lib/api';
-import { useEventEffect } from '../lib/events';
+import { useDeltaEffect, useEventEffect } from '../lib/events';
+import { applyDelta, sameText, type LiveReply } from '../lib/live';
 import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
 import { prefersReducedMotion } from '../lib/reveal';
 import { href, navigate, parseRoute } from '../lib/router';
@@ -176,6 +177,10 @@ function ConversationPane({
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const speaking = useSpeaking();
+  /** Odpowiedź w trakcie pisania (strumieniowanie modelu) i teksty już pokazane na żywo — bez ponownej animacji. */
+  const [live, setLive] = useState<LiveReply | null>(null);
+  const streamed = useRef<string[]>([]);
+  useDeltaEffect(id, (d) => setLive((s) => applyDelta(s, d)));
   /** Wiadomości znane od otwarcia rozmowy; tylko nowsze dostają animację wejścia i odsłaniania. */
   const seen = useRef<Set<string> | null>(null);
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
@@ -219,7 +224,19 @@ function ConversationPane({
 
   // Odpowiedź asystenta nie kończy tury, jeśli po niej są narzędzia i odpowiedź uzupełniająca —
   // wskaźnik znika dopiero, gdy zadanie przestaje być w toku.
-  useEventEffect((e) => e.type === 'message.created' && e.payload.conversationId === id, load);
+  useEventEffect(
+    (e) => e.type === 'message.created' && e.payload.conversationId === id,
+    (e) => {
+      if (!e || e.payload.role === 'assistant') {
+        // Zapisana odpowiedź zastępuje tekst na żywo (bez drugiej animacji tej samej treści).
+        setLive((l) => {
+          if (l?.text) streamed.current = [...streamed.current.slice(-9), l.text];
+          return null;
+        });
+      }
+      load();
+    },
+  );
   useEventEffect(
     (e) => e.type === 'task.status' && e.taskId === thinking,
     (e) => {
@@ -315,10 +332,22 @@ function ConversationPane({
           </EmptyState>
         )}
         {messages?.map((m) => (
-          <MessageBubble key={m.id} m={m} me={me} fresh={fresh.has(m.id)} />
+          <MessageBubble
+            key={m.id}
+            m={m}
+            me={me}
+            fresh={
+              fresh.has(m.id) &&
+              !(m.role === 'assistant' && streamed.current.some((t) => sameText(t, m.content)))
+            }
+          />
         ))}
-        {thinking && (
-          <AssistantActivity taskId={thinking} agentName={conv?.agent.name ?? 'Asystent'} />
+        {thinking && live?.taskId === thinking && live.text ? (
+          <LiveBubble text={live.text} agentName={conv?.agent.name ?? 'Asystent'} />
+        ) : (
+          thinking && (
+            <AssistantActivity taskId={thinking} agentName={conv?.agent.name ?? 'Asystent'} />
+          )
         )}
         <div ref={bottom} />
       </div>
@@ -348,6 +377,26 @@ function ConversationPane({
         </button>
       </form>
     </section>
+  );
+}
+
+/** Odpowiedź pisana na żywo (strumieniowanie). Czytnik ekranu dostanie pełną odpowiedź po zapisaniu. */
+function LiveBubble({ text, agentName }: { text: string; agentName: string }) {
+  return (
+    <article className="msg msg-assistant msg-live" aria-busy="true">
+      <header className="msg-meta">
+        <AgentOrb state="thinking" size={14} />
+        <span>{agentName}</span>
+        <span className="muted">pisze…</span>
+      </header>
+      <div className="msg-body" aria-hidden="true">
+        {text}
+        <span className="caret" />
+      </div>
+      <span className="sr-only" role="status">
+        {agentName} pisze odpowiedź…
+      </span>
+    </article>
   );
 }
 

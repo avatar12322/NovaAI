@@ -1,3 +1,4 @@
+import { liveTextStream } from '../live';
 import type { ContextKind } from '@nova/permissions';
 import { buildTurnContext } from '../agent/context';
 import { withUserTx } from '../db/pool';
@@ -39,6 +40,19 @@ function messageSources(docs: ContextDocument[], reply: string): MessageSource[]
     heading: d.heading,
     cited: reply.includes(`[${d.ref}]`),
   }));
+}
+
+/** Tekst odpowiedzi na żywo dla odbiorców rozmowy (prywatna — właściciel, wspólna — domownicy). */
+function turnStream(x: StepExecution, step: 'reply' | 'followup') {
+  return liveTextStream(
+    x.deps.live,
+    {
+      householdId: x.task.household_id,
+      ownerUserId: x.principal.userId,
+      visibility: x.task.visibility,
+    },
+    { conversationId: x.task.conversation_id!, taskId: x.task.id, step },
+  );
 }
 
 /** Wiadomość użytkownika, od której zaczęła się tura — odczyt pod RLS kontekstu zadania. */
@@ -195,11 +209,10 @@ export const agentTurnKind: TaskKindDef = {
           return !cap || available.has(cap);
         });
       }
-      const result = await x.deps.runtime.runTurn(
-        { ...ctx.input, taskId: x.task.id },
-        ctx.userContext,
-        capabilities,
-      );
+      const stream = turnStream(x, 'reply');
+      const result = await x.deps.runtime
+        .runTurn({ ...ctx.input, taskId: x.task.id, stream }, ctx.userContext, capabilities)
+        .finally(stream.flush);
       await x.progress(80);
 
       // Propozycje narzędzi => kroki; broker odrzuca niedozwolone (bez efektów).
@@ -286,11 +299,14 @@ export const agentTurnKind: TaskKindDef = {
           }
         }),
       );
-      const result = await x.deps.runtime.runTurn(
-        { ...ctx.input, history, documents: [], taskId: x.task.id, followUp: true },
-        ctx.userContext,
-        [],
-      );
+      const stream = turnStream(x, 'followup');
+      const result = await x.deps.runtime
+        .runTurn(
+          { ...ctx.input, history, documents: [], taskId: x.task.id, followUp: true, stream },
+          ctx.userContext,
+          [],
+        )
+        .finally(stream.flush);
       const message = await postAssistantMessage(x, ctx, result, { followUp: true });
       return { messageId: message.id, usage: result.usage };
     },

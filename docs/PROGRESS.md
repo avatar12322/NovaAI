@@ -534,6 +534,19 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 276/276, web 9/9; `pnpm test:e2e` → 40/40;
   `pnpm test:prod-smoke` → 1/1.
 
+### Odpowiedź na żywo (strumieniowanie, 2026-09-26)
+
+- Claude (Anthropic) odpowiada na żywo: tekst pojawia się w czacie w trakcie pisania (dymek „pisze…” z kursorem),
+  potem zastępuje go zapisana odpowiedź. Fragmenty nie są zapisywane; widzą je tylko odbiorcy rozmowy (D-032).
+  Dostawcy zgodni z OpenAI — na razie bez strumieniowania.
+- Testy: kontrakt SDK (strumień zdarzeń Messages API: fragmenty, narzędzie z `input_json_delta`, usage z
+  `message_delta`), `live.test.ts` (łączenie co 50 ms, przesunięcia, ponowna próba; SSE: prywatna rozmowa —
+  fragmenty tylko u właściciela i składają się w pełną odpowiedź, brak zapisu w bazie; wspólna — u domownika),
+  web: doklejanie fragmentów (luki, powtórki, nowy krok/próba), porównanie z zapisaną odpowiedzią. Atrapa
+  Anthropic w testach dostawców domu odpowiada strumieniem jak prawdziwe API.
+- Niesprawdzone w przeglądarce e2e: sam dymek na żywo (tryb demo nie strumieniuje, a tura kończy się zbyt szybko)
+  — logika pokryta testami jednostkowymi i API.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

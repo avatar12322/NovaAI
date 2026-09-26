@@ -558,3 +558,18 @@ niż dokument.
 - Automatyczny dobór fragmentów zostaje (tani, ze źródłami [D1]); narzędzia działają, gdy nie wystarcza.
 - Sprawdzone wyłącznie z atrapą dostawcy (co serwer wysyła do modelu i co robi z propozycją narzędzia) — nie
   jakość decyzji prawdziwego modelu, czy użyje narzędzia.
+
+## D-032 Odpowiedź na żywo (strumieniowanie) bez zapisu fragmentów
+
+- Dostawca Anthropic strumieniuje odpowiedź przez SDK (`client.messages.stream`, zdarzenie `text`), a wynik
+  (narzędzia, `usage`, powód zakończenia) pochodzi z `finalMessage()` — budżet i narzędzia działają bez zmian.
+  Sprawdzone testem kontraktowym na atrapie zdarzeń strumienia Messages API (message_start → bloki →
+  message_delta → message_stop). Dostawcy zgodni z OpenAI (OpenAI, Gemini, Hermes, Ollama) na razie bez
+  strumieniowania — odpowiedź pojawia się w całości z animacją odsłaniania.
+- Fragmenty idą ulotnym zdarzeniem SSE `message.delta` (bez `id`, bez zapisu w tabeli zdarzeń) z procesu, który
+  wykonuje turę — w tym samym procesie co strumień SSE (jedna instancja, D-024). Odbiorcy jak dla rozmowy:
+  prywatna — tylko właściciel, wspólna — aktywni członkowie domu; widoczność sprawdzana przy każdym fragmencie
+  z uprawnieniami odświeżanymi razem z sesją. Pełna odpowiedź zawsze przychodzi zwykłym `message.created`.
+- Fragmenty łączone co ~50 ms; każdy niesie przesunięcie i numer próby (kolejny model po błędzie zaczyna tekst
+  od nowa). Klient dokleja tylko fragmenty ciągłe; zgubiony fragment nie psuje odpowiedzi, bo na końcu zastępuje
+  ją zapisana wiadomość (bez ponownej animacji). Czytnik ekranu dostaje pełną odpowiedź po zapisaniu.
