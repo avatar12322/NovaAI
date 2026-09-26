@@ -517,6 +517,23 @@ Gałąź `claude/novaai-model-providers` od `claude/novaai-services-costs`. Decy
 - Niesprawdzone: czy prawdziwy model za każdym razem sięgnie po narzędzie (zależy od modelu) — z atrapą sprawdzamy,
   co serwer wysyła i jak obsługuje propozycję.
 
+### Animacje asystenta w czacie (2026-09-26)
+
+Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
+
+- Wskaźnik pracy asystenta: „kula” (akcent, bez gradientów), etap na żywo z kroków zadania („Myśli”, „Czyta
+  dokument”, „Przeszukuje pocztę”, „Układa odpowiedź” + opis kroku), animowane kropki i paski „pisania”;
+  trwa do końca całej tury (także narzędzi i odpowiedzi uzupełniającej), a nie do pierwszej wiadomości.
+  Kula w nagłówku rozmowy: spoczynek / myśli; przycisk odczytu na głos pokazuje „equalizer” i zatrzymuje odczyt.
+- Nowa odpowiedź odsłaniana słowami (0,35–1,6 s zależnie od długości; kliknięcie pokazuje całość), czytnik ekranu
+  dostaje od razu pełny tekst; nowe wiadomości i widoki wchodzą płynnie; historia po ponownym otwarciu — bez
+  animacji. „Ogranicz ruch” w systemie wyłącza animacje.
+- Testy: jednostkowe (odsłanianie: granice słów, monotoniczność, czasy; etapy z kroków zadania), e2e
+  `assistant-motion.spec.ts` (wskaźnik z etapem i kulą, animacja wejścia, brak animacji w historii, „ogranicz
+  ruch” przez emulację mediów). Zrzut: `docs/screens/*-19-assistant-thinking.png`.
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 276/276, web 9/9; `pnpm test:e2e` → 40/40;
+  `pnpm test:prod-smoke` → 1/1.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

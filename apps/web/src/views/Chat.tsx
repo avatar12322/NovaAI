@@ -8,6 +8,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
+import { AgentOrb, AssistantActivity, RevealText } from '../components/Assistant';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Icon } from '../components/Icon';
 import { DictationButton, SpeakButton } from '../components/Voice';
@@ -15,6 +16,7 @@ import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
+import { prefersReducedMotion } from '../lib/reveal';
 import { href, navigate, parseRoute } from '../lib/router';
 
 interface Props {
@@ -169,15 +171,28 @@ function ConversationPane({
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  /** Zadanie tury agenta w toku — wskaźnik pracy trwa do jego zakończenia (także po narzędziach). */
   const [thinking, setThinking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  /** Wiadomości znane od otwarcia rozmowy; tylko nowsze dostają animację wejścia i odsłaniania. */
+  const seen = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  const markFresh = useCallback((ids: string[]) => {
+    const known = seen.current;
+    if (!known) return;
+    const added = ids.filter((x) => !known.has(x));
+    added.forEach((x) => known.add(x));
+    if (added.length) setFresh((f) => new Set([...f, ...added]));
+  }, []);
 
   const load = useCallback(() => {
     Promise.all([api.conversation(id), api.messages(id)])
       .then(([c, m]) => {
         setConv(c);
         setMessages(m.items);
+        if (!seen.current) seen.current = new Set(m.items.map((x) => x.id));
+        else markFresh(m.items.map((x) => x.id));
         setError(null);
       })
       .catch((e: unknown) =>
@@ -189,21 +204,21 @@ function ConversationPane({
             : 'Błąd',
         ),
       );
-  }, [id]);
+  }, [id, markFresh]);
   useEffect(load, [load]);
   // Blok (bez zwracania wyniku): w nowszych przeglądarkach scrollIntoView zwraca Promise, a React traktuje
   // wartość zwróconą z efektu jako funkcję sprzątającą — to wywracało widok („destroy is not a function”).
+  // Pierwsze wczytanie — od razu na dół; kolejne zmiany — płynnie (o ile system nie ogranicza ruchu).
+  const scrolled = useRef(false);
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: 'end' });
+    const smooth = scrolled.current && !prefersReducedMotion();
+    bottom.current?.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' });
+    if (messages) scrolled.current = true;
   }, [messages, thinking]);
 
-  useEventEffect(
-    (e) => e.type === 'message.created' && e.payload.conversationId === id,
-    (e) => {
-      if (e?.payload.role === 'assistant') setThinking(null);
-      load();
-    },
-  );
+  // Odpowiedź asystenta nie kończy tury, jeśli po niej są narzędzia i odpowiedź uzupełniająca —
+  // wskaźnik znika dopiero, gdy zadanie przestaje być w toku.
+  useEventEffect((e) => e.type === 'message.created' && e.payload.conversationId === id, load);
   useEventEffect(
     (e) => e.type === 'task.status' && e.taskId === thinking,
     (e) => {
@@ -254,6 +269,7 @@ function ConversationPane({
       const r = await api.sendMessage(id, content);
       setDraft('');
       setMessages((m) => [...(m ?? []), r.message]);
+      markFresh([r.message.id]);
       setThinking(r.taskId);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Nie udało się wysłać');
@@ -279,6 +295,7 @@ function ConversationPane({
         >
           ←
         </a>
+        <AgentOrb state={thinking ? 'thinking' : 'idle'} size={30} />
         <div>
           <h2>{conv?.title ?? '…'}</h2>
           <p className="muted small">
@@ -297,13 +314,10 @@ function ConversationPane({
           </EmptyState>
         )}
         {messages?.map((m) => (
-          <MessageBubble key={m.id} m={m} me={me} />
+          <MessageBubble key={m.id} m={m} me={me} fresh={fresh.has(m.id)} />
         ))}
         {thinking && (
-          <div className="msg msg-assistant thinking">
-            <Spinner label="Asystent odpowiada" />{' '}
-            <span className="muted">Asystent odpowiada…</span>
-          </div>
+          <AssistantActivity taskId={thinking} agentName={conv?.agent.name ?? 'Asystent'} />
         )}
         <div ref={bottom} />
       </div>
@@ -357,14 +371,14 @@ const TOOL_PL: Record<string, string> = {
   'device.git.diff': 'git diff',
 };
 
-function ToolResult({ m }: { m: Message }) {
+function ToolResult({ m, fresh }: { m: Message; fresh: boolean }) {
   const tool = typeof m.meta.tool === 'string' ? m.meta.tool : '';
   const live =
     tool.startsWith('slack.') && m.meta.live && typeof m.meta.live === 'object'
       ? (m.meta.live as Record<string, unknown>)
       : null;
   return (
-    <article className="msg msg-tool" aria-label="Wynik akcji">
+    <article className={`msg msg-tool${fresh ? ' msg-enter' : ''}`} aria-label="Wynik akcji">
       <header className="msg-meta">
         <Icon name="check" size={14} />
         <span>Wynik akcji: {TOOL_PL[tool] ?? tool}</span>
@@ -450,8 +464,8 @@ function deniedNotes(denied: Array<{ tool: string; reason: string }>): string[] 
   return [...notes];
 }
 
-function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
-  if (m.role === 'tool') return <ToolResult m={m} />;
+function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: boolean }) {
+  if (m.role === 'tool') return <ToolResult m={m} fresh={fresh} />;
   const mine = m.authorUserId === me.user.id;
   const proposed =
     (m.meta.proposedTools as Array<{ tool: string; approval: boolean }> | undefined) ?? [];
@@ -468,7 +482,8 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
     | undefined;
   return (
     <article
-      className={`msg ${m.role === 'assistant' ? 'msg-assistant' : mine ? 'msg-mine' : 'msg-other'}`}
+      className={`msg ${m.role === 'assistant' ? 'msg-assistant' : mine ? 'msg-mine' : 'msg-other'}${fresh ? ' msg-enter' : ''}`}
+      data-fresh={fresh || undefined}
     >
       <header className="msg-meta">
         <span>
@@ -490,7 +505,9 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
           </span>
         )}
       </header>
-      <div className="msg-body">{m.content}</div>
+      <div className="msg-body">
+        {m.role === 'assistant' ? <RevealText text={m.content} animate={fresh} /> : m.content}
+      </div>
       {m.role === 'assistant' && (
         <Sources sources={(m.meta.sources as MessageSource[] | undefined) ?? []} />
       )}

@@ -1511,3 +1511,311 @@ label.check {
 .models .panel > .model-form {
   margin-top: var(--space-3);
 }
+
+/* ---------- ruch: obecność asystenta (bez gradientów — kolor akcentu) ---------- */
+.conv-head {
+  gap: var(--space-3);
+}
+.orb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+}
+.orb-core {
+  width: 58%;
+  height: 58%;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: transform 0.3s ease;
+}
+.orb::before,
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+}
+.orb-idle::before {
+  opacity: 0.25;
+}
+.orb-thinking .orb-core {
+  animation: orb-breathe 1.4s ease-in-out infinite;
+}
+.orb-thinking::before {
+  animation: orb-ring 1.6s ease-out infinite;
+}
+.orb-thinking::after {
+  animation: orb-ring 1.6s ease-out 0.8s infinite;
+}
+.orb-speaking .orb-core {
+  animation: orb-talk 0.45s ease-in-out infinite alternate;
+}
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.82);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+@keyframes orb-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+@keyframes orb-talk {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.ai-activity {
+  align-self: flex-start;
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  max-width: min(680px, 88%);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.ai-activity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ai-activity-label {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: 500;
+}
+.ai-activity-detail {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 5px;
+}
+.dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dot 1.2s ease-in-out infinite;
+}
+.dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+.shimmer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.shimmer span {
+  position: relative;
+  display: block;
+  width: min(220px, 60vw);
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+.shimmer span:last-child {
+  width: min(150px, 40vw);
+}
+.shimmer span::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: var(--border);
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+.revealing {
+  cursor: pointer;
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: caret 0.9s steps(1) infinite;
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.eq span {
+  width: 3px;
+  height: 4px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: eq 0.8s ease-in-out infinite;
+}
+.eq span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.eq span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes eq {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+/* Wejście nowych wiadomości i widoków */
+.msg-enter {
+  animation: msg-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.msg-mine.msg-enter {
+  animation-name: msg-in-mine;
+}
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes msg-in-mine {
+  from {
+    opacity: 0;
+    transform: translate(10px, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page,
+.conversation,
+.split-detail,
+.services,
+.conv-empty {
+  animation: view-in 0.22s ease-out both;
+}
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.activity-item {
+  animation: msg-in 0.3s ease-out both;
+}
+
+/* Płynniejsze kontrolki */
+.btn {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    filter 0.15s ease,
+    transform 0.12s ease;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.list-item,
+.sidenav a {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.composer textarea {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.composer textarea:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-enter,
+  .ai-activity,
+  .activity-item,
+  .page,
+  .conversation,
+  .split-detail,
+  .services,
+  .conv-empty,
+  .orb-core,
+  .orb::before,
+  .orb::after,
+  .dots span,
+  .shimmer span::after,
+  .caret,
+  .eq span {
+    animation: none !important;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+}

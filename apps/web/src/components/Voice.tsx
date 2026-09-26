@@ -95,21 +95,46 @@ export function DictationButton({ onText }: { onText: (text: string) => void }) 
 }
 
 export function SpeakButton({ text }: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  // Przerwanie odczytu przy zamknięciu widoku (np. zmiana rozmowy).
+  useEffect(
+    () => () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window)
+        window.speechSynthesis.cancel();
+    },
+    [],
+  );
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
-  const speak = () => {
+  const toggle = () => {
     window.speechSynthesis.cancel();
+    if (speaking) {
+      setSpeaking(false);
+      return;
+    }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'pl-PL';
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    setSpeaking(true);
     window.speechSynthesis.speak(u);
   };
   return (
     <button
       type="button"
-      className="btn btn-ghost btn-sm"
-      onClick={speak}
-      aria-label="Odczytaj odpowiedź"
+      className={`btn btn-ghost btn-sm${speaking ? ' speaking' : ''}`}
+      onClick={toggle}
+      aria-pressed={speaking}
+      aria-label={speaking ? 'Zatrzymaj odczyt' : 'Odczytaj odpowiedź'}
     >
-      <Icon name="speaker" size={14} />
+      {speaking ? (
+        <span className="eq" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      ) : (
+        <Icon name="speaker" size={14} />
+      )}
     </button>
   );
 }
