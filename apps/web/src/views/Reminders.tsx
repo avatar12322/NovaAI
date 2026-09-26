@@ -16,12 +16,14 @@ export function RemindersPanel() {
   const [due, setDue] = useState(() => toLocalInput(new Date(Date.now() + 3600_000)));
   const [space, setSpace] = useState<'private' | 'shared'>('private');
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const load = useCallback(() => {
     Promise.all([api.reminders('private'), api.reminders('shared')])
       .then(([a, b]) => {
         setMine(a.items);
         setShared(b.items);
         setError(null);
+        setLoaded(true);
       })
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Błąd'));
   }, []);
@@ -104,7 +106,12 @@ export function RemindersPanel() {
           Dodaj
         </button>
       </form>
-      {mine.length === 0 && shared.length === 0 && <EmptyState title="Brak przypomnień" />}
+      {/* Pusty stan tylko po udanym wczytaniu — przy błędzie nie twierdzimy, że przypomnień nie ma. */}
+      {loaded && !error && mine.length === 0 && shared.length === 0 && (
+        <EmptyState title="Brak przypomnień">
+          Dodaj powyżej albo napisz w czacie „przypomnij mi za 10 min: …”.
+        </EmptyState>
+      )}
       <ul className="grants">
         {[...mine, ...shared.filter((s) => !mine.some((m) => m.id === s.id))]
           .sort((a, b) => a.dueAt.localeCompare(b.dueAt))

@@ -82,6 +82,17 @@ describe('fragmenty', () => {
     expect(wyp.heading).toBe('Umowa najmu › Wypowiedzenie');
     expect([wyp.lineStart, wyp.lineEnd]).toEqual([12, 13]);
   });
+  it('Markdown: same nagłówki łączą się z następną treścią (bez fragmentów z samym tytułem)', () => {
+    const chunks = chunkText('# Piec\n\n## Serwis\n\nPrzegląd we wrześniu.\n', 'md');
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toMatchObject({ heading: 'Piec › Serwis', lineStart: 1, lineEnd: 5 });
+  });
+  it('wycinek bez znaczników nagłówków Markdown', () => {
+    const text = snippet('## Ciśnienie\n\nCiśnienie 1,5 bar.', queryTerms('ciśnienie'))
+      .map((s) => s.text)
+      .join('');
+    expect(text).toBe('Ciśnienie Ciśnienie 1,5 bar.');
+  });
   it('długi tekst: fragmenty ≤ limit, ciągłe numery linii, bez utraty treści', () => {
     const lines = Array.from(
       { length: 400 },

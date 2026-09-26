@@ -50,7 +50,7 @@ export function TasksView({ me, taskId }: { me: MeResponse; taskId: string | nul
             Wspólne
           </button>
         </div>
-        <NewDemoTask space={space} onCreated={load} />
+        {me.env !== 'production' && <NewDemoTask space={space} onCreated={load} />}
         {error && <ErrorNote error={error} onRetry={load} />}
         {!tasks && !error && <Spinner />}
         {tasks?.length === 0 && (
@@ -217,7 +217,14 @@ function TaskDetail({ id, me }: { id: string; me: MeResponse }) {
               <span className="step-title">{s.title}</span>
               <Badge tone={statusTone(s.status)}>{STEP_STATUS_PL[s.status] ?? s.status}</Badge>
             </div>
-            {s.dependsOn.length > 0 && <p className="muted small">po: {s.dependsOn.join(', ')}</p>}
+            {s.dependsOn.length > 0 && (
+              <p className="muted small">
+                po kroku:{' '}
+                {s.dependsOn
+                  .map((k) => task.steps?.find((x) => x.key === k)?.title ?? k)
+                  .join(', ')}
+              </p>
+            )}
             {s.status === 'running' && <Progress value={s.progress} label={`Postęp: ${s.title}`} />}
             {s.status === 'waiting_approval' && task.isMine && (
               <p className="small">

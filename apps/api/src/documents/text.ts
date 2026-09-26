@@ -146,7 +146,7 @@ export function snippet(
   terms: Array<{ stem: string; prefix: boolean }>,
   width = 320,
 ): SnippetSegment[] {
-  const text = content.replace(/\s+/g, ' ').trim();
+  const text = plainText(content);
   const tokens = text.split(/([\p{L}\p{N}]+)/u);
   let pos = 0;
   let firstHit = -1;
@@ -177,6 +177,14 @@ export function snippet(
     else segs.push({ text: part, hit });
   }
   return segs;
+}
+
+/** Tekst fragmentu do wycinków i cytatów: bez znaczników nagłówków Markdown, w jednej linii. */
+export function plainText(content: string): string {
+  return content
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Opis miejsca w dokumencie: „s. 3”, „Umowa › Kaucja, linie 5–7”. */

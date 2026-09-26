@@ -70,7 +70,11 @@ export function ApprovalsView() {
       {items?.length === 0 && (
         <EmptyState
           title={tab === 'pending' ? 'Nic nie czeka na Twoją zgodę' : 'Brak historii zgód'}
-        />
+        >
+          {tab === 'pending'
+            ? 'Gdy asystent zaproponuje akcję wymagającą zgody — np. wiadomość do domownika albo zapis pliku — zobaczysz tu dokładną treść do zatwierdzenia.'
+            : 'Tu pojawią się zatwierdzone, odrzucone i wygasłe zgody.'}
+        </EmptyState>
       )}
       <div className="cards">
         {items?.map((a) => (

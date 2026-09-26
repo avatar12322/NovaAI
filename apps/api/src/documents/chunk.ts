@@ -85,7 +85,9 @@ function pack(blocks: Block[], page: number | null): ChunkDraft[] {
   };
   for (const block of blocks.flatMap(splitLong)) {
     const size = cur.reduce((n, b) => n + b.text.length + 2, 0);
-    if (cur.length && (block.isHeading || size + block.text.length > CHUNK_TARGET)) flush();
+    // Nagłówek zaczyna nowy fragment — chyba że bieżący to same nagłówki (wtedy łączymy je z treścią).
+    const startsSection = block.isHeading && !cur.every((b) => b.isHeading);
+    if (cur.length && (startsSection || size + block.text.length > CHUNK_TARGET)) flush();
     cur.push(block);
   }
   flush();

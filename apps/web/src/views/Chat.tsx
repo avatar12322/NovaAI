@@ -112,7 +112,11 @@ export function ChatView({ me, space, conversationId }: Props) {
         {!list && !error && <Spinner />}
         {list && list.length === 0 && (
           <EmptyState title="Brak rozmów">
-            <p>Zacznij nową rozmowę z {space === 'shared' ? 'NovaAI' : agentName}.</p>
+            <p>
+              {space === 'shared'
+                ? 'Rozmowę z NovaAI widzą wszyscy domownicy. Zacznij przyciskiem „Nowa”.'
+                : `Tylko Ty i ${agentName}. Zacznij przyciskiem „Nowa”.`}
+            </p>
           </EmptyState>
         )}
         {list && list.length > 0 && (
@@ -325,7 +329,38 @@ function ConversationPane({
   );
 }
 
+/** Etykiety wyników narzędzi w rozmowie (wiadomości `tool` — nie są wypowiedzią żadnej osoby). */
+const TOOL_PL: Record<string, string> = {
+  'memory.create': 'Zapis w pamięci',
+  'reminder.create': 'Przypomnienie',
+  'household.notify': 'Wiadomość do domownika',
+  'calendar.freebusy': 'Zajętość w kalendarzach',
+  'mail.search': 'Wyszukiwanie poczty',
+  'mail.read': 'Odczyt e-maila',
+  'mail.send': 'Wysyłka e-maila',
+  'device.files.list': 'Pliki na urządzeniu',
+  'device.files.read': 'Odczyt pliku z urządzenia',
+  'device.files.write': 'Zapis pliku na urządzeniu',
+  'device.git.status': 'git status',
+  'device.git.diff': 'git diff',
+};
+
+function ToolResult({ m }: { m: Message }) {
+  const tool = typeof m.meta.tool === 'string' ? m.meta.tool : '';
+  return (
+    <article className="msg msg-tool" aria-label="Wynik akcji">
+      <header className="msg-meta">
+        <Icon name="check" size={14} />
+        <span>Wynik akcji: {TOOL_PL[tool] ?? tool}</span>
+        <time dateTime={m.createdAt}>{timeOfDay(m.createdAt)}</time>
+      </header>
+      <div className="msg-body">{m.content}</div>
+    </article>
+  );
+}
+
 function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
+  if (m.role === 'tool') return <ToolResult m={m} />;
   const mine = m.authorUserId === me.user.id;
   const proposed =
     (m.meta.proposedTools as Array<{ tool: string; approval: boolean }> | undefined) ?? [];

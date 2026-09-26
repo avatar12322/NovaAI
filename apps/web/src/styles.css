@@ -80,6 +80,7 @@ a {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   min-height: 36px;
   padding: 0 var(--space-3);
@@ -336,10 +337,14 @@ label {
 }
 .kv dd {
   margin: 0;
+  min-width: 0;
   display: flex;
   gap: var(--space-2);
   align-items: center;
   flex-wrap: wrap;
+}
+.kv .badge {
+  white-space: normal;
 }
 .kv-row {
   display: contents;
@@ -372,6 +377,9 @@ label {
   border-radius: var(--radius);
   color: var(--text);
   text-decoration: none;
+}
+.list-item > .badge {
+  align-self: flex-start;
 }
 .list-item:hover {
   background: var(--surface-2);
@@ -486,6 +494,9 @@ label {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+.sidenav-foot .btn {
+  justify-content: flex-start;
 }
 .me {
   display: flex;
@@ -665,6 +676,17 @@ label {
 .msg-assistant {
   align-self: flex-start;
   background: var(--surface);
+}
+.msg-tool {
+  align-self: flex-start;
+  background: var(--surface-2);
+  border-style: dashed;
+  font-size: var(--fs-sm);
+}
+.msg-tool .msg-body {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
 .msg-meta {
   display: flex;
@@ -978,6 +1000,10 @@ label {
   flex-wrap: wrap;
   font-weight: 500;
 }
+.hit-where {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
 .hit-snippet {
   font-size: var(--fs-sm);
   color: var(--text-muted);
@@ -1073,16 +1099,23 @@ mark {
 }
 .source {
   display: inline-flex;
-  gap: var(--space-1);
-  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--space-1);
+  align-items: baseline;
   font-size: var(--fs-sm);
   text-decoration: none;
   overflow-wrap: anywhere;
+}
+.source > svg {
+  flex: none;
+  align-self: center;
 }
 .source:hover .source-title {
   text-decoration: underline;
 }
 .source-ref {
+  flex: none;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--accent);

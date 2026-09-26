@@ -108,7 +108,7 @@ describe('dodawanie i wyszukiwanie', () => {
     const doc = await uploadReady(alfa, 'dom.md', Buffer.from(md));
     const hit = (await search(alfa, 'serwis pieca'))[0];
     expect(hit).toMatchObject({ documentId: doc.id, heading: 'Dom › Ogrzewanie', page: null });
-    expect([hit.lineStart, hit.lineEnd]).toEqual([3, 5]);
+    expect([hit.lineStart, hit.lineEnd]).toEqual([1, 5]);
 
     // „Śmieci w Łodzi odbierane są we wtorki” w Windows-1250.
     const cp1250 = Buffer.from(

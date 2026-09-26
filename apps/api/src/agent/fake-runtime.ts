@@ -1,3 +1,4 @@
+import { plainText } from '../documents/text';
 import type {
   AgentRuntime,
   AgentTurnInput,
@@ -160,7 +161,7 @@ export class FakeAgentRuntime implements AgentRuntime {
     if (docs.length && toolCalls.length === 0) {
       lines.push('Znalazłem w dokumentach:');
       for (const d of docs.slice(0, 2)) {
-        const flat = d.content.replace(/\s+/g, ' ').trim();
+        const flat = plainText(d.content);
         lines.push(`„${flat.length > 240 ? `${flat.slice(0, 240)}…` : flat}” [${d.ref}]`);
       }
     }

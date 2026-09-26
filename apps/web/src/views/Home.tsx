@@ -16,7 +16,8 @@ export function HomeView({ me }: { me: MeResponse }) {
     Promise.all([api.notifications(), api.tasks('shared', 'active')])
       .then(([n, t]) => {
         setNotes(n.items);
-        setShared(t.items);
+        // Przypomnienia mają własną listę powyżej — tu tylko pozostałe wspólne zadania.
+        setShared(t.items.filter((x) => x.kind !== 'reminder.fire'));
         setError(null);
       })
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Błąd'));
@@ -41,13 +42,18 @@ export function HomeView({ me }: { me: MeResponse }) {
           Otwórz NovaAI
         </a>
       </header>
-      {error && <ErrorNote error={error} onRetry={load} />}
       <RemindersPanel />
+      {/* Błąd dotyczy wiadomości i zadań — pokazujemy go przy nich, nie nad całą stroną. */}
+      {error && <ErrorNote error={error} onRetry={load} />}
       <div className="grid-2">
         <div>
           <h2 className="h-sub">Wiadomości</h2>
           {!notes && !error && <Spinner />}
-          {notes?.length === 0 && <EmptyState title="Brak wiadomości" />}
+          {notes?.length === 0 && (
+            <EmptyState title="Brak wiadomości">
+              Tu trafiają wiadomości od domowników i dostarczone przypomnienia.
+            </EmptyState>
+          )}
           <ul className="list">
             {notes?.map((n) => (
               <li key={n.id} className={`panel notification ${n.readAt ? '' : 'unread'}`}>

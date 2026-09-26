@@ -257,9 +257,9 @@ function SearchDocuments() {
               <a href={href({ view: 'document', id: h.documentId, ord: h.ord })} className="hit">
                 <span className="hit-title">
                   <Icon name="doc" size={14} /> {h.title}
-                  <span className="muted"> · {locatorLabel(h)}</span>
                   {h.visibility === 'shared' && <Badge tone="accent">wspólny</Badge>}
                 </span>
+                <span className="hit-where">{locatorLabel(h)}</span>
                 <span className="hit-snippet">
                   {h.snippet.map((s, i) => (s.hit ? <mark key={i}>{s.text}</mark> : s.text))}
                 </span>

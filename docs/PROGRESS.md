@@ -235,6 +235,33 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   zgoda przy niezaufanym kontekście jest wymuszana po stronie serwera, niezależnie od modelu. Wyszukiwanie jest
   leksykalne (bez embeddingów): pytania innymi słowami niż w dokumencie mogą nie znaleźć fragmentu. Brak OCR skanów.
 
+### Przegląd interfejsu na zrzutach — desktop i telefon (2026-09-26)
+
+- Metoda: `apps/web/scripts/ui-review.mjs` — dane przez API (konta testowe, tryb demo), 60 zrzutów: każdy widok na
+  desktopie (1360×860) i Pixel 7, jasny i ciemny motyw, puste stany (Beta), błąd serwera (500), offline.
+- Poprawione usterki (wszystkie widoczne na zrzutach przed poprawką):
+  1. Wynik akcji w czacie był podpisany „Użytkownik” i wyglądał jak wiadomość osoby → osobny styl „Wynik akcji: …”.
+  2. Każda rozmowa nazywała się „Nowa rozmowa” → tytuł z pierwszej wiadomości (API; własny tytuł nie jest nadpisywany).
+  3. Wszystkie zadania czatu nazywały się „Odpowiedź: Asystent Alfy” → „Odpowiedź: „<początek pytania>”” (Zadania, Aktywność).
+  4. Kroki zadania pokazywały wewnętrzne klucze („po: collect”) → nazwy kroków.
+  5. Znacznik źródła „D1” łamał się na telefonie w dwie linie → bez łamania, opis zawija się pod spodem.
+  6. Przyciski rozciągnięte na szerokość (budżet, przypomnienia na telefonie, zadanie demo) miały tekst przy lewej
+     krawędzi i wyglądały jak pola → treść wyśrodkowana.
+  7. Długi status „tryb demo — brak skonfigurowanego dostawcy” wychodził poza panel Ustawień na telefonie → zawijanie.
+  8. Status zadania na stronie Dom rozciągał się na całą szerokość → rozmiar treści; przypomnienia nie dublują się
+     w „Aktywnych wspólnych zadaniach”.
+  9. Przy braku połączenia lista przypomnień pokazywała „Brak przypomnień” (nieprawda) → pusty stan tylko po udanym
+     wczytaniu; błąd sekcji wiadomości/zadań pokazany przy nich, nie nad całą stroną.
+  10. Wycinki i cytaty dokumentów zawierały znaczniki `##`, a sam nagłówek H1 tworzył osobny, pusty fragment → tekst bez
+      znaczników, nagłówki łączone z treścią sekcji.
+  11. Natywne pole pliku pokazywało „Choose Files / No file chosen”, Aktywność — surowy status „ready” → przycisk
+      „Wybierz pliki” i polskie statusy dokumentów z odnośnikiem.
+  12. Puste stany bez wskazówki (Zgody, Wiadomości, Przypomnienia) i błąd gramatyczny („z Asystent Bety”) → konkretne
+      wskazówki, co zrobić. Przycisk zadania demonstracyjnego ukryty w produkcji.
+- Nie zmieniono: format pola daty w przeglądarce (natywne, zależy od języka przeglądarki/systemu).
+- Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 27/27, api 187/187 (nowe: `conversations.test.ts` 2,
+  testy fragmentów Markdown i wycinków), web 4/4; `pnpm test:e2e` → 20/20 (test NovaAI wyszukuje rozmowę po tytule).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

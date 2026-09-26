@@ -111,6 +111,18 @@ export async function insertMessage(
   return toMessage(full.rows[0]!);
 }
 
+const DEFAULT_TITLES = new Set(['Nowa rozmowa', 'Wspólna rozmowa']);
+
+/** Pierwsza linia tekstu, bez nadmiarowych spacji, przycięta do `max` znaków. */
+export function shortText(text: string, max: number): string {
+  const line = text.trim().split('\n')[0]!.replace(/\s+/g, ' ').trim();
+  if (line.length <= max) return line;
+  // Cięcie na granicy słowa, jeśli nie skraca tekstu o więcej niż połowę.
+  const space = line.lastIndexOf(' ', max - 1);
+  const end = space > max / 2 ? space : max - 1;
+  return `${line.slice(0, end).replace(/[\s,.;:–-]+$/, '')}…`;
+}
+
 export type MessageHandler = (args: {
   deps: AppDeps;
   auth: AuthContext;
@@ -140,7 +152,7 @@ export const enqueueAgentTurn: MessageHandler = async ({
       visibility: conversation.visibility,
       conversationId: conversation.id,
       kind: 'agent.turn',
-      title: `Odpowiedź: ${conversation.agent.name}`,
+      title: `Odpowiedź: „${shortText(message.content, 50)}”`,
       input: { messageId: message.id },
       steps: [{ key: 'reply', title: 'Odpowiedź asystenta', kind: 'model' }],
       requestId,
@@ -282,6 +294,17 @@ export const conversationRoutes =
             content: body.content,
             requestId: req.id,
           });
+          // Rozmowa z domyślnym tytułem dostaje tytuł z pierwszej wiadomości (lista nie jest ciągiem „Nowa rozmowa”).
+          if (DEFAULT_TITLES.has(conv.title)) {
+            const r = await c.query<{ title: string }>(
+              `UPDATE conversations SET title = $2 WHERE id = $1
+                 AND NOT EXISTS (SELECT 1 FROM messages m
+                                  WHERE m.conversation_id = $1 AND m.role = 'user' AND m.id <> $3)
+               RETURNING title`,
+              [conv.id, shortText(body.content, 60), msg.id],
+            );
+            if (r.rows[0]) conv.title = r.rows[0].title;
+          }
           return { conversation: conv, message: msg };
         },
       );
