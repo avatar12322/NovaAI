@@ -154,11 +154,22 @@ export class FakeAgentRuntime implements AgentRuntime {
       }
     }
 
+    // Fragmenty dokumentów: demo cytuje najlepsze trafienia z odwołaniem [D1] (bez interpretacji treści —
+    // polecenia zapisane w dokumencie nie są wykonywane, bo komendy czytamy wyłącznie z wiadomości).
+    const docs = input.documents ?? [];
+    if (docs.length && toolCalls.length === 0) {
+      lines.push('Znalazłem w dokumentach:');
+      for (const d of docs.slice(0, 2)) {
+        const flat = d.content.replace(/\s+/g, ' ').trim();
+        lines.push(`„${flat.length > 240 ? `${flat.slice(0, 240)}…` : flat}” [${d.ref}]`);
+      }
+    }
+
     if (lines.length === 0) {
       lines.push(`Otrzymałem: „${text.length > 200 ? `${text.slice(0, 200)}…` : text}”.`);
     }
     lines.push(
-      `[tryb demo — ${ctx.agentName}; kontekst: ${input.history.length} wiad., ${input.memories.length} pamięci]`,
+      `[tryb demo — ${ctx.agentName}; kontekst: ${input.history.length} wiad., ${input.memories.length} pamięci, ${docs.length} fragm. dokumentów]`,
     );
 
     const inputTokens = Math.ceil(

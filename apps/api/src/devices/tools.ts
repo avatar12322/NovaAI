@@ -78,6 +78,7 @@ function readTool(
     contexts: ['private_agent', 'user'],
     resultVisibility: 'private',
     params: schema as unknown as z.ZodType<Record<string, unknown> & { deviceId?: string }>,
+    readOnly: true,
     requiresApproval: () => false,
     async prepare(ctx, p) {
       return { ...p, deviceId: await resolveDevice(ctx, p.deviceId) };

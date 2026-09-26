@@ -178,3 +178,20 @@ export function snippet(
   }
   return segs;
 }
+
+/** Opis miejsca w dokumencie: „s. 3”, „Umowa › Kaucja, linie 5–7”. */
+export function locatorLabel(l: {
+  page: number | null;
+  lineStart: number | null;
+  lineEnd: number | null;
+  heading: string | null;
+}): string {
+  if (l.page !== null) return `s. ${l.page}`;
+  const lines =
+    l.lineStart === null
+      ? ''
+      : l.lineEnd !== null && l.lineEnd !== l.lineStart
+        ? `linie ${l.lineStart}–${l.lineEnd}`
+        : `linia ${l.lineStart}`;
+  return [l.heading, lines].filter(Boolean).join(', ') || 'fragment';
+}

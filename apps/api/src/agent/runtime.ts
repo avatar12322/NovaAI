@@ -18,6 +18,23 @@ export interface ContextMemory {
   content: string;
 }
 
+/**
+ * Fragment dokumentu przekazany modelowi. Treść jest NIEZAUFANĄ daną (plik mógł przygotować ktoś inny),
+ * a dostęp sprawdzono przed pobraniem fragmentu. `ref` (D1, D2…) służy do cytowania w odpowiedzi.
+ */
+export interface ContextDocument {
+  ref: string;
+  documentId: string;
+  title: string;
+  filename: string;
+  ord: number;
+  page: number | null;
+  lineStart: number | null;
+  lineEnd: number | null;
+  heading: string | null;
+  content: string;
+}
+
 export interface AgentTurnInput {
   conversationId: string;
   /** Zadanie kolejki, w ramach którego działa tura (do rozliczenia kosztów). */
@@ -25,6 +42,8 @@ export interface AgentTurnInput {
   userMessage: string;
   history: ContextMessage[];
   memories: ContextMemory[];
+  /** Fragmenty dokumentów pasujące do wiadomości (tylko z dokumentów dostępnych w tym kontekście). */
+  documents?: ContextDocument[];
   /**
    * Tura uzupełniająca po wykonaniu narzędzi: wiadomość użytkownika i wyniki są już w historii,
    * model formułuje odpowiedź na ich podstawie i nie dostaje narzędzi (jedna runda, bez pętli).

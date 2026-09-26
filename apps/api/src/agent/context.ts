@@ -3,10 +3,21 @@ import { writeAudit } from '../audit';
 import type { Principal } from '../principal';
 import { withUserTx, type Db } from '../db/pool';
 import { notFound } from '../lib/errors';
-import type { AgentTurnInput, AgentUserContext, ContextMemory, ContextMessage } from './runtime';
+import { allowedDocuments, searchChunks } from '../documents/service';
+import { queryTerms } from '../documents/text';
+import type {
+  AgentTurnInput,
+  AgentUserContext,
+  ContextDocument,
+  ContextMemory,
+  ContextMessage,
+} from './runtime';
 
 export const HISTORY_LIMIT = 20;
 export const MEMORY_LIMIT = 50;
+/** Fragmenty dokumentów w turze: niewiele i przycięte — koszt tokenów i mniej miejsca na wstrzyknięcia. */
+export const DOCUMENT_CHUNKS = 4;
+const DOCUMENT_CHUNK_CHARS = 1500;
 
 /** Zdolności, które serwer udostępnia agentowi w danym kontekście (model ich nie rozszerza). */
 export function capabilitiesFor(kind: ContextKind): string[] {
@@ -55,7 +66,7 @@ export async function buildTurnContext(
     context: contextKind,
   };
 
-  const { history, memories, dropped } = await withUserTx(
+  const { history, memories, documents, dropped } = await withUserTx(
     db,
     { userId: auth.userId, scope },
     async (c) => {
@@ -118,11 +129,39 @@ export async function buildTurnContext(
           allowed.push({ id: r.id, kind: r.kind, visibility: r.visibility, content: r.content });
         else droppedCount++;
       }
+      // Dokumenty: najpierw lista dokumentów dozwolonych w tym kontekście (RLS + polityka),
+      // dopiero potem wyszukiwanie fragmentów wyłącznie w nich. Przy dłuższym pytaniu wymagamy
+      // dopasowania co najmniej dwóch termów, żeby do modelu nie trafiały przypadkowe fragmenty.
+      const docs = await allowedDocuments(c, db, actor, agent.household_id);
+      const minMatched = queryTerms(userMessage).length >= 2 ? 2 : 1;
+      const found = await searchChunks(c, [...docs.keys()], userMessage, {
+        limit: DOCUMENT_CHUNKS,
+        minMatched,
+      });
+      const documents: ContextDocument[] = found.rows.map((h, i) => {
+        const d = docs.get(h.document_id)!;
+        return {
+          ref: `D${i + 1}`,
+          documentId: h.document_id,
+          title: d.title,
+          filename: d.filename,
+          ord: h.ord,
+          page: h.page,
+          lineStart: h.line_start,
+          lineEnd: h.line_end,
+          heading: h.heading,
+          content:
+            h.content.length > DOCUMENT_CHUNK_CHARS
+              ? `${h.content.slice(0, DOCUMENT_CHUNK_CHARS)}…`
+              : h.content,
+        };
+      });
       return {
         history: msgs.rows
           .reverse()
           .map((m) => ({ role: m.role, content: m.content, authorName: m.author_name })),
         memories: allowed,
+        documents,
         dropped: droppedCount,
       };
     },
@@ -156,7 +195,7 @@ export async function buildTurnContext(
   return {
     contextKind,
     scope,
-    input: { conversationId, userMessage, history: trimmedHistory, memories },
+    input: { conversationId, userMessage, history: trimmedHistory, memories, documents },
     userContext: {
       userId: auth.userId,
       displayName: auth.displayName,

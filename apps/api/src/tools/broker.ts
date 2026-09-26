@@ -169,7 +169,8 @@ export class ToolBroker {
         if (t.rows[0].owner_user_id !== ctx.principal.userId)
           throw new ToolDenied('task_owner_mismatch');
       }
-      if (def.requiresApproval(params, ctx)) {
+      // Zgoda jest weryfikowana zawsze, gdy krok ją ma (także gdy wymusił ją kontekst, a nie samo narzędzie).
+      if (def.requiresApproval(params, ctx) || opts.approvalId) {
         if (!opts.approvalId) throw new ToolDenied('approval_required');
         const a = await db.owner.query<{
           status: string;

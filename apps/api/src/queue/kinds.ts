@@ -6,7 +6,8 @@ import { insertMessage } from '../modules/conversations';
 import { writeAudit } from '../audit';
 import { ToolDenied } from '../tools/types';
 import type { StepSpec } from './tasks';
-import type { AgentTurnResult } from '../agent/runtime';
+import type { MessageSource } from '@nova/contracts';
+import type { AgentTurnResult, ContextDocument } from '../agent/runtime';
 import type { RunnerDeps, StepExecution, TaskKindDef, TaskRow } from './runner';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -19,6 +20,24 @@ async function conversationContext(deps: RunnerDeps, task: TaskRow): Promise<Con
   );
   if (!r.rows[0]) throw new ToolDenied('conversation_gone');
   return r.rows[0].kind === 'household' ? 'household_agent' : 'private_agent';
+}
+
+/**
+ * Źródła odpowiedzi do meta wiadomości: identyfikatory i lokalizacja (bez treści fragmentu).
+ * `cited` = odpowiedź zawiera odwołanie [Dn]; UI pokazuje cytowane źródła jako odnośniki do fragmentu.
+ */
+function messageSources(docs: ContextDocument[], reply: string): MessageSource[] {
+  return docs.map((d) => ({
+    ref: d.ref,
+    documentId: d.documentId,
+    title: d.title,
+    ord: d.ord,
+    page: d.page,
+    lineStart: d.lineStart,
+    lineEnd: d.lineEnd,
+    heading: d.heading,
+    cited: reply.includes(`[${d.ref}]`),
+  }));
 }
 
 /** Wiadomość użytkownika, od której zaczęła się tura — odczyt pod RLS kontekstu zadania. */
@@ -179,19 +198,30 @@ export const agentTurnKind: TaskKindDef = {
       await x.progress(80);
 
       // Propozycje narzędzi => kroki; broker odrzuca niedozwolone (bez efektów).
+      // Niezaufany kontekst (fragmenty dokumentów, wyniki narzędzi w historii) mógł podsunąć modelowi akcję:
+      // wtedy każde narzędzie ze skutkami wymaga zgody człowieka, nawet jeśli zwykle jej nie wymaga.
+      const untrusted =
+        (ctx.input.documents?.length ?? 0) > 0 || ctx.input.history.some((m) => m.role === 'tool');
       const newSteps: StepSpec[] = [];
       const denied: Array<{ tool: string; reason: string }> = [];
       for (const [i, call] of result.toolCalls.slice(0, 5).entries()) {
         try {
           const planned = await x.deps.broker.plan(x.toolContext, call);
+          const forced =
+            untrusted && !planned.requiresApproval && !x.deps.broker.def(planned.tool)?.readOnly;
           newSteps.push({
             key: `tool_${i + 1}`,
-            title: planned.preview.summary,
+            title: forced
+              ? `${planned.preview.summary} (zgoda: w kontekście były treści z dokumentów lub narzędzi)`.slice(
+                  0,
+                  300,
+                )
+              : planned.preview.summary,
             kind: 'tool',
             tool: planned.tool,
             params: planned.params,
             dependsOn: ['reply'],
-            requiresApproval: planned.requiresApproval,
+            requiresApproval: planned.requiresApproval || forced,
           });
         } catch (err) {
           if (!(err instanceof ToolDenied)) throw err;
@@ -202,6 +232,7 @@ export const agentTurnKind: TaskKindDef = {
       const message = await postAssistantMessage(x, ctx, result, {
         proposedTools: newSteps.map((s) => ({ tool: s.tool, approval: s.requiresApproval })),
         deniedTools: denied,
+        sources: messageSources(ctx.input.documents ?? [], result.reply),
       });
       // Jedna tura uzupełniająca: po narzędziach bez zgody model odpowiada na podstawie ich wyników.
       // Narzędzia wymagające zgody mogą czekać godzinami — wtedy wynik trafia do rozmowy bez komentarza.
@@ -236,7 +267,7 @@ export const agentTurnKind: TaskKindDef = {
       }
       await x.progress(30);
       const result = await x.deps.runtime.runTurn(
-        { ...ctx.input, taskId: x.task.id, followUp: true },
+        { ...ctx.input, documents: [], taskId: x.task.id, followUp: true },
         ctx.userContext,
         [],
       );

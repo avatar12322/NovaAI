@@ -69,6 +69,7 @@ export const calendarFreeBusyTool: ToolDef<{ from: string; to: string }> = {
   title: 'Sprawdź zajętość w kalendarzu',
   contexts: ['household_agent', 'private_agent'],
   params: FreeBusyParams as unknown as z.ZodType<{ from: string; to: string }>,
+  readOnly: true,
   requiresApproval: () => false,
   async preview(_ctx, p) {
     return {
@@ -148,6 +149,7 @@ export const mailSearchTool = mailTool<{ query: string; max: number }>({
     query: z.string().trim().min(1).max(200),
     max: z.number().int().min(1).max(20).default(10),
   }),
+  readOnly: true,
   requiresApproval: () => false,
   async preview(_c, p) {
     return { summary: `Wyszukiwanie: ${p.query}`, target: 'Gmail', scope: 'odczyt' };
@@ -181,6 +183,7 @@ export const mailReadTool = mailTool<{ messageId: string }>({
   capability: 'mail.read',
   title: 'Odczytaj wiadomość (Gmail)',
   params: z.object({ messageId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) }),
+  readOnly: true,
   requiresApproval: () => false,
   async preview(_c, p) {
     return { summary: `Odczyt wiadomości ${p.messageId}`, target: 'Gmail', scope: 'odczyt' };

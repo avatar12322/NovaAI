@@ -46,6 +46,11 @@ export interface ToolDef<P extends Record<string, unknown> = Record<string, unkn
    * kluczem została przerwana w trakcie, broker NIE ponawia automatycznie (wynik nieznany => nowa zgoda).
    */
   nonIdempotentExternal?: boolean;
+  /**
+   * Tylko odczyt, bez skutków ubocznych. Pozostałe narzędzia wymagają zgody, gdy w kontekście tury są
+   * niezaufane treści (fragmenty dokumentów, wyniki narzędzi) — mogły one podsunąć modelowi akcję.
+   */
+  readOnly?: boolean;
   params: z.ZodType<P>;
   requiresApproval(p: P, ctx: ToolContext): boolean;
   /** Rozwiązanie i zamrożenie parametrów przed zgodą (np. wskazanie odbiorcy). */
