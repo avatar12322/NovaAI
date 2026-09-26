@@ -205,6 +205,40 @@ describe('izolacja: dane prywatne i jawnie wspólne', () => {
   });
 });
 
+describe('filtr widoczności listy i sumy', () => {
+  it('„Prywatne”, „Wspólne” i „Wszystkie” działają dla listy i sumy miesiąca', async () => {
+    const own = await createService(alfa, { name: 'Prywatny VPS' });
+    const shared = await createService(alfa, {
+      name: 'Wspólna domena',
+      category: 'domain',
+      space: 'shared',
+    });
+    const other = await createService(beta, { name: 'Prywatne Bety' });
+    await addCost(alfa, own.id, { kind: 'estimate', amount: '10' });
+    await addCost(alfa, shared.id, { kind: 'estimate', amount: '5' });
+    await addCost(beta, other.id, { kind: 'estimate', amount: '7' });
+    const names = async (c: Client, space: string) => {
+      const r = await c.get(`/api/services?space=${space}&month=${month}`);
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      return r.body.items.map((x: any) => x.name);
+    };
+    expect(await names(alfa, 'private')).toEqual(['Prywatny VPS']);
+    expect(await names(alfa, 'shared')).toEqual(['Wspólna domena']);
+    expect(await names(alfa, 'all')).toEqual(['Prywatny VPS', 'Wspólna domena']);
+    expect(await names(beta, 'private')).toEqual(['Prywatne Bety']);
+    expect(await names(beta, 'all')).toEqual(['Prywatne Bety', 'Wspólna domena']);
+    for (const [space, total] of [
+      ['private', 10],
+      ['shared', 5],
+      ['all', 15],
+    ] as const) {
+      const r = await alfa.get(`/api/costs/summary?space=${space}&month=${month}`);
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      expect(r.body.totals).toEqual([{ currency: 'PLN', micros: micros(total) }]);
+    }
+  });
+});
+
 describe('suma miesiąca: każda opłata liczona raz', () => {
   it('faktura zastępuje raport, raport zastępuje szacunek — w obrębie usługi i miesiąca', async () => {
     const s = await createService(alfa);

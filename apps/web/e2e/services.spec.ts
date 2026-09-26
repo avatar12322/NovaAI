@@ -87,6 +87,15 @@ test('usługa: koszty bez podwójnego liczenia, budżet, adaptery niepodłączon
   await expect(page.locator('.cost-summary')).toContainText(`Przekroczony budżet:`);
   await shot(page, '15-services');
 
+  // Filtry widoczności: prywatna usługa jest w „Prywatne”, nie w „Wspólne”; bez błędu serwera.
+  await page.getByRole('tab', { name: 'Prywatne' }).click();
+  await expect(page.locator('.service-card').filter({ hasText: name })).toBeVisible();
+  await expect(page.getByText('Błąd serwera')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Wspólne' }).click();
+  await expect(page.locator('.service-card').filter({ hasText: name })).toHaveCount(0);
+  await expect(page.getByText('Błąd serwera')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Wszystkie' }).click();
+
   // Udostępnienie: Beta widzi usługę tylko do odczytu.
   await card.getByRole('link', { name }).click();
   await page.getByRole('button', { name: 'Udostępnij domownikom' }).click();

@@ -116,9 +116,10 @@ export const serviceRoutes =
       const shared = `(s.visibility = 'shared' AND s.household_id = $1)`;
       const where =
         space === 'private' ? own : space === 'shared' ? shared : `(${own} OR ${shared})`;
+      // Parametr tylko wtedy, gdy zapytanie go używa — Postgres odrzuca nadmiarowe parametry.
       const r = await c.query<ServiceRow>(
         `${SERVICE_SELECT} WHERE ${where} ORDER BY s.name, s.id`,
-        [householdId],
+        space === 'private' ? [] : [householdId],
       );
       return r.rows;
     };

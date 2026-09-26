@@ -164,7 +164,12 @@ export function ServicesView({ id }: { id: string | null }) {
         setAdapters(a.items);
         setError(null);
       })
-      .catch((e: unknown) => setError(errText(e)));
+      .catch((e: unknown) => {
+        // Bez danych z poprzedniego filtra — tylko błąd i „Spróbuj ponownie”.
+        setItems(null);
+        setSummary(null);
+        setError(errText(e));
+      });
   }, [space, month]);
   useEffect(() => {
     load();

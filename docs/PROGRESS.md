@@ -424,6 +424,17 @@ share/unshare` (agent nie tworzy ani nie zmienia usług).
 - Niesprawdzone: synchronizacja z prawdziwymi kontami Anthropic i OpenAI (klucze administracyjne), zachowanie
   przy dużych organizacjach (wiele stron raportu), adaptery innych dostawców (VPS, domeny — wpisy ręczne).
 
+### Poprawka: „Błąd serwera” w filtrze „Prywatne” (Usługi i koszty, 2026-09-26)
+
+- Zgłoszenie: w „Usługi i koszty” kliknięcie „Prywatne” dawało „Błąd serwera”.
+- Przyczyna: zapytanie listy dla filtra „Prywatne” nie używa identyfikatora domu, a dostawało go jako parametr —
+  Postgres odrzuca nadmiarowe parametry (500). Testy sprawdzały tylko „Wszystkie” i „Wspólne”.
+- Naprawa: parametr tylko dla filtrów, które go używają; po błędzie widok nie pokazuje już danych z poprzedniego
+  filtra (tylko błąd i „Spróbuj ponownie”).
+- Testy: nowy test API — lista i suma miesiąca dla „Prywatne”, „Wspólne”, „Wszystkie” u dwóch osób (przed poprawką
+  odtwarzał 500); e2e klika filtry i sprawdza brak błędu. `pnpm check` → 4/4, 29/29, 257/257, 5/5;
+  `pnpm test:e2e` → 32/32.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
