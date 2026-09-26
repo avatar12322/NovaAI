@@ -1,12 +1,13 @@
 import type { HealthResponse } from '@nova/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 import { migrationStatus } from '../db/migrate';
+import { runtimeFor } from '../agent/runtime';
 import type { AppDeps } from '../deps';
 
 export const healthRoutes =
   (deps: AppDeps): FastifyPluginAsync =>
   async (app) => {
-    app.get('/health', async (_req, reply) => {
+    app.get('/health', async (req, reply) => {
       let db: 'ok' | 'down' = 'ok';
       let migrations: HealthResponse['migrations'];
       try {
@@ -15,6 +16,24 @@ export const healthRoutes =
       } catch {
         db = 'down';
       }
+      // Zalogowany domownik widzi stan modeli swojego domu (także dostawców dodanych w aplikacji).
+      const householdId = req.auth?.householdId ?? null;
+      let model: HealthResponse['model'] = { mode: 'demo', providers: [] };
+      try {
+        const [rt, snap] = await Promise.all([
+          runtimeFor(deps.runtime, householdId),
+          deps.gateway.snapshot(householdId),
+        ]);
+        model = {
+          mode: rt.mode,
+          providers: snap
+            .status()
+            .models.filter((m) => m.available)
+            .map((m) => m.key),
+        };
+      } catch {
+        // Stan modeli niedostępny (np. baza) — health i tak raportuje db: down.
+      }
       const body: HealthResponse = {
         status: db === 'ok' && migrations?.pending === 0 ? 'ok' : 'degraded',
         env: deps.config.env,
@@ -22,13 +41,7 @@ export const healthRoutes =
         db,
         migrations,
         queue: deps.queueStatus(),
-        model: {
-          mode: deps.runtime.name === 'fake' ? 'demo' : 'configured',
-          providers: deps.gateway
-            .status()
-            .models.filter((m) => m.available)
-            .map((m) => m.key),
-        },
+        model,
         devLogin: deps.config.devLogin,
         time: new Date().toISOString(),
       };

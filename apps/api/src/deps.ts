@@ -2,6 +2,7 @@ import type { AgentRuntime } from './agent/runtime';
 import type { AppConfig } from './config';
 import type { Db } from './db/pool';
 import type { ConnectionService } from './connectors/service';
+import type { Vault } from './connectors/vault';
 import type { DeviceBroker } from './devices/broker';
 import type { EventHub } from './events';
 import type { ModelGateway } from './model/gateway';
@@ -15,6 +16,8 @@ export interface AppDeps {
   version: string;
   runtime: AgentRuntime;
   gateway: ModelGateway;
+  /** Szyfrowanie sekretów (NOVA_SECRET_KEY); null => sekretów nie da się zapisać. */
+  vault: Vault | null;
   /** Błąd wczytania konfiguracji modeli (pokazywany w statusie, nie przerywa startu). */
   modelsConfigError: string | null;
   broker: ToolBroker;

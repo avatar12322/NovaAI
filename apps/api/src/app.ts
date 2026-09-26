@@ -25,8 +25,10 @@ import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
 import { emitEvent, EventHub } from './events';
 import { ModelAgentRuntime } from './model/agent-runtime';
+import { AutoAgentRuntime } from './model/auto-runtime';
 import { loadModelsConfig, type ModelsConfig } from './model/config';
 import { ModelGateway } from './model/gateway';
+import { DbHouseholdModels } from './model/household';
 import type { ModelProvider } from './model/types';
 import { agentTurnKind, demoWorkflowKind } from './queue/kinds';
 import { TaskRunner } from './queue/runner';
@@ -125,16 +127,19 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
     opts.env ?? process.env,
     opts.providerOverrides,
   );
-  // Bez żadnego dostępnego modelu działa jawny tryb demo (deterministyczny, bez kosztów).
+  // Dostawcy i modele dodani w aplikacji (klucze zaszyfrowane NOVA_SECRET_KEY) — per dom, bez restartu.
+  gateway.useHouseholdSource(new DbHouseholdModels(db, vault, config.modelsAllowLocal));
+  // Bez żadnego dostępnego modelu dla domu działa jawny tryb demo (deterministyczny, bez kosztów).
   const runtime =
     opts.runtime ??
-    (gateway.hasAvailable() ? new ModelAgentRuntime(gateway, broker) : new FakeAgentRuntime());
+    new AutoAgentRuntime(gateway, new ModelAgentRuntime(gateway, broker), new FakeAgentRuntime());
   const deps: AppDeps = {
     config,
     db,
     version: opts.version ?? 'dev',
     runtime,
     gateway,
+    vault,
     modelsConfigError: loaded.error,
     broker,
     devices,

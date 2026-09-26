@@ -13,6 +13,21 @@ export interface OpenAiCompatOptions {
   apiKey: string;
   timeoutMs?: number;
   label?: string;
+  /**
+   * Parametr limitu wyjścia. OpenAI: `max_tokens` jest przestarzały na rzecz `max_completion_tokens`
+   * i nie działa z modelami rozumującymi (openai-node, CreateChatCompletionRequest). Inne serwery
+   * zgodne z OpenAI (Hermes, Gemini, Ollama) — `max_tokens`.
+   */
+  tokenParam?: 'max_tokens' | 'max_completion_tokens';
+}
+
+/** Oficjalne API OpenAI używa `max_completion_tokens`; pozostałe serwery — `max_tokens`. */
+export function tokenParamFor(baseUrl: string): 'max_tokens' | 'max_completion_tokens' {
+  try {
+    return new URL(baseUrl).hostname === 'api.openai.com' ? 'max_completion_tokens' : 'max_tokens';
+  } catch {
+    return 'max_tokens';
+  }
 }
 
 interface ChatCompletionResponse {
@@ -51,13 +66,15 @@ export class OpenAiCompatProvider implements ModelProvider {
       res = await fetch(`${this.opts.baseUrl.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         signal: ctrl.signal,
+        // Bez przekierowań (adres serwera ustala operator lub właściciel domu — nic poza nim).
+        redirect: 'error',
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${this.opts.apiKey}`,
         },
         body: JSON.stringify({
           model: req.model,
-          max_tokens: req.maxTokens,
+          [this.opts.tokenParam ?? tokenParamFor(this.opts.baseUrl)]: req.maxTokens,
           messages: [{ role: 'system', content: req.system }, ...req.messages],
           ...(req.tools.length
             ? {

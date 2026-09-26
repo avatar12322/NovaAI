@@ -1,3 +1,4 @@
+import { isLocalBaseUrl } from '@nova/contracts';
 import type { Db } from '../db/pool';
 import { BudgetBlocked, BudgetService } from './budget';
 import {
@@ -58,32 +59,36 @@ export interface ModelAvailability {
 /** Szacunek tokenów bez tokenizera dostawcy — ZAWSZE oznaczany jako estymacja. */
 export const estimateTokens = (chars: number) => Math.ceil(chars / 4);
 
-/**
- * ModelGateway: routing per zdolność, wymagania prywatności, budżet (rezerwacja/rozliczenie),
- * zapis rzeczywistego zużycia i kosztu. Ukrywa dostawców przed resztą aplikacji.
- */
-export class ModelGateway {
-  private readonly providers = new Map<string, ModelProvider>();
-  private readonly providerErrors = new Map<string, string>();
-  readonly budget: BudgetService;
-
-  constructor(
-    private readonly db: Db,
-    readonly config: ModelsConfig,
-    env: NodeJS.ProcessEnv,
-    overrides: Record<string, ModelProvider> = {},
-  ) {
-    this.budget = new BudgetService(db, config.currency);
-    for (const [name, p] of Object.entries(config.providers)) {
-      if (overrides[name]) {
-        this.providers.set(name, overrides[name]);
-        continue;
-      }
-      const made = makeProvider(name, p, env);
-      if (typeof made === 'string') this.providerErrors.set(name, made);
-      else this.providers.set(name, made);
+/** Dostawcy i modele dodane w aplikacji dla jednego domu (klucze już odszyfrowane — tylko w pamięci serwera). */
+export interface HouseholdOverlay {
+  providers: Record<
+    string,
+    {
+      kind: 'anthropic' | 'openai_compatible';
+      baseUrl: string | null;
+      apiKey: string | null;
+      enabled: boolean;
+      /** Powód niedostępności ustalony przy wczytaniu (np. klucz nie daje się odszyfrować). */
+      error?: string | null;
     }
-  }
+  >;
+  models: Record<string, ModelConfig & { routes: string[]; priority: number }>;
+  fx: Record<string, number>;
+}
+
+export interface HouseholdModelSource {
+  load(householdId: string): Promise<HouseholdOverlay | null>;
+}
+
+/**
+ * Rozwiązana konfiguracja modeli (plik + ewentualnie dostawcy domu): dostępność, trasy, koszt.
+ */
+export class ResolvedModels {
+  constructor(
+    readonly config: ModelsConfig,
+    readonly providers: ReadonlyMap<string, ModelProvider>,
+    readonly providerErrors: ReadonlyMap<string, string>,
+  ) {}
 
   availability(key: string): ModelAvailability {
     const m = this.config.models[key];
@@ -170,9 +175,160 @@ export class ModelGateway {
       u.cacheWriteTokens * (p.cacheWritePerMTok ?? p.inputPerMTok ?? 0);
     return Math.ceil(raw * fx);
   }
+}
+
+const SNAPSHOT_TTL_MS = 30_000;
+
+/**
+ * ModelGateway: routing per zdolność, wymagania prywatności, budżet (rezerwacja/rozliczenie),
+ * zapis rzeczywistego zużycia i kosztu. Ukrywa dostawców przed resztą aplikacji.
+ * Konfiguracja = plik (models.local.json, klucze ze zmiennych środowiskowych) + dostawcy i modele dodani
+ * w aplikacji dla danego domu (`snapshot(householdId)`, odświeżane po zmianie).
+ */
+export class ModelGateway {
+  readonly budget: BudgetService;
+  private readonly base: ResolvedModels;
+  private source: HouseholdModelSource | null = null;
+  private readonly cache = new Map<string, { at: number; value: Promise<ResolvedModels> }>();
+
+  constructor(
+    private readonly db: Db,
+    readonly config: ModelsConfig,
+    env: NodeJS.ProcessEnv,
+    private readonly overrides: Record<string, ModelProvider> = {},
+  ) {
+    this.budget = new BudgetService(db, config.currency);
+    const providers = new Map<string, ModelProvider>();
+    const errors = new Map<string, string>();
+    for (const [name, p] of Object.entries(config.providers)) {
+      if (overrides[name]) {
+        providers.set(name, overrides[name]);
+        continue;
+      }
+      const made = makeProvider(name, p, env);
+      if (typeof made === 'string') errors.set(name, made);
+      else providers.set(name, made);
+    }
+    this.base = new ResolvedModels(config, providers, errors);
+  }
+
+  /** Źródło dostawców domu (baza). Bez niego — tylko plik konfiguracyjny. */
+  useHouseholdSource(source: HouseholdModelSource): void {
+    this.source = source;
+    this.cache.clear();
+  }
+
+  /** Po zmianie dostawców/modeli/kursów domu — następne wywołanie wczyta je ponownie. */
+  invalidate(householdId: string): void {
+    this.cache.delete(householdId);
+  }
+
+  snapshot(householdId: string | null): Promise<ResolvedModels> {
+    if (!householdId || !this.source) return Promise.resolve(this.base);
+    const hit = this.cache.get(householdId);
+    if (hit && Date.now() - hit.at < SNAPSHOT_TTL_MS) return hit.value;
+    const value = this.resolve(householdId).catch((e: unknown) => {
+      this.cache.delete(householdId);
+      throw e;
+    });
+    this.cache.set(householdId, { at: Date.now(), value });
+    return value;
+  }
+
+  private async resolve(householdId: string): Promise<ResolvedModels> {
+    const overlay = await this.source!.load(householdId);
+    if (!overlay) return this.base;
+    const providers = new Map(this.base.providers);
+    const errors = new Map(this.base.providerErrors);
+    const providerConfigs: ModelsConfig['providers'] = { ...this.config.providers };
+    for (const [name, p] of Object.entries(overlay.providers)) {
+      // Nazwy z pliku mają pierwszeństwo (walidacja przy dodawaniu nie dopuszcza kolizji).
+      if (this.config.providers[name]) continue;
+      providerConfigs[name] = { kind: 'openai_compatible', apiKeyEnv: '' };
+      if (this.overrides[name]) {
+        providers.set(name, this.overrides[name]);
+        continue;
+      }
+      if (!p.enabled) {
+        errors.set(name, 'dostawca wyłączony');
+        continue;
+      }
+      if (p.error) {
+        errors.set(name, p.error);
+        continue;
+      }
+      // Lokalny serwer modeli (np. Ollama) może działać bez klucza.
+      if (!p.apiKey && !isLocalBaseUrl(p.baseUrl)) {
+        errors.set(name, 'brak klucza API');
+        continue;
+      }
+      if (p.kind === 'anthropic') {
+        providers.set(
+          name,
+          new AnthropicProvider({ apiKey: p.apiKey ?? '', baseURL: p.baseUrl ?? undefined }),
+        );
+      } else if (p.baseUrl) {
+        providers.set(
+          name,
+          new OpenAiCompatProvider({ baseUrl: p.baseUrl, apiKey: p.apiKey ?? '', label: name }),
+        );
+      } else {
+        errors.set(name, 'brak adresu serwera');
+      }
+    }
+    const models: ModelsConfig['models'] = { ...this.config.models };
+    // Trasy: modele domu (wg priorytetu) przed modelami z pliku; w trasach profili (Hermes) — po nich,
+    // jako zapas, bo trasa profilu to świadomy wybór operatora.
+    const added: Record<string, string[]> = {};
+    const ordered = Object.entries(overlay.models).sort(
+      ([a, x], [b, y]) => x.priority - y.priority || a.localeCompare(b),
+    );
+    for (const [key, m] of ordered) {
+      if (this.config.models[key]) continue; // nazwy z pliku mają pierwszeństwo
+      const { routes: modelRoutes, priority: _priority, ...model } = m;
+      models[key] = model;
+      for (const r of modelRoutes) (added[r] ??= []).push(key);
+    }
+    const routes: ModelsConfig['routes'] = { ...this.config.routes };
+    for (const [r, keys] of Object.entries(added)) routes[r] = [...keys, ...(routes[r] ?? [])];
+    const profileRoutes: ModelsConfig['profileRoutes'] = {};
+    for (const [profile, byCap] of Object.entries(this.config.profileRoutes)) {
+      profileRoutes[profile] = Object.fromEntries(
+        Object.entries(byCap).map(([cap, keys]) => [cap, [...keys, ...(added[cap] ?? [])]]),
+      );
+    }
+    const config: ModelsConfig = {
+      ...this.config,
+      // Kurs ustawiony przez właściciela domu ma pierwszeństwo przed plikiem (to jego budżet).
+      fx: { ...this.config.fx, ...overlay.fx },
+      providers: providerConfigs,
+      models,
+      routes,
+      profileRoutes,
+    };
+    return new ResolvedModels(config, providers, errors);
+  }
+
+  // Zgodność wsteczna: stan konfiguracji z pliku (bez dostawców domu).
+  availability(key: string): ModelAvailability {
+    return this.base.availability(key);
+  }
+  status() {
+    return this.base.status();
+  }
+  hasAvailable(): boolean {
+    return this.base.hasAvailable();
+  }
+  candidates(capability: string, runtimeProfile: string, containsPrivateData: boolean): string[] {
+    return this.base.candidates(capability, runtimeProfile, containsPrivateData);
+  }
+  costMicros(m: ModelConfig, u: Parameters<ResolvedModels['costMicros']>[1]): number {
+    return this.base.costMicros(m, u);
+  }
 
   async complete(req: GatewayRequest): Promise<GatewayResult> {
-    const keys = this.candidates(req.capability, req.runtimeProfile, req.containsPrivateData);
+    const snap = await this.snapshot(req.householdId);
+    const keys = snap.candidates(req.capability, req.runtimeProfile, req.containsPrivateData);
     if (!keys.length) throw new ModelUnavailable(`Brak dostępnego modelu dla ${req.capability}`);
     const promptChars =
       req.system.length +
@@ -181,11 +337,11 @@ export class ModelGateway {
     let lastErr: unknown = null;
 
     for (const key of keys) {
-      const m = this.config.models[key]!;
-      const provider = this.providers.get(m.provider)!;
+      const m = snap.config.models[key]!;
+      const provider = snap.providers.get(m.provider)!;
       const paid = isPaid(m.pricing);
       // Najgorszy przypadek: konserwatywny szacunek wejścia (znaki/3) + pełne max_tokens wyjścia.
-      const worst = this.costMicros(m, {
+      const worst = snap.costMicros(m, {
         inputTokens: Math.ceil(promptChars / 3),
         outputTokens: m.maxTokens,
         cacheReadTokens: 0,
@@ -221,7 +377,7 @@ export class ModelGateway {
           cacheReadTokens: 0,
           cacheWriteTokens: 0,
         };
-        const cost = paid ? this.costMicros(m, usage) : 0;
+        const cost = paid ? snap.costMicros(m, usage) : 0;
         await this.budget.settle(reservation, { ...usage, costMicros: cost, estimated });
         return {
           ...res,

@@ -10,3 +10,4 @@ export * from './documents';
 export * from './services';
 export * from './money';
 export { DOCUMENT_LIMITS } from './limits';
+export * from './models';

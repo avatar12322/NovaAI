@@ -20,6 +20,8 @@ const EnvSchema = z.object({
   NOVA_SECRET_KEY: z.string().optional().default(''),
   NOVA_SECRET_KEY_ID: z.string().default('k1'),
   NOVA_MODELS_CONFIG: z.string().optional().default(''),
+  /** Dostawcy modeli dodani w aplikacji mogą wskazywać http://localhost (np. Ollama). Domyślnie: poza produkcją. */
+  NOVA_MODELS_ALLOW_LOCAL: z.enum(['true', 'false', '1', '0', '']).optional(),
   NOVA_QUEUE_ENABLED: z
     .enum(['true', 'false', '1', '0', ''])
     .optional()
@@ -69,6 +71,8 @@ export type AppConfig = {
   secretKey: string;
   secretKeyId: string;
   modelsConfigPath: string;
+  /** Czy dostawca modeli dodany w aplikacji może wskazywać lokalny serwer (http://localhost). */
+  modelsAllowLocal: boolean;
   queueEnabled: boolean;
   queueLeaseMs: number;
   sessionTtlMs: number;
@@ -121,6 +125,10 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     secretKey: e.NOVA_SECRET_KEY,
     secretKeyId: e.NOVA_SECRET_KEY_ID,
     modelsConfigPath: e.NOVA_MODELS_CONFIG ? resolve(REPO_ROOT, e.NOVA_MODELS_CONFIG) : '',
+    modelsAllowLocal:
+      e.NOVA_MODELS_ALLOW_LOCAL === undefined || e.NOVA_MODELS_ALLOW_LOCAL === ''
+        ? e.NOVA_ENV !== 'production'
+        : e.NOVA_MODELS_ALLOW_LOCAL === 'true' || e.NOVA_MODELS_ALLOW_LOCAL === '1',
     queueEnabled: e.NOVA_QUEUE_ENABLED,
     queueLeaseMs: e.NOVA_QUEUE_LEASE_MS,
     sessionTtlMs: e.NOVA_SESSION_TTL_HOURS * 3600_000,

@@ -40,8 +40,10 @@ async function main(): Promise<void> {
       const { createApp } = await import('../app');
       const { deps } = createApp(config, db);
       const n = await deps.connections.rotate();
+      const { rotateProviderKeys } = await import('../model/household');
+      const k = deps.vault ? await rotateProviderKeys(db, deps.vault) : 0;
       await deps.events.stop();
-      console.log(`Ponownie zaszyfrowano tokeny: ${n}`);
+      console.log(`Ponownie zaszyfrowano tokeny: ${n}, klucze API dostawców modeli: ${k}`);
     } else if (cmd === 'reset-e2e') {
       // Czysta baza dla testów e2e: dozwolone wyłącznie dla baz *_e2e poza produkcją.
       const dbName = new URL(config.databaseUrlOwner).pathname.slice(1);

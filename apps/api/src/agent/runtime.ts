@@ -96,9 +96,23 @@ export interface AgentTurnResult {
 
 export interface AgentRuntime {
   readonly name: string;
+  /**
+   * Runtime faktycznie używany dla domu (np. demo albo model — zależnie od dostawców dodanych w aplikacji).
+   * Brak metody => zawsze ten sam runtime.
+   */
+  resolveFor?(householdId: string | null): Promise<AgentRuntime>;
   runTurn(
     input: AgentTurnInput,
     userContext: AgentUserContext,
     allowedCapabilities: readonly string[],
   ): Promise<AgentTurnResult>;
+}
+
+/** Tryb asystenta dla domu: 'demo' (runtime deterministyczny) albo 'configured' (prawdziwy model). */
+export async function runtimeFor(
+  runtime: AgentRuntime,
+  householdId: string | null,
+): Promise<{ name: string; mode: 'demo' | 'configured' }> {
+  const r = runtime.resolveFor ? await runtime.resolveFor(householdId) : runtime;
+  return { name: r.name, mode: r.name === 'fake' ? 'demo' : 'configured' };
 }

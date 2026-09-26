@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AnthropicProvider } from './providers/anthropic';
-import { OpenAiCompatProvider } from './providers/openai-compat';
+import { OpenAiCompatProvider, tokenParamFor } from './providers/openai-compat';
 import { ProviderError, type ProviderRequest } from './types';
 
 /**
@@ -260,5 +260,23 @@ describe('OpenAiCompatProvider (Hermes API server) — kontrakt Chat Completions
           .catch((x: unknown) => x)) as ProviderError
       ).retryable,
     ).toBe(false);
+  });
+
+  it('limit wyjścia: max_tokens (Hermes, Gemini, lokalne); oficjalne API OpenAI — max_completion_tokens', async () => {
+    respond = () => ({ status: 200, body: { choices: [{ message: { content: 'ok' } }] } });
+    await provider().complete(req({ maxTokens: 321 }));
+    expect(captured[0]!.body.max_tokens).toBe(321);
+    expect(captured[0]!.body.max_completion_tokens).toBeUndefined();
+    await new OpenAiCompatProvider({
+      baseUrl: `${base}/v1`,
+      apiKey: SECRET,
+      tokenParam: 'max_completion_tokens',
+    }).complete(req({ maxTokens: 321 }));
+    expect(captured[1]!.body.max_completion_tokens).toBe(321);
+    expect(captured[1]!.body.max_tokens).toBeUndefined();
+    expect(tokenParamFor('https://api.openai.com/v1')).toBe('max_completion_tokens');
+    expect(tokenParamFor('https://generativelanguage.googleapis.com/v1beta/openai')).toBe(
+      'max_tokens',
+    );
   });
 });

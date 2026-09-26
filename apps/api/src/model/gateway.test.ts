@@ -4,7 +4,13 @@ import { createTestApp, login, truncateAll, type Client, type TestApp } from '..
 import { resolve } from 'node:path';
 import { REPO_ROOT } from '../config';
 import { loadModelsConfig, ModelsConfigSchema, type ModelsConfig } from './config';
-import { BudgetBlocked, ModelGateway, ModelUnavailable, type GatewayRequest } from './gateway';
+import {
+  BudgetBlocked,
+  ModelGateway,
+  ModelUnavailable,
+  type GatewayRequest,
+  type HouseholdOverlay,
+} from './gateway';
 import { FakeProvider } from './providers/fake';
 
 /** M3 — ModelGateway: dostępność, routing, koszt, budżet (rezerwacje), fallback. */
@@ -146,6 +152,108 @@ describe('dostępność modeli', () => {
     const gw = new ModelGateway(t.db, cfg(), {});
     expect(gw.candidates('chat.shared', 'x', true)).toEqual([]);
     expect(gw.candidates('chat.shared', 'x', false)).toEqual(['sharedOnly']);
+  });
+});
+
+describe('modele dodane w aplikacji (nakładka domu)', () => {
+  const overlay = (): HouseholdOverlay => ({
+    providers: {
+      home: {
+        kind: 'openai_compatible',
+        baseUrl: 'https://m.example.test/v1',
+        apiKey: 'k',
+        enabled: true,
+      },
+      broken: {
+        kind: 'openai_compatible',
+        baseUrl: 'https://m.example.test/v1',
+        apiKey: null,
+        enabled: true,
+        error: 'nie można odszyfrować klucza',
+      },
+      paid: { kind: 'anthropic', baseUrl: null, apiKey: 'k', enabled: true },
+    },
+    models: {
+      homeB: {
+        provider: 'home',
+        model: 'b',
+        maxTokens: 100,
+        dataPolicy: 'private_ok',
+        pricing: { currency: 'PLN', inputPerMTok: 1, outputPerMTok: 1 },
+        routes: ['chat.simple'],
+        priority: 20,
+      },
+      homeA: {
+        provider: 'home',
+        model: 'a',
+        maxTokens: 100,
+        dataPolicy: 'private_ok',
+        pricing: { currency: 'GBP', inputPerMTok: 1, outputPerMTok: 1 },
+        routes: ['chat.simple', 'chat.complex'],
+        priority: 10,
+      },
+      viaBroken: {
+        provider: 'broken',
+        model: 'c',
+        maxTokens: 100,
+        dataPolicy: 'private_ok',
+        pricing: { currency: 'PLN', inputPerMTok: 1, outputPerMTok: 1 },
+        routes: ['chat.simple'],
+        priority: 1,
+      },
+    },
+    fx: { GBP: 5 },
+  });
+
+  it('modele domu przed modelami z pliku (wg priorytetu); plik ma pierwszeństwo nazw; trasy profili — zapas', async () => {
+    const gw = new ModelGateway(
+      t.db,
+      cfg({ profileRoutes: { hermes: { 'chat.simple': ['free'] } } }),
+      {},
+      { cheap: new FakeProvider(), paid: new FakeProvider(), shared: new FakeProvider() },
+    );
+    const seen: string[] = [];
+    gw.useHouseholdSource({
+      load: async (hh) => {
+        seen.push(hh);
+        return overlay();
+      },
+    });
+    const snap = await gw.snapshot(t.seed.householdId);
+    expect(snap.config.routes['chat.simple']).toEqual([
+      'viaBroken',
+      'homeA',
+      'homeB',
+      'paidPLN',
+      'free',
+    ]);
+    expect(snap.config.routes['chat.complex']).toEqual(['homeA']);
+    expect(snap.config.profileRoutes.hermes!['chat.simple']).toEqual([
+      'free',
+      'viaBroken',
+      'homeA',
+      'homeB',
+    ]);
+    // Dostawca „paid” z pliku nie jest nadpisany przez dostawcę domu o tej samej nazwie.
+    expect(snap.providers.get('paid')).toBeInstanceOf(FakeProvider);
+    expect(snap.availability('viaBroken')).toMatchObject({
+      available: false,
+      reason: 'nie można odszyfrować klucza',
+    });
+    expect(snap.availability('homeA').available).toBe(true); // kurs GBP z domu
+    expect(snap.candidates('chat.simple', 'x', true)).toEqual([
+      'homeA',
+      'homeB',
+      'paidPLN',
+      'free',
+    ]);
+    // Pamięć podręczna do czasu unieważnienia; bez domu — sam plik.
+    await gw.snapshot(t.seed.householdId);
+    expect(seen).toHaveLength(1);
+    gw.invalidate(t.seed.householdId);
+    await gw.snapshot(t.seed.householdId);
+    expect(seen).toHaveLength(2);
+    expect((await gw.snapshot(null)).config.routes['chat.simple']).toEqual(['paidPLN', 'free']);
   });
 });
 

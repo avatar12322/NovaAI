@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../access';
 import { writeAudit } from '../audit';
+import { runtimeFor } from '../agent/runtime';
 import type { AppDeps } from '../deps';
 import { badRequest, forbidden } from '../lib/errors';
 import { parse } from '../lib/validate';
@@ -49,11 +50,14 @@ export const budgetRoutes =
 
     /** Stan modeli bez sekretów: tryb, dostępność i powód niedostępności. */
     app.get('/model/status', async (req) => {
-      requireAuth(req);
-      const s = deps.gateway.status();
+      const auth = requireAuth(req);
+      const [s, rt] = await Promise.all([
+        deps.gateway.snapshot(auth.householdId).then((snap) => snap.status()),
+        runtimeFor(deps.runtime, auth.householdId),
+      ]);
       return {
-        mode: s.mode,
-        runtime: deps.runtime.name,
+        mode: rt.mode,
+        runtime: rt.name,
         currency: s.currency,
         configError: deps.modelsConfigError,
         providers: s.models.map((m) => ({

@@ -16,6 +16,7 @@ import { connectorRoutes } from './connectors/routes';
 import { reminderRoutes } from './reminders/routes';
 import { documentRoutes } from './documents/routes';
 import { serviceRoutes } from './services/routes';
+import { modelProviderRoutes } from './model/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -187,6 +188,7 @@ export async function buildServer(
       await api.register(reminderRoutes(deps));
       await api.register(documentRoutes(deps));
       await api.register(serviceRoutes(deps));
+      await api.register(modelProviderRoutes(deps));
     },
     { prefix: '/api' },
   );
