@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { Badge, EmptyState, ErrorNote, Progress, Spinner, statusTone } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
-import { STEP_STATUS_PL, TASK_STATUS_PL, timeAgo } from '../lib/format';
+import { STEP_STATUS_PL, stepErrorPl, TASK_STATUS_PL, timeAgo } from '../lib/format';
 import { href } from '../lib/router';
 
 export function TasksView({ me, taskId }: { me: MeResponse; taskId: string | null }) {
@@ -231,7 +231,7 @@ function TaskDetail({ id, me }: { id: string; me: MeResponse }) {
                 <a href={href({ view: 'approvals' })}>Przejdź do zgody →</a>
               </p>
             )}
-            {s.error && <p className="small muted">{s.error}</p>}
+            {s.error && <p className="small muted">{stepErrorPl(s.error)}</p>}
           </li>
         ))}
       </ol>

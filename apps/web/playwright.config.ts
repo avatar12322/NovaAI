@@ -48,6 +48,12 @@ export default defineConfig({
         NOVA_RP_ID: 'localhost',
         NOVA_RP_ORIGINS: `http://localhost:${WEB_PORT}`,
         NOVA_PUBLIC_URL: `http://localhost:${WEB_PORT}`,
+        // Sejf tokenów i klient Microsoft wyłącznie testowe: integracja jest „skonfigurowana”, ale żadne
+        // konto nie jest połączone, a przekierowanie do logowania Microsoft przechwytuje sama przeglądarka.
+        NOVA_SECRET_KEY: Buffer.alloc(32, 9).toString('base64'),
+        NOVA_SECRET_KEY_ID: 'e2e',
+        MICROSOFT_CLIENT_ID: 'e2e-client-id',
+        MICROSOFT_CLIENT_SECRET: 'e2e-client-secret',
       },
     },
     {

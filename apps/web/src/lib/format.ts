@@ -90,3 +90,22 @@ export function locatorLabel(l: {
         : `linia ${l.lineStart}`;
   return [l.heading, lines].filter(Boolean).join(', ') || 'fragment';
 }
+
+/** Czytelne powody odrzucenia akcji: brak połączonego konta odróżniony od braku uprawnień kontekstu. */
+export const CONNECTOR_DENY_PL: Record<string, string> = {
+  'connector:not_connected':
+    'Konto pocztowe lub kalendarz nie jest połączone — połącz je w Ustawieniach → Integracje.',
+  'connector:reauth_required':
+    'Dostęp do konta wygasł lub został cofnięty — połącz je ponownie w Ustawieniach → Integracje.',
+  'connector:scope_missing':
+    'Połączone konto nie obejmuje tej funkcji — połącz je ponownie i zaznacz potrzebny dostęp.',
+  'connector:ambiguous_account':
+    'Połączono kilka kont z tą funkcją — napisz, którego użyć (Outlook lub Gmail).',
+  'connector:not_configured': 'Ta integracja nie jest skonfigurowana na serwerze.',
+};
+
+/** Błąd kroku zadania do wyświetlenia: odmowy integracji jako zrozumiały komunikat. */
+export function stepErrorPl(error: string): string {
+  const m = /^Odmowa: (connector:[a-z_]+)$/.exec(error);
+  return (m && CONNECTOR_DENY_PL[m[1]!]) || error;
+}

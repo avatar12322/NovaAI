@@ -3,17 +3,40 @@ import { Badge, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError, type ConnectionInfo, type LocalEvent } from '../lib/api';
 
 const CAP_PL: Record<string, string> = {
-  'calendar.freebusy': 'zajętość kalendarza',
-  'mail.search': 'wyszukiwanie poczty',
-  'mail.read': 'odczyt poczty',
-  'mail.send': 'wysyłka poczty (zawsze ze zgodą)',
+  'mail.search': 'Wyszukiwanie poczty (nadawca, temat, data)',
+  'mail.read': 'Odczyt treści wiadomości',
+  'mail.send': 'Wysyłka e-maili — zawsze po Twojej zgodzie',
+  'mail.draft': 'Szkice e-maili w Outlooku — zawsze po Twojej zgodzie',
+  'calendar.freebusy': 'Zajętość kalendarza (bez szczegółów wydarzeń)',
+  'calendar.read': 'Odczyt wydarzeń (tytuł, czas, miejsce) — tylko prywatny asystent',
+};
+
+/** Domyślnie tylko odczyt; działania ze skutkami (wysyłka, szkice) użytkownik włącza świadomie. */
+const OPT_IN = new Set(['mail.send', 'mail.draft']);
+
+const PROVIDER_PL: Record<string, string> = {
+  google: 'Google',
+  microsoft: 'Microsoft',
+  slack: 'Slack',
+};
+
+/** Powody z przekierowania po logowaniu u dostawcy (parametr `reason`). */
+const REASON_PL: Record<string, string> = {
+  zgoda_administratora:
+    'organizacja wymaga zgody administratora dla tej aplikacji. Poproś administratora Microsoft 365 o jej zatwierdzenie albo połącz konto osobiste.',
+  odmowa: 'nie udzielono zgody na dostęp.',
+  nieprawidlowe_zadanie: 'nieprawidłowa odpowiedź logowania — spróbuj ponownie.',
+  not_connected: 'sesja logowania wygasła lub została już użyta — spróbuj ponownie.',
+  reauth_required: 'logowanie nie zostało potwierdzone przez dostawcę — spróbuj ponownie.',
+  provider_error: 'dostawca odrzucił logowanie (sprawdź konfigurację aplikacji OAuth na serwerze).',
+  not_configured: 'integracja nie jest skonfigurowana na serwerze.',
 };
 
 /** Integracje: tylko rzeczywiście połączone i skonfigurowane usługi są oznaczone jako dostępne. */
 export function IntegrationsPanel() {
   const [items, setItems] = useState<ConnectionInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; tone: 'muted' | 'warn' } | null>(null);
 
   const load = useCallback(() => {
     api
@@ -26,16 +49,39 @@ export function IntegrationsPanel() {
   }, []);
   useEffect(load, [load]);
   useEffect(() => {
-    const q = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const [path, query] = window.location.hash.split('?');
+    const q = new URLSearchParams(query ?? '');
     const st = q.get('integration');
-    if (st === 'ok') setNotice('Połączono konto.');
-    if (st === 'error') setNotice(`Nie udało się połączyć konta (${q.get('reason') ?? 'błąd'}).`);
+    if (!st) return;
+    const who = PROVIDER_PL[q.get('provider') ?? ''] ?? '';
+    const reason = q.get('reason') ?? '';
+    if (st === 'ok')
+      setNotice({ text: who ? `Połączono konto ${who}.` : 'Połączono konto.', tone: 'muted' });
+    if (st === 'error')
+      setNotice({
+        text: `Nie udało się połączyć konta ${who}: ${REASON_PL[reason] ?? (reason || 'błąd')}`,
+        tone: reason === 'zgoda_administratora' ? 'warn' : 'muted',
+      });
+    // Komunikat jednorazowy — bez parametrów w adresie po odświeżeniu strony.
+    window.history.replaceState(null, '', path);
   }, []);
 
-  const connect = async (c: ConnectionInfo) => {
+  const connect = async (c: ConnectionInfo, capabilities: string[]) => {
     try {
-      const { url } = await api.startConnection(c.provider, c.capabilities);
+      const { url } = await api.startConnection(c.provider, capabilities);
       window.location.assign(url);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Błąd');
+    }
+  };
+  const disconnect = async (c: ConnectionInfo) => {
+    try {
+      await api.disconnect(c.provider);
+      setNotice({
+        text: `Odłączono ${PROVIDER_PL[c.provider] ?? c.provider}. Tokeny usunięto z NovaAI.`,
+        tone: 'muted',
+      });
+      load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Błąd');
     }
@@ -44,51 +90,158 @@ export function IntegrationsPanel() {
   return (
     <section className="panel">
       <h2 className="h-sub">Integracje</h2>
-      {notice && <p className="note note-muted">{notice}</p>}
+      {notice && (
+        <p className={`note note-${notice.tone}`} role="status">
+          {notice.text}
+        </p>
+      )}
       {error && <ErrorNote error={error} onRetry={load} />}
       {!items && !error && <Spinner />}
       <ul className="devices">
         {items?.map((c) => (
-          <li key={c.provider} className="device">
-            <div className="row between">
-              <div>
-                <strong>{c.title}</strong>
-                <div className="row small">
-                  {!c.configured ? (
-                    <Badge>niedostępne: {c.reason}</Badge>
-                  ) : c.connection?.status === 'connected' ? (
-                    <Badge tone="ok">połączono</Badge>
-                  ) : c.connection?.status === 'error' ? (
-                    <Badge tone="danger">wymaga ponownego połączenia</Badge>
-                  ) : (
-                    <Badge>nie połączono</Badge>
-                  )}
-                </div>
-              </div>
-              {c.configured &&
-                (c.connection && c.connection.status !== 'revoked' ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm danger"
-                    onClick={() => void api.disconnect(c.provider).then(load)}
-                  >
-                    Odłącz
-                  </button>
-                ) : (
-                  <button type="button" className="btn btn-sm" onClick={() => void connect(c)}>
-                    Połącz
-                  </button>
-                ))}
-            </div>
-            {c.capabilities.length > 0 && (
-              <p className="small muted">
-                Zakres: {c.capabilities.map((x) => CAP_PL[x] ?? x).join(', ')}
-              </p>
-            )}
-          </li>
+          <IntegrationCard
+            key={c.provider}
+            c={c}
+            onConnect={(caps) => void connect(c, caps)}
+            onDisconnect={() => void disconnect(c)}
+          />
         ))}
       </ul>
     </section>
+  );
+}
+
+function IntegrationCard({
+  c,
+  onConnect,
+  onDisconnect,
+}: {
+  c: ConnectionInfo;
+  onConnect: (capabilities: string[]) => void;
+  onDisconnect: () => void;
+}) {
+  const conn = c.connection && c.connection.status !== 'revoked' ? c.connection : null;
+  const needsReauth = conn?.status === 'error';
+  const [chosen, setChosen] = useState<Set<string>>(
+    () =>
+      new Set(
+        conn?.capabilities.length
+          ? conn.capabilities
+          : c.capabilities.filter((x) => !OPT_IN.has(x)),
+      ),
+  );
+  const toggle = (cap: string, on: boolean) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(cap);
+      else next.delete(cap);
+      return next;
+    });
+  const missing = conn?.lastError?.startsWith('brak zakresów:')
+    ? conn.lastError.slice('brak zakresów:'.length).trim()
+    : null;
+  const idBase = `int-${c.provider}`;
+
+  return (
+    <li className="device integration" aria-labelledby={`${idBase}-title`}>
+      <div className="row between">
+        <div>
+          <strong id={`${idBase}-title`}>{c.title}</strong>
+          <div className="row small">
+            {!c.configured ? (
+              <Badge>niedostępne</Badge>
+            ) : conn?.status === 'connected' ? (
+              <Badge tone="ok">połączono</Badge>
+            ) : needsReauth ? (
+              <Badge tone="danger">wymaga ponownego połączenia</Badge>
+            ) : (
+              <Badge>nie połączono</Badge>
+            )}
+            {conn?.account && <span className="muted">{conn.account}</span>}
+          </div>
+        </div>
+        {c.configured && conn && (
+          <button type="button" className="btn btn-ghost btn-sm danger" onClick={onDisconnect}>
+            Odłącz
+          </button>
+        )}
+      </div>
+
+      {!c.configured && c.reason && (
+        <p className="small muted">
+          {c.capabilities.length
+            ? `Serwer nie ma konfiguracji tej integracji: ${c.reason}.`
+            : `${c.reason.charAt(0).toUpperCase()}${c.reason.slice(1)}.`}
+        </p>
+      )}
+      {c.configured && !conn && (
+        <p className="small muted">
+          Konto nie jest połączone — asystent nie ma dostępu do tej poczty ani kalendarza.
+        </p>
+      )}
+      {needsReauth && (
+        <p className="note note-danger">
+          Dostęp wygasł albo został cofnięty u dostawcy. Asystent nie korzysta z tego konta, dopóki
+          nie połączysz go ponownie.
+        </p>
+      )}
+      {conn?.status === 'connected' && (
+        <p className="small muted">
+          Dostęp:{' '}
+          {conn.capabilities.length
+            ? conn.capabilities.map((x) => CAP_PL[x] ?? x).join('; ')
+            : 'brak (nie przyznano uprawnień)'}
+        </p>
+      )}
+      {missing && <p className="note note-warn">Dostawca nie przyznał uprawnień: {missing}.</p>}
+
+      {c.configured && (!conn || needsReauth) && c.capabilities.length > 0 && (
+        <fieldset className="cap-choice">
+          <legend className="small muted">Na co pozwolić asystentowi</legend>
+          {c.capabilities.map((cap) => (
+            <label key={cap} className="check">
+              <input
+                type="checkbox"
+                checked={chosen.has(cap)}
+                onChange={(e) => toggle(cap, e.target.checked)}
+              />
+              <span>
+                {CAP_PL[cap] ?? cap}
+                {c.permissions[cap]?.length ? (
+                  <span className="perm"> {c.permissions[cap].join(', ')}</span>
+                ) : null}
+              </span>
+            </label>
+          ))}
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={chosen.size === 0}
+              onClick={() => onConnect(c.capabilities.filter((x) => chosen.has(x)))}
+            >
+              {needsReauth ? 'Połącz ponownie' : 'Połącz'}
+            </button>
+            <span className="small muted">
+              Logowanie odbywa się na stronie {PROVIDER_PL[c.provider] ?? c.provider}.
+            </span>
+          </div>
+        </fieldset>
+      )}
+
+      {c.notes.map((n) => (
+        <details key={n.title} className="conn-note">
+          <summary>{n.title}</summary>
+          <p>{n.text}</p>
+        </details>
+      ))}
+      {c.revocationHelp && (conn || c.provider === 'microsoft') && (
+        <details className="conn-note">
+          <summary>Jak cofnąć zgodę po stronie dostawcy</summary>
+          <p>{c.revocationHelp}</p>
+        </details>
+      )}
+    </li>
   );
 }
 

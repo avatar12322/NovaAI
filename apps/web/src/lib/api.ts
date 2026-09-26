@@ -131,9 +131,15 @@ export interface ConnectionInfo {
   capabilities: string[];
   configured: boolean;
   reason: string | null;
+  /** Uprawnienia dostawcy, o które aplikacja poprosi dla danej zdolności. */
+  permissions: Record<string, string[]>;
+  notes: Array<{ title: string; text: string }>;
+  revocationHelp: string | null;
   connection: {
     status: string;
     scopes: string[];
+    capabilities: string[];
+    account: string | null;
     updatedAt: string;
     lastError: string | null;
   } | null;

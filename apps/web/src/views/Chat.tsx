@@ -13,7 +13,7 @@ import { DictationButton, SpeakButton } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
-import { formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
+import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
 import { href, navigate, parseRoute } from '../lib/router';
 
 interface Props {
@@ -335,9 +335,11 @@ const TOOL_PL: Record<string, string> = {
   'reminder.create': 'Przypomnienie',
   'household.notify': 'Wiadomość do domownika',
   'calendar.freebusy': 'Zajętość w kalendarzach',
+  'calendar.events': 'Wydarzenia z kalendarza',
   'mail.search': 'Wyszukiwanie poczty',
   'mail.read': 'Odczyt e-maila',
   'mail.send': 'Wysyłka e-maila',
+  'mail.draft': 'Szkic e-maila',
   'device.files.list': 'Pliki na urządzeniu',
   'device.files.read': 'Odczyt pliku z urządzenia',
   'device.files.write': 'Zapis pliku na urządzeniu',
@@ -357,6 +359,19 @@ function ToolResult({ m }: { m: Message }) {
       <div className="msg-body">{m.content}</div>
     </article>
   );
+}
+
+function deniedNotes(denied: Array<{ tool: string; reason: string }>): string[] {
+  const notes = new Set<string>();
+  let other = 0;
+  for (const d of denied) {
+    const text = CONNECTOR_DENY_PL[d.reason];
+    if (text) notes.add(text);
+    else other++;
+  }
+  if (other)
+    notes.add(`Odrzucono ${other} niedozwoloną akcję (poza uprawnieniami tego kontekstu).`);
+  return [...notes];
 }
 
 function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
@@ -410,11 +425,11 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
           <a href={href({ view: 'approvals' })}>otwórz Zgody</a>
         </p>
       )}
-      {denied.length > 0 && (
-        <p className="msg-note muted">
-          Odrzucono {denied.length} niedozwoloną akcję (poza uprawnieniami tego kontekstu).
+      {deniedNotes(denied).map((text) => (
+        <p key={text} className="msg-note muted">
+          {text}
         </p>
-      )}
+      ))}
     </article>
   );
 }

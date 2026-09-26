@@ -176,9 +176,9 @@ export class MicrosoftConnector implements Connector {
     'mail.search',
     'mail.read',
     'mail.send',
-    'calendar.read',
-    'calendar.freebusy',
     'mail.draft',
+    'calendar.freebusy',
+    'calendar.read',
   ];
   readonly notes: readonly ConnectorNote[] = [TEAMS_NOTE, WORK_ACCOUNT_NOTE];
   readonly revocationHelp =
