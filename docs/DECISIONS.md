@@ -270,3 +270,26 @@ E2E: Playwright 1.56.1 (zgodny z preinstalowanym Chromium), baza `nova_e2e` rese
   `apps/api/dist` (ta sama głębokość co `src`), więc migracje i `.env` są znajdowane tak samo.
 - CSP bez `unsafe-inline` dla skryptów i bez `eval`; `style-src 'unsafe-inline'` tylko dla atrybutów `style`
   w React. Frontend nie importuje zod (patrz PROGRESS) — walidacja wejścia i tak odbywa się na serwerze.
+
+## D-025 Pamięć dokumentów: Postgres FTS, oryginał w bazie, uprawnienia przed fragmentami
+
+- Oryginał pliku w `document_blobs` (bytea): ponowne indeksowanie ulepszonym parserem i pobranie bez osobnego
+  magazynu plików i jego kopii zapasowych. Limit 10 MB na plik i 200 MB na osobę trzyma rozmiar bazy w ryzach.
+- Wyszukiwanie pełnotekstowe Postgres (`simple` + normalizacja w aplikacji + prefiksy dla polskiej odmiany + IDF)
+  zamiast embeddingów: bez płatnego API i bez modelu lokalnego, deterministyczne i testowalne. Ograniczenie:
+  brak dopasowań semantycznych — do rozważenia pgvector z lokalnym modelem embeddingów.
+- Kolejność: dokumenty dozwolone w kontekście (RLS + `decide`) ⇒ dopiero wtedy zapytanie o fragmenty ograniczone do
+  ich ID. Fragmenty mają skopiowane właściciela/dom/widoczność (zmieniane w tej samej transakcji co dokument), więc RLS
+  działa także bez złączeń.
+- PDF w `worker_threads` z limitem czasu i pamięci, `isEvalSupported: false`, bez czcionek i XFA — plik jest
+  niezaufanym wejściem. Plik wątku (`pdf-worker.mjs`) jest czystym JS, kopiowanym do `dist/` przy budowie bundla.
+- Pobieranie oryginału zawsze jako załącznik z `Content-Security-Policy: sandbox` (plik nie renderuje się w originie
+  aplikacji). Zadanie indeksowania jest zawsze prywatne (tytuł zawiera nazwę pliku).
+
+## D-026 Niezaufany kontekst wymusza zgodę na akcje
+
+- Jeśli w turze modelu są fragmenty dokumentów lub wyniki narzędzi (np. treść e-maila, pliku), każde zaproponowane
+  narzędzie ze skutkami wymaga zgody człowieka, nawet gdy zwykle jej nie wymaga (`memory.create`, `reminder.create`).
+  Narzędzia tylko do odczytu (`readOnly`) — bez zmian. Obrona nie zależy od tego, czy model oprze się wstrzyknięciu.
+- Broker sprawdza zgodę (stan, właściciel, krok, skrót parametrów) zawsze, gdy krok ją ma — także gdy wymusił ją
+  kontekst, a nie definicja narzędzia.

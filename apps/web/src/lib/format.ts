@@ -46,6 +46,18 @@ export const EVENT_PL: Record<string, string> = {
   'budget.blocked': 'Budżet: blokada',
   'budget.changed': 'Budżet: zmiana ustawień',
   'device.status': 'Urządzenie',
+  'document.updated': 'Dokument',
+};
+
+/** Statusy i zmiany widoczności dokumentu (zdarzenie `document.updated`). */
+export const DOCUMENT_STATUS_PL: Record<string, string> = {
+  pending: 'w kolejce',
+  indexing: 'indeksowanie',
+  ready: 'gotowy',
+  failed: 'błąd odczytu',
+  deleted: 'usunięty',
+  shared: 'udostępniony',
+  removed: 'udostępnienie cofnięte',
 };
 
 export function formatMoney(value: number, currency: string): string {
@@ -54,4 +66,27 @@ export function formatMoney(value: number, currency: string): string {
     currency,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+}
+
+/** Miejsce w dokumencie: „s. 3”, „Umowa › Kaucja, linie 5–7”. */
+export function locatorLabel(l: {
+  page: number | null;
+  lineStart: number | null;
+  lineEnd: number | null;
+  heading: string | null;
+}): string {
+  if (l.page !== null) return `s. ${l.page}`;
+  const lines =
+    l.lineStart === null
+      ? ''
+      : l.lineEnd !== null && l.lineEnd !== l.lineStart
+        ? `linie ${l.lineStart}–${l.lineEnd}`
+        : `linia ${l.lineStart}`;
+  return [l.heading, lines].filter(Boolean).join(', ') || 'fragment';
 }

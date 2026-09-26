@@ -24,6 +24,12 @@ const PATHS: Record<string, string> = {
   menu: 'M4 7h16M4 12h16M4 17h16',
   mic: 'M12 4a3 3 0 00-3 3v5a3 3 0 006 0V7a3 3 0 00-3-3zM6 11a6 6 0 0012 0M12 17v3',
   speaker: 'M5 9h3l4-4v14l-4-4H5zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11',
+  doc: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
+  download: 'M12 4v11M8 11l4 4 4-4M5 20h14',
+  upload: 'M12 16V5M8 9l4-4 4 4M5 20h14',
+  refresh: 'M20 11a8 8 0 10-2.3 5.7M20 5v6h-6',
+  search: 'M11 5a6 6 0 100 12 6 6 0 000-12zM20 20l-4.3-4.3',
+  back: 'M15 5l-7 7 7 7',
 };
 
 export function Icon({

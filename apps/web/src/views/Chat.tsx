@@ -1,4 +1,4 @@
-import type { Conversation, MeResponse, Message } from '@nova/contracts';
+import type { Conversation, MeResponse, Message, MessageSource } from '@nova/contracts';
 import { LIMITS } from '@nova/contracts/limits';
 import {
   useCallback,
@@ -13,7 +13,7 @@ import { DictationButton, SpeakButton } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
-import { formatMoney, timeAgo, timeOfDay } from '../lib/format';
+import { formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
 import { href, navigate, parseRoute } from '../lib/router';
 
 interface Props {
@@ -365,6 +365,9 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
         )}
       </header>
       <div className="msg-body">{m.content}</div>
+      {m.role === 'assistant' && (
+        <Sources sources={(m.meta.sources as MessageSource[] | undefined) ?? []} />
+      )}
       {m.role === 'assistant' && <SpeakButton text={m.content} />}
       {proposed.some((p) => p.approval) && (
         <p className="msg-note">
@@ -378,5 +381,34 @@ function MessageBubble({ m, me }: { m: Message; me: MeResponse }) {
         </p>
       )}
     </article>
+  );
+}
+
+/**
+ * Źródła odpowiedzi: dokument i strona/fragment, z odnośnikiem do treści fragmentu. Gdy odpowiedź nie
+ * cytuje żadnego [Dn], pokazujemy fragmenty przekazane modelowi — z jawnym opisem, że to tylko kontekst.
+ */
+function Sources({ sources }: { sources: MessageSource[] }) {
+  const cited = sources.filter((s) => s.cited);
+  const shown = cited.length ? cited : sources;
+  if (!shown.length) return null;
+  return (
+    <div className="sources">
+      <span className="sources-label">
+        {cited.length ? 'Źródła' : 'Fragmenty dokumentów w kontekście (bez cytatu)'}
+      </span>
+      <ul>
+        {shown.map((s) => (
+          <li key={s.ref}>
+            <a className="source" href={href({ view: 'document', id: s.documentId, ord: s.ord })}>
+              <span className="source-ref">{s.ref}</span>
+              <Icon name="doc" size={14} />
+              <span className="source-title">{s.title}</span>
+              <span className="muted">· {locatorLabel(s)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

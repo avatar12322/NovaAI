@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { makePdf } from '../../api/src/test/pdf-fixture';
 import { PROD_BASE, PROD_ENV } from '../playwright.prod.config';
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -85,6 +86,25 @@ test('produkcja: CSP bez naruszeń, brak logowania testowego, konto z CLI, czat 
   await expect(page.locator('.msg-assistant').filter({ hasText: 'Proponuję zapisać' })).toBeVisible(
     { timeout: 15_000 },
   );
+
+  // Dokument PDF: odczyt w wątku z bundla (dist/pdf-worker.mjs), odpowiedź ze źródłem.
+  await page.goto('/#/documents');
+  await page.setInputFiles('#doc-file', {
+    name: 'Umowa.pdf',
+    mimeType: 'application/pdf',
+    buffer: makePdf([['Umowa najmu'], ['Kaucja wynosi 3000 zl.']]),
+  });
+  await expect(page.locator('.document .badge').filter({ hasText: 'gotowy' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.goto('/#/chat/private');
+  await page.getByRole('button', { name: 'Nowa' }).click();
+  await expect(page.getByText('Napisz pierwszą wiadomość')).toBeVisible();
+  await page.getByLabel('Wiadomość').fill('Ile wynosi kaucja?');
+  await page.getByLabel('Wiadomość').press('Enter');
+  await expect(page.getByRole('link', { name: 'D1 Umowa · s. 2' })).toBeVisible({
+    timeout: 15_000,
+  });
 
   // Ciasteczko sesji: HttpOnly, Secure, SameSite=Strict.
   const cookie = (await page.context().cookies()).find((c) => c.name === 'nova_sid');

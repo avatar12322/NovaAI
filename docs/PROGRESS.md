@@ -16,6 +16,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 | Passkeys + bootstrap     | gotowe    | WebAuthn (testy API z programowym uwierzytelniaczem, e2e z wirtualnym Chromium), CLI admin                                |
 | Utwardzenie              | gotowe    | limity tras bez sesji, redakcja URL w logach, `NOVA_TRUST_PROXY`, sprzątanie wygasłych artefaktów                         |
 | Ścieżka produkcyjna      | częściowe | bundel API + frontend z API + CSP, smoke w `NOVA_ENV=production`; bez realnego serwera, TLS i domeny                      |
+| Pamięć dokumentów        | gotowe*   | PDF/TXT/Markdown, indeksowanie, wyszukiwanie po uprawnieniach, źródła w odpowiedzi, UI; *model tylko jako atrapa          |
 
 ## Dziennik
 
@@ -197,6 +198,43 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
   zero naruszeń CSP i błędów konsoli; jedyne błędy HTTP: `401 /api/me` przed zalogowaniem, `404 /api/auth/dev-users`).
 - Nie sprawdzono: instalacji `pnpm install --prod` na czystym serwerze, reverse proxy z TLS (brak serwera/domeny).
 
+### Pamięć dokumentów: PDF/TXT/Markdown ze źródłami (2026-09-26)
+
+- Baza: migracja `0010_documents.sql` (`documents`, `document_blobs` z oryginałem, `document_chunks` z lokalizacją
+  i `tsvector`), RLS jak w pozostałych danych: prywatny — tylko właściciel; wspólny — aktywni członkowie i NovaAI.
+- Odczyt: PDF przez pdfjs-dist w osobnym wątku (limit 30 s i 256 MB; plik zaszyfrowany, uszkodzony, skan bez tekstu,
+  > 500 stron ⇒ status „błąd odczytu” z komunikatem), TXT/Markdown jako UTF-8 z zapasem Windows-1250, pliki binarne
+  > odrzucane. Fragmenty ~900 znaków, nigdy przez granicę strony PDF; w TXT/MD zakres linii i ścieżka nagłówków.
+- Indeksowanie w trwałej kolejce (`document.index`, bez modelu i kosztów) z wersjonowaniem: ponowne indeksowanie
+  unieważnia starsze zadanie, stare fragmenty działają do końca nowego indeksu; usunięcie usuwa oryginał i fragmenty.
+- Limity: 10 MB na plik, 200 dokumentów i 200 MB na osobę, duplikat (ten sam plik u tej samej osoby) ⇒ 409.
+- Wyszukiwanie: najpierw lista dokumentów dozwolonych w kontekście (RLS + polityka `document.read`, rozbieżność ⇒ audyt),
+  dopiero potem fragmenty wyłącznie z nich. Pełnotekstowe w Postgres: normalizacja polskich znaków, termy przycinane
+  o typowe końcówki (odmiana), ranking ważony rzadkością termu (IDF w obrębie dozwolonych dokumentów).
+- Agent: do tury trafia maks. 4 fragmenty (≥ 2 dopasowane termy przy dłuższym pytaniu), jako oznaczony blok DANYCH
+  w wiadomości użytkownika (nie w prompcie systemowym) z odwołaniami [D1]. Odpowiedź zapisuje `sources` (dokument,
+  strona/linie/nagłówek, czy zacytowany) — bez treści. Tryb demo odpowiada cytatem z fragmentu.
+- Niezaufany kontekst: gdy w turze są fragmenty dokumentów lub wyniki narzędzi, każde narzędzie ze skutkami wymaga
+  zgody (nawet `memory.create`); broker weryfikuje zgodę zawsze, gdy krok ją ma.
+- API: `POST /api/documents?name=&space=` (surowe bajty), `GET /api/documents?space=`, `GET /api/documents/search?q=`,
+  `GET /api/documents/:id`, `GET /api/documents/:id/chunks/:ord`, `GET /api/documents/:id/file` (załącznik + CSP sandbox),
+  `POST /api/documents/:id/share|unshare|reindex`, `DELETE /api/documents/:id`. Zdarzenie `document.updated`.
+- UI: Pamięć → Dokumenty (także w menu bocznym): dodawanie (przycisk + upuszczanie, walidacja przed wysłaniem),
+  wyszukiwarka z zaznaczonymi trafieniami, lista ze statusem, udostępnianiem, ponownym indeksowaniem, pobraniem
+  i usuwaniem; widok fragmentu (strona/linie, poprzedni/następny). W czacie pod odpowiedzią „Źródła” z odnośnikiem
+  do fragmentu.
+- Znalezione i poprawione przy okazji: klient SSE miał własną listę typów zdarzeń (nowy typ był ignorowany) — lista
+  jest teraz w `@nova/contracts/event-types` wspólna dla serwera i przeglądarki.
+- Polecenia i wyniki: `pnpm check` → contracts 4/4, permissions 27/27, api 183/183, web 4/4 (nowe: `text.test.ts` 11,
+  `documents.test.ts` 11, `documents-agent.test.ts` 9, policy 3); `pnpm test:e2e` → 20/20 (nowy `documents.spec.ts`
+  na desktopie i telefonie: dodanie PDF, wyszukanie, odpowiedź ze źródłem „s. 2”, fragment, błędy plików, Beta nie widzi
+  dokumentu Alfy w liście, wyszukiwaniu i odpowiedzi); `pnpm test:prod-smoke` → 1/1 (PDF w bundlu produkcyjnym).
+- Granica weryfikacji: brak klucza modelu — „model” w testach to FakeProvider. Sprawdzone jest, co serwer wysyła do
+  modelu (brak cudzych dokumentów, fragmenty jako dane, brak treści w prompcie systemowym) i co robi z odpowiedzią
+  (źródła, zgody). Nie sprawdzono, jak prawdziwy model cytuje źródła ani jak opiera się wstrzyknięciom — dlatego
+  zgoda przy niezaufanym kontekście jest wymuszana po stronie serwera, niezależnie od modelu. Wyszukiwanie jest
+  leksykalne (bez embeddingów): pytania innymi słowami niż w dokumencie mogą nie znaleźć fragmentu. Brak OCR skanów.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -211,7 +249,7 @@ Aktualizowane po każdej pionowej funkcji. Tylko fakty potwierdzone poleceniami 
 
 ## Niezaimplementowane (poza blokadami)
 
-- Pamięć `knowledge` jako dokumenty z RAG i cytatami (jest tylko rodzaj wpisu pamięci) oraz adapter Honcho dla `episodic`.
+- Adapter Honcho dla `episodic`; wyszukiwanie semantyczne (embeddingi) i OCR skanów w pamięci dokumentów.
 - Worker: procesy, uruchamianie aplikacji, brokerowane komendy / PowerShell, przeglądarka, zrzuty ekranu, UI Automation
   (spec, sekcja 6, punkty 4–5). Zaimplementowane: pliki (lista/odczyt/zapis z diffem i kopią) oraz git status/diff.
 - Integracje Microsoft (Outlook/Calendar/Teams) i Slack OAuth (jest tylko weryfikowany webhook Slack); Google Drive.

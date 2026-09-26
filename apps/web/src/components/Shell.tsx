@@ -101,6 +101,12 @@ export function Shell({
       mobile: true,
     },
     {
+      label: 'Dokumenty',
+      icon: 'doc',
+      to: { view: 'documents', space: 'private' },
+      match: (r) => r.view === 'documents' || r.view === 'document',
+    },
+    {
       label: 'Ustawienia',
       icon: 'settings',
       to: { view: 'settings' },
@@ -201,7 +207,9 @@ export function Shell({
               key={n.label}
               href={href(n.to)}
               className={
-                n.match(route) || (n.label === 'Czat' && route.view === 'chat')
+                n.match(route) ||
+                (n.label === 'Czat' && route.view === 'chat') ||
+                (n.label === 'Pamięć' && (route.view === 'documents' || route.view === 'document'))
                   ? 'active'
                   : undefined
               }

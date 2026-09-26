@@ -8,6 +8,8 @@ export type Route =
   | { view: 'tasks'; id: string | null }
   | { view: 'approvals' }
   | { view: 'memory'; space: 'private' | 'shared' }
+  | { view: 'documents'; space: 'private' | 'shared' }
+  | { view: 'document'; id: string; ord: number | null }
   | { view: 'home' }
   | { view: 'settings' }
   | { view: 'enroll'; token: string };
@@ -30,6 +32,11 @@ export function parseRoute(hash: string): Route {
       return { view: 'approvals' };
     case 'memory':
       return { view: 'memory', space: b === 'shared' ? 'shared' : 'private' };
+    case 'documents':
+      if (b && UUID.test(b)) {
+        return { view: 'document', id: b, ord: c && /^\d{1,6}$/.test(c) ? Number(c) : null };
+      }
+      return { view: 'documents', space: b === 'shared' ? 'shared' : 'private' };
     case 'home':
       return { view: 'home' };
     case 'settings':
@@ -51,6 +58,10 @@ export function href(r: Route): string {
       return `#/tasks${r.id ? `/${r.id}` : ''}`;
     case 'memory':
       return `#/memory/${r.space}`;
+    case 'documents':
+      return `#/documents/${r.space}`;
+    case 'document':
+      return `#/documents/${r.id}${r.ord !== null ? `/${r.ord}` : ''}`;
     case 'enroll':
       return `#/enroll/${r.token}`;
     default:

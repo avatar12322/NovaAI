@@ -4,6 +4,10 @@ import type {
 } from '@simplewebauthn/browser';
 import type {
   Device,
+  DocumentChunk,
+  DocumentInfo,
+  DocumentPage,
+  DocumentSearchHit,
   GrantCapability,
   Approval,
   ApprovalPage,
@@ -64,6 +68,32 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     const err = (data as { error?: { code?: string; message?: string } } | null)?.error;
     throw new ApiError(res.status, err?.code ?? 'error', err?.message ?? `Błąd ${res.status}`);
+  }
+  return data as T;
+}
+
+/** Wysyłka pliku jako surowych bajtów (bez multipart); typ ustala serwer z rozszerzenia i treści. */
+async function uploadFile<T>(path: string, file: Blob): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/octet-stream', 'x-nova-csrf': '1' },
+      body: file,
+    });
+  } catch {
+    throw new ApiError(0, 'offline', 'Brak połączenia z serwerem');
+  }
+  const data = (await res.json().catch(() => null)) as {
+    error?: { code?: string; message?: string };
+  } | null;
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      data?.error?.code ?? 'error',
+      data?.error?.message ?? `Błąd ${res.status}`,
+    );
   }
   return data as T;
 }
@@ -188,6 +218,23 @@ export const api = {
   shareMemory: (id: string) => post<Memory>(`/memories/${id}/share`),
   unshareMemory: (id: string) => post<Memory>(`/memories/${id}/unshare`),
   deleteMemory: (id: string) => request<void>('DELETE', `/memories/${id}`),
+
+  documents: (space: Space, cursor?: string) =>
+    get<DocumentPage>(`/documents${qs({ space, limit: 50, cursor })}`),
+  document: (id: string) => get<DocumentInfo>(`/documents/${id}`),
+  documentChunk: (id: string, ord: number) => get<DocumentChunk>(`/documents/${id}/chunks/${ord}`),
+  searchDocuments: (q: string) =>
+    get<{ items: DocumentSearchHit[] }>(`/documents/search${qs({ q, limit: 12 })}`),
+  uploadDocument: (file: File, space: Space) =>
+    uploadFile<{ document: DocumentInfo; taskId: string }>(
+      `/documents${qs({ name: file.name, space })}`,
+      file,
+    ),
+  shareDocument: (id: string) => post<DocumentInfo>(`/documents/${id}/share`),
+  unshareDocument: (id: string) => post<DocumentInfo>(`/documents/${id}/unshare`),
+  reindexDocument: (id: string) => post<{ document: DocumentInfo }>(`/documents/${id}/reindex`),
+  deleteDocument: (id: string) => request<{ ok: true }>('DELETE', `/documents/${id}`),
+  documentFileUrl: (id: string) => `/api/documents/${id}/file`,
 
   tasks: (space: Space, status: 'active' | 'all' = 'all') =>
     get<TaskPage>(`/tasks${qs({ space, status, limit: 50 })}`),

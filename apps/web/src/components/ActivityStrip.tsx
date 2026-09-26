@@ -1,5 +1,11 @@
 import { useEvents } from '../lib/events';
-import { EVENT_PL, STEP_STATUS_PL, TASK_STATUS_PL, timeOfDay } from '../lib/format';
+import {
+  DOCUMENT_STATUS_PL,
+  EVENT_PL,
+  STEP_STATUS_PL,
+  TASK_STATUS_PL,
+  timeOfDay,
+} from '../lib/format';
 import { href } from '../lib/router';
 import { Icon } from './Icon';
 
@@ -43,14 +49,29 @@ export function ActivityStrip() {
                 : typeof e.payload.title === 'string'
                   ? e.payload.title
                   : null;
-            const statusPl = status
-              ? (TASK_STATUS_PL[status] ?? STEP_STATUS_PL[status] ?? status)
+            const isDoc = e.type === 'document.updated';
+            const docChange = isDoc
+              ? (status ?? (typeof e.payload.visibility === 'string' ? e.payload.visibility : null))
               : null;
+            const statusPl = isDoc
+              ? docChange && (DOCUMENT_STATUS_PL[docChange] ?? docChange)
+              : status
+                ? (TASK_STATUS_PL[status] ?? STEP_STATUS_PL[status] ?? status)
+                : null;
+            const docLink =
+              isDoc &&
+              typeof e.payload.documentId === 'string' &&
+              docChange !== 'deleted' &&
+              docChange !== 'removed'
+                ? href({ view: 'document', id: e.payload.documentId, ord: null })
+                : null;
             return (
               <li key={e.id} className="activity-item">
                 <span className="activity-time mono">{timeOfDay(e.createdAt)}</span>
                 <span className="activity-text">
-                  {e.taskId ? (
+                  {docLink ? (
+                    <a href={docLink}>{EVENT_PL[e.type]}</a>
+                  ) : e.taskId && !isDoc ? (
                     <a href={href({ view: 'tasks', id: e.taskId })}>{EVENT_PL[e.type] ?? e.type}</a>
                   ) : (
                     (EVENT_PL[e.type] ?? e.type)

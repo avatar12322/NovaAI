@@ -78,7 +78,9 @@ lokalnie jednorazowo `pnpm --filter @nova/web exec playwright install chromium`.
    `napisz do domownika: …` (utworzy zgodę).
 3. **Zadania** — „Zadanie demonstracyjne” pokazuje postęp, kroki równoległe i zgodę na wysyłkę wiadomości.
 4. **Zgody** — podgląd dokładnej treści i odbiorcy; zatwierdzenie konkretnej wersji.
-5. **Pamięć** — wpisy prywatne/wspólne, `Udostępnij` / `Cofnij udostępnienie`.
+5. **Pamięć** — wpisy prywatne/wspólne, `Udostępnij` / `Cofnij udostępnienie`. **Dokumenty** (Pamięć → Dokumenty):
+   dodaj PDF, TXT lub Markdown (do 10 MB), poczekaj na status „gotowy” i zapytaj w czacie — odpowiedź pokaże
+   „Źródła” z nazwą dokumentu i stroną/fragmentem. Prywatny dokument widzisz tylko Ty; wspólny — domownicy i NovaAI.
 6. **Dom** — wiadomości od domownika, aktywne wspólne zadania. **Ustawienia** — stan usług, budżet, motyw.
 
 ## Struktura

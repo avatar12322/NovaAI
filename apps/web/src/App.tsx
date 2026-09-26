@@ -7,6 +7,7 @@ import { EventsProvider } from './lib/events';
 import { useRoute } from './lib/router';
 import { ApprovalsView } from './views/Approvals';
 import { ChatView } from './views/Chat';
+import { DocumentsView, DocumentView } from './views/Documents';
 import { HomeView } from './views/Home';
 import { LoginView } from './views/Login';
 import { MemoryView } from './views/Memory';
@@ -72,6 +73,8 @@ export function App() {
         {route.view === 'tasks' && <TasksView me={me} taskId={route.id} />}
         {route.view === 'approvals' && <ApprovalsView />}
         {route.view === 'memory' && <MemoryView space={route.space} />}
+        {route.view === 'documents' && <DocumentsView key={route.space} space={route.space} />}
+        {route.view === 'document' && <DocumentView id={route.id} ord={route.ord} />}
         {route.view === 'home' && <HomeView me={me} />}
         {route.view === 'settings' && <SettingsView me={me} onLogout={logout} />}
       </Shell>

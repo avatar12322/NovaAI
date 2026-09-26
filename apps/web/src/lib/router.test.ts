@@ -13,6 +13,14 @@ describe('router', () => {
   it('ignoruje parametry zapytania w hashu (powrót z OAuth)', () => {
     expect(parseRoute('#/settings?integration=ok')).toEqual({ view: 'settings' });
   });
+  it('dokumenty: lista, szczegóły i fragment', () => {
+    const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    expect(parseRoute('#/documents')).toEqual({ view: 'documents', space: 'private' });
+    expect(parseRoute('#/documents/shared')).toEqual({ view: 'documents', space: 'shared' });
+    expect(parseRoute(`#/documents/${id}/3`)).toEqual({ view: 'document', id, ord: 3 });
+    expect(parseRoute(`#/documents/${id}/x`)).toEqual({ view: 'document', id, ord: null });
+    expect(href({ view: 'document', id, ord: 0 })).toBe(`#/documents/${id}/0`);
+  });
   it('odrzuca identyfikatory niebędące UUID', () => {
     expect(parseRoute('#/tasks/../../etc')).toEqual({ view: 'tasks', id: null });
   });

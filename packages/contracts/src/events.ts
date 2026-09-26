@@ -1,26 +1,12 @@
 import { z } from 'zod';
+import { EVENT_TYPES } from './event-types';
 import { Uuid, Visibility } from './common';
 
 /**
  * Zdarzenia Activity Strip. Payload zawiera identyfikatory, statusy i tytuły — nigdy sekrety
  * ani treść wiadomości/pamięci. Widoczność zdarzenia = widoczność zasobu źródłowego.
  */
-export const EventType = z.enum([
-  'task.created',
-  'task.status',
-  'task.progress',
-  'step.status',
-  'approval.requested',
-  'approval.resolved',
-  'message.created',
-  'memory.changed',
-  'notification.created',
-  'budget.warning',
-  'budget.blocked',
-  'budget.changed',
-  'device.status',
-  'document.updated',
-]);
+export const EventType = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof EventType>;
 
 export const NovaEvent = z.object({

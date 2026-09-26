@@ -7,6 +7,7 @@ import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { timeAgo } from '../lib/format';
 import { href } from '../lib/router';
+import { MemoryTabs } from './Documents';
 
 const KIND_PL: Record<MemoryKind, string> = {
   profile: 'fakt',
@@ -31,6 +32,7 @@ export function MemoryView({ space }: { space: 'private' | 'shared' }) {
 
   return (
     <section className="page" aria-label="Pamięć">
+      <MemoryTabs current="entries" />
       <header className="section-head">
         <div>
           <h1>Pamięć</h1>

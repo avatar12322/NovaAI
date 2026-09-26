@@ -1,4 +1,5 @@
 import type { NovaEvent } from '@nova/contracts';
+import { EVENT_TYPES } from '@nova/contracts/event-types';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 type Listener = (e: NovaEvent) => void;
@@ -16,22 +17,6 @@ const Ctx = createContext<EventsCtx>({
   subscribe: () => () => undefined,
   onResync: () => () => undefined,
 });
-
-const TYPES = [
-  'task.created',
-  'task.status',
-  'task.progress',
-  'step.status',
-  'approval.requested',
-  'approval.resolved',
-  'message.created',
-  'memory.changed',
-  'notification.created',
-  'budget.warning',
-  'budget.blocked',
-  'budget.changed',
-  'device.status',
-];
 
 /**
  * Strumień zdarzeń (SSE). EventSource sam wznawia połączenie i wysyła Last-Event-ID.
@@ -61,7 +46,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         /* ignoruj uszkodzone zdarzenie */
       }
     };
-    TYPES.forEach((t) => es.addEventListener(t, on as EventListener));
+    EVENT_TYPES.forEach((t) => es.addEventListener(t, on as EventListener));
     return () => es.close();
   }, []);
 
