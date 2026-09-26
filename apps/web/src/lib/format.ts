@@ -94,7 +94,7 @@ export function locatorLabel(l: {
 /** Czytelne powody odrzucenia akcji: brak połączonego konta odróżniony od braku uprawnień kontekstu. */
 export const CONNECTOR_DENY_PL: Record<string, string> = {
   'connector:not_connected':
-    'Konto pocztowe lub kalendarz nie jest połączone — połącz je w Ustawieniach → Integracje.',
+    'Potrzebne konto (poczta, kalendarz lub Slack) nie jest połączone — połącz je w Ustawieniach → Integracje.',
   'connector:reauth_required':
     'Dostęp do konta wygasł lub został cofnięty — połącz je ponownie w Ustawieniach → Integracje.',
   'connector:scope_missing':
@@ -102,6 +102,15 @@ export const CONNECTOR_DENY_PL: Record<string, string> = {
   'connector:ambiguous_account':
     'Połączono kilka kont z tą funkcją — napisz, którego użyć (Outlook lub Gmail).',
   'connector:not_configured': 'Ta integracja nie jest skonfigurowana na serwerze.',
+  'connector:not_in_channel': 'Nie należysz do tego kanału Slack — wiadomość nie zostanie wysłana.',
+  'connector:is_archived': 'Ten kanał Slack jest zarchiwizowany.',
+  'connector:channel_not_found': 'Nie znaleziono kanału Slack (albo nie masz do niego dostępu).',
+  'connector:unsupported_conversation':
+    'Wysyłka do rozmów bezpośrednich i grupowych na Slacku nie jest obsługiwana — wybierz kanał.',
+  'connector:restricted_action': 'Zasady workspace’u Slack nie pozwalają na tę akcję.',
+  'connector:msg_too_long': 'Wiadomość jest za długa dla Slacka.',
+  'connector:search_disabled':
+    'Wyszukiwanie dla aplikacji jest wyłączone w tym workspace Slack (decyzja administratora).',
 };
 
 /** Błąd kroku zadania do wyświetlenia: odmowy integracji jako zrozumiały komunikat. */

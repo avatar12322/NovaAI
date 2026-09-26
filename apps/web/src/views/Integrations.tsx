@@ -9,10 +9,20 @@ const CAP_PL: Record<string, string> = {
   'mail.draft': 'Szkice e-maili w Outlooku — zawsze po Twojej zgodzie',
   'calendar.freebusy': 'Zajętość kalendarza (bez szczegółów wydarzeń)',
   'calendar.read': 'Odczyt wydarzeń (tytuł, czas, miejsce) — tylko prywatny asystent',
+  'chat.read': 'Wzmianki i wiadomości z kanałów publicznych, do których należysz',
+  'chat.read_private': 'Także Twoje kanały prywatne',
+  'chat.read_dm': 'Także rozmowy bezpośrednie i grupowe',
+  'chat.send': 'Wysyłanie wiadomości jako Ty — zawsze po Twojej zgodzie',
 };
 
 /** Domyślnie tylko odczyt; działania ze skutkami (wysyłka, szkice) użytkownik włącza świadomie. */
-const OPT_IN = new Set(['mail.send', 'mail.draft']);
+const OPT_IN = new Set([
+  'mail.send',
+  'mail.draft',
+  'chat.send',
+  'chat.read_private',
+  'chat.read_dm',
+]);
 
 const PROVIDER_PL: Record<string, string> = {
   google: 'Google',
@@ -30,6 +40,8 @@ const REASON_PL: Record<string, string> = {
   reauth_required: 'logowanie nie zostało potwierdzone przez dostawcę — spróbuj ponownie.',
   provider_error: 'dostawca odrzucił logowanie (sprawdź konfigurację aplikacji OAuth na serwerze).',
   not_configured: 'integracja nie jest skonfigurowana na serwerze.',
+  account_in_use:
+    'to konto jest już połączone przez inną osobę w NovaAI. Każda osoba łączy własne konto.',
 };
 
 /** Integracje: tylko rzeczywiście połączone i skonfigurowane usługi są oznaczone jako dostępne. */
@@ -76,11 +88,22 @@ export function IntegrationsPanel() {
   };
   const disconnect = async (c: ConnectionInfo) => {
     try {
-      await api.disconnect(c.provider);
-      setNotice({
-        text: `Odłączono ${PROVIDER_PL[c.provider] ?? c.provider}. Tokeny usunięto z NovaAI.`,
-        tone: 'muted',
-      });
+      const r = await api.disconnect(c.provider);
+      const who = PROVIDER_PL[c.provider] ?? c.provider;
+      setNotice(
+        r.providerRevoked === false
+          ? {
+              text: `Odłączono ${who} i usunięto tokeny z NovaAI, ale ${who} nie potwierdził odwołania dostępu. Usuń aplikację NovaAI także na koncie ${who}.`,
+              tone: 'warn',
+            }
+          : {
+              text:
+                r.providerRevoked === true
+                  ? `Odłączono ${who}: dostęp odwołany u dostawcy, tokeny usunięte z NovaAI.`
+                  : `Odłączono ${who}: tokeny usunięte z NovaAI. Zgodę cofniesz na koncie ${who} (instrukcja poniżej).`,
+              tone: 'muted',
+            },
+      );
       load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Błąd');
@@ -176,22 +199,32 @@ function IntegrationCard({
       )}
       {c.configured && !conn && (
         <p className="small muted">
-          Konto nie jest połączone — asystent nie ma dostępu do tej poczty ani kalendarza.
+          Konto nie jest połączone — asystent nie ma dostępu do{' '}
+          {c.provider === 'slack' ? 'Twoich wiadomości na Slacku' : 'tej poczty ani kalendarza'}.
         </p>
       )}
       {needsReauth && (
         <p className="note note-danger">
-          Dostęp wygasł albo został cofnięty u dostawcy. Asystent nie korzysta z tego konta, dopóki
-          nie połączysz go ponownie.
+          {conn?.lastError === 'revoked_by_provider'
+            ? `Dostęp cofnięto po stronie ${PROVIDER_PL[c.provider] ?? c.provider} (usunięto aplikację lub odwołano token).`
+            : 'Dostęp wygasł albo został cofnięty u dostawcy.'}{' '}
+          Asystent nie korzysta z tego konta, dopóki nie połączysz go ponownie.
         </p>
       )}
       {conn?.status === 'connected' && (
-        <p className="small muted">
-          Dostęp:{' '}
-          {conn.capabilities.length
-            ? conn.capabilities.map((x) => CAP_PL[x] ?? x).join('; ')
-            : 'brak (nie przyznano uprawnień)'}
-        </p>
+        <ul className="cap-status" aria-label="Status uprawnień">
+          {c.capabilities.map((cap) => {
+            const on = conn.capabilities.includes(cap);
+            return (
+              <li key={cap} className={on ? 'on' : 'off'}>
+                <span aria-hidden="true">{on ? '✓' : '–'}</span>
+                <span>{CAP_PL[cap] ?? cap}</span>
+                <span className="sr-only">{on ? 'włączone' : 'wyłączone'}</span>
+                {!on && <span className="small muted">(wyłączone)</span>}
+              </li>
+            );
+          })}
+        </ul>
       )}
       {missing && <p className="note note-warn">Dostawca nie przyznał uprawnień: {missing}.</p>}
 
@@ -285,13 +318,12 @@ export function CalendarPanel() {
     <section className="panel">
       <h2 className="h-sub">Kalendarz</h2>
       {error && <ErrorNote error={error} />}
-      <label className="row">
+      <label className="check">
         <input
           type="checkbox"
           checked={grant ?? false}
           disabled={grant === null}
           onChange={(e) => void api.setFreeBusyGrant(e.target.checked).then(load)}
-          style={{ width: 'auto', minHeight: 0 }}
         />
         <span>
           Udostępnij NovaAI moją zajętość (tylko przedziały „zajęty”, bez tytułów i szczegółów)

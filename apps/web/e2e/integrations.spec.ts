@@ -91,6 +91,67 @@ test('czat: prośba o pocztę bez połączonego konta daje czytelny powód', asy
   const reply = page.locator('.msg-assistant').last();
   await expect(reply).toContainText('tryb demo', { timeout: 15_000 });
   await expect(reply).toContainText(
-    'Konto pocztowe lub kalendarz nie jest połączone — połącz je w Ustawieniach → Integracje.',
+    'Potrzebne konto (poczta, kalendarz lub Slack) nie jest połączone — połącz je w Ustawieniach → Integracje.',
+  );
+});
+
+test('Slack: niepołączone konto, minimalne zakresy użytkownika, brak zapisu treści', async ({
+  page,
+}) => {
+  await loginAlfa(page);
+  await page.goto('/#/settings');
+  const sl = page
+    .locator('.integration')
+    .filter({ hasText: 'Slack (wzmianki, wiadomości, wysyłka)' });
+  await expect(sl.locator('.badge')).toHaveText('nie połączono');
+  // Domyślnie tylko kanały publiczne; kanały prywatne, rozmowy bezpośrednie i wysyłka — świadomy wybór.
+  await expect(sl.getByLabel(/kanałów publicznych/)).toBeChecked();
+  await expect(sl.getByLabel(/kanały prywatne/)).not.toBeChecked();
+  await expect(sl.getByLabel(/rozmowy bezpośrednie/)).not.toBeChecked();
+  await expect(sl.getByLabel(/Wysyłanie wiadomości/)).not.toBeChecked();
+  await expect(sl.getByText('search:read.public').first()).toBeVisible();
+  const storage = sl.locator('summary', { hasText: 'Wyniki ze Slacka nie są zapisywane' });
+  await storage.click();
+  await expect(sl).toContainText('zabraniają przechowywania');
+  await sl.scrollIntoViewIfNeeded();
+  await shot(page, '14-integrations-slack');
+
+  let authorize: URL | null = null;
+  await page.route('https://slack.com/oauth/v2/authorize**', (route) => {
+    authorize = new URL(route.request().url());
+    return route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<p>Atrapa strony Slack (test)</p>',
+    });
+  });
+  await sl.getByLabel(/Wysyłanie wiadomości/).check();
+  await sl.getByRole('button', { name: 'Połącz' }).click();
+  await expect(page.getByText('Atrapa strony Slack (test)')).toBeVisible();
+  const u = authorize as unknown as URL;
+  expect(u.searchParams.get('client_id')).toBe('e2e-slack-client');
+  expect(u.searchParams.get('user_scope')).toBe(
+    'channels:read,chat:write,groups:read,search:read.public',
+  );
+  expect(u.searchParams.has('scope')).toBe(false);
+  expect(u.searchParams.get('redirect_uri')).toBe(
+    'http://localhost:5174/api/connections/slack/callback',
+  );
+
+  await page.goto('/#/settings?integration=error&provider=slack&reason=account_in_use');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Nie udało się połączyć konta Slack' }),
+  ).toContainText('połączone przez inną osobę');
+
+  await page.goto('/#/chat/private');
+  await page.getByRole('button', { name: 'Nowa' }).click();
+  await expect(page.getByText('Napisz pierwszą wiadomość')).toBeVisible();
+  const input = page.getByLabel('Wiadomość');
+  await input.fill('wzmianki slack');
+  await input.press('Enter');
+  const reply = page.locator('.msg-assistant').last();
+  await expect(reply).toContainText('tryb demo', { timeout: 15_000 });
+  await expect(reply).toContainText(
+    'Potrzebne konto (poczta, kalendarz lub Slack) nie jest połączone',
   );
 });

@@ -11,7 +11,7 @@ import {
 import { Icon } from '../components/Icon';
 import { DictationButton, SpeakButton } from '../components/Voice';
 import { Badge, EmptyState, ErrorNote, Spinner } from '../components/ui';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
 import { href, navigate, parseRoute } from '../lib/router';
@@ -340,6 +340,9 @@ const TOOL_PL: Record<string, string> = {
   'mail.read': 'Odczyt e-maila',
   'mail.send': 'Wysyłka e-maila',
   'mail.draft': 'Szkic e-maila',
+  'slack.mentions': 'Wzmianki na Slacku',
+  'slack.search': 'Wyszukiwanie na Slacku',
+  'slack.send': 'Wiadomość na Slacku',
   'device.files.list': 'Pliki na urządzeniu',
   'device.files.read': 'Odczyt pliku z urządzenia',
   'device.files.write': 'Zapis pliku na urządzeniu',
@@ -349,6 +352,10 @@ const TOOL_PL: Record<string, string> = {
 
 function ToolResult({ m }: { m: Message }) {
   const tool = typeof m.meta.tool === 'string' ? m.meta.tool : '';
+  const live =
+    tool.startsWith('slack.') && m.meta.live && typeof m.meta.live === 'object'
+      ? (m.meta.live as Record<string, unknown>)
+      : null;
   return (
     <article className="msg msg-tool" aria-label="Wynik akcji">
       <header className="msg-meta">
@@ -357,7 +364,69 @@ function ToolResult({ m }: { m: Message }) {
         <time dateTime={m.createdAt}>{timeOfDay(m.createdAt)}</time>
       </header>
       <div className="msg-body">{m.content}</div>
+      {live && <SlackLive query={live} />}
     </article>
+  );
+}
+
+/** Treść ze Slacka pobierana na żywo przy każdym otwarciu — nie jest zapisywana (zasady Slacka). */
+function SlackLive({ query }: { query: Record<string, unknown> }) {
+  const [items, setItems] = useState<SlackLiveItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => {
+    setBusy(true);
+    setError(null);
+    api
+      .slackLive(query)
+      .then((r) => setItems(r.items))
+      .catch((e: unknown) =>
+        setError(
+          e instanceof ApiError
+            ? (CONNECTOR_DENY_PL[`connector:${e.code}`] ??
+                (e.status === 503
+                  ? 'Slack chwilowo nie odpowiada — spróbuj za chwilę.'
+                  : e.message))
+            : 'Błąd',
+        ),
+      )
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="slack-live">
+      {!items && (
+        <button type="button" className="btn btn-sm" disabled={busy} onClick={load}>
+          {busy ? 'Pobieranie…' : 'Pokaż na żywo'}
+        </button>
+      )}
+      {error && (
+        <p className="note note-danger" role="alert">
+          {error}
+        </p>
+      )}
+      {items && items.length === 0 && <p className="small muted">Brak wyników.</p>}
+      {items && items.length > 0 && (
+        <ul className="slack-items">
+          {items.map((it) => (
+            <li key={`${it.channelId}-${it.ts}`}>
+              <div className="small muted">
+                {it.channelName ? `#${it.channelName}` : it.channelId} · {it.author || it.authorId}{' '}
+                · {new Date(Number(it.ts) * 1000).toLocaleString('pl-PL')}
+              </div>
+              <div>{it.text}</div>
+              {/^https:\/\//.test(it.permalink) && (
+                <a href={it.permalink} target="_blank" rel="noopener noreferrer" className="small">
+                  Otwórz w Slacku
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {items && (
+        <p className="small muted">Pobrane teraz ze Slacka; NovaAI nie zapisuje tej treści.</p>
+      )}
+    </div>
   );
 }
 

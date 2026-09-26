@@ -145,6 +145,16 @@ export interface ConnectionInfo {
   } | null;
 }
 
+export interface SlackLiveItem {
+  author: string;
+  authorId: string;
+  channelId: string;
+  channelName: string;
+  ts: string;
+  text: string;
+  permalink: string;
+}
+
 export interface LocalEvent {
   id: string;
   title: string;
@@ -270,7 +280,14 @@ export const api = {
   connections: () => get<{ items: ConnectionInfo[] }>('/connections'),
   startConnection: (provider: string, capabilities: string[]) =>
     post<{ url: string }>(`/connections/${provider}/start`, { capabilities }),
-  disconnect: (provider: string) => request<void>('DELETE', `/connections/${provider}`),
+  disconnect: (provider: string) =>
+    request<{ disconnected: boolean; providerRevoked: boolean | null }>(
+      'DELETE',
+      `/connections/${provider}`,
+    ),
+  /** Slack na żywo — wyniki tylko do wyświetlenia, nie są nigdzie zapisywane. */
+  slackLive: (q: Record<string, unknown>) =>
+    post<{ items: SlackLiveItem[] }>('/connections/slack/live', q),
   freeBusyGrant: () => get<{ active: boolean }>('/calendar/freebusy-grant'),
   setFreeBusyGrant: (on: boolean) =>
     on
