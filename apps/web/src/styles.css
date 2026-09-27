@@ -2096,3 +2096,9 @@ kbd {
 .msg-body a {
   color: var(--accent);
 }
+.cal-subjects {
+  flex-basis: 100%;
+}
+.cal-subjects summary {
+  cursor: pointer;
+}

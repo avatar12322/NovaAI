@@ -780,7 +780,7 @@ describe('kalendarz Outlook', () => {
       await chat(alfa, 'wydarzenia: 2026-10-01T00:00:00Z 2026-10-03T00:00:00Z'),
     );
     expect(text).toContain(
-      '2026-10-01T08:00:00.000Z – 2026-10-01T09:00:00.000Z: Lekarz — prywatne — Przychodnia',
+      '2026-10-01T08:00:00.000Z – 2026-10-01T09:00:00.000Z: Lekarz — prywatne — sala/miejsce: Przychodnia',
     );
     expect(text).toContain('Czas wolny');
     expect(text).toContain('(cały dzień): Urodziny');

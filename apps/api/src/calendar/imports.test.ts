@@ -120,6 +120,43 @@ describe('plan zajęć z pliku .ics', () => {
     expect((await t.db.owner.query(`SELECT 1 FROM local_calendar_events`)).rows).toHaveLength(2);
   });
 
+  it('wybór przedmiotów: odznaczony znika z przeglądu dnia; wybór zostaje w nowej wersji planu', async () => {
+    const id = (await send(alfa, PLAN)).json().import.id;
+    const patch = (excluded: string[], c: Client = alfa) =>
+      t.app.inject({
+        method: 'PATCH',
+        url: `/api/calendar/imports/${id}`,
+        headers: { cookie: c.cookie, 'x-nova-csrf': '1' },
+        payload: { excluded },
+      });
+    const res = await patch(['Programowanie obiektowe']);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().import).toMatchObject({
+      eventCount: 2,
+      visibleCount: 1,
+      subjects: [
+        { title: 'Bazy danych', count: 1, hidden: false },
+        { title: 'Programowanie obiektowe', count: 1, hidden: true },
+      ],
+    });
+    expect((await alfa.get('/api/briefing')).body.events).toEqual([]);
+
+    // Nowa wersja z tym samym przedmiotem: nadal ukryty.
+    const next = calendar(
+      vevent('9', day(0), '1200', '1330', 'Programowanie obiektowe', 'A-101'),
+      vevent('10', day(0), '1400', '1530', 'Sieci komputerowe', 'C-3'),
+    );
+    await send(alfa, next, { id });
+    const b = (await alfa.get('/api/briefing')).body;
+    expect(b.events.map((e: any) => e.title)).toEqual(['Sieci komputerowe']);
+
+    // Ponowne zaznaczenie; Beta nie zmienia planu Alfy.
+    expect((await patch([], beta)).statusCode).toBe(404);
+    await patch([]);
+    expect((await alfa.get('/api/briefing')).body.events).toHaveLength(2);
+    expect((await patch(['x'.repeat(201)])).statusCode).toBe(400);
+  });
+
   it('plan wgrany przed odczytem sali: sala z zapisanego opisu, bez ponownego wgrywania', async () => {
     const id = (await send(alfa, PLAN)).json().import.id;
     // Stan sprzed poprawki: pusta sala, pełny opis z IDEIS w notatkach (dane zmyślone).
@@ -208,11 +245,13 @@ describe('asystent czyta plan zajęć (calendar.agenda)', () => {
     expect(first!.system).toMatch(/Teraz: \S+, \d{1,2} \S+ \d{4} \d\d:\d\d \(czas w Polsce\)/);
     expect(first!.tools.map((x) => x.name)).toContain('calendar.agenda');
     const fed = JSON.stringify(second!.messages);
-    expect(fed).toContain('Programowanie obiektowe — A-101 (Prowadzący: dr Jan Testowy)');
-    expect(fed).toContain('Bazy danych — B-7');
+    expect(fed).toContain(
+      'Programowanie obiektowe — sala/miejsce: A-101 (Prowadzący: dr Jan Testowy)',
+    );
+    expect(fed).toContain('Bazy danych — sala/miejsce: B-7');
     // Wynik (z listą zajęć) zostaje w prywatnej rozmowie właściciela.
     expect(msgs.find((m) => m.role === 'tool')!.content).toMatch(
-      /^Kalendarz NovaAI: 2 wydarzenia\n.*Programowanie obiektowe — A-101/s,
+      /^Kalendarz NovaAI: 2 wydarzenia\n.*Programowanie obiektowe — sala\/miejsce: A-101/s,
     );
     expect(msgs.at(-1)).toMatchObject({ role: 'assistant', content: 'Jutro masz Bazy danych.' });
     const approvals = await t.db.owner.query('SELECT count(*)::int AS n FROM approvals');

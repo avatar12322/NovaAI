@@ -103,7 +103,7 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
       notes: string | null;
     }>(
       `SELECT id, title, starts_at, ends_at, location, notes FROM local_calendar_events
-        WHERE owner_user_id = nova_uid() AND starts_at < ${DAY_END} AND ends_at > ${DAY_START}
+        WHERE owner_user_id = nova_uid() AND NOT hidden AND starts_at < ${DAY_END} AND ends_at > ${DAY_START}
         ORDER BY starts_at LIMIT 10`,
     );
     const counts = await c.query<{ approvals: number; tasks: number; unread: number }>(

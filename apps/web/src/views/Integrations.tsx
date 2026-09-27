@@ -473,6 +473,26 @@ function CalendarImports() {
     }
   };
 
+  const toggleSubject = async (c: CalendarImport, title: string, show: boolean) => {
+    const excluded = c.subjects
+      .filter((s) => (s.title === title ? !show : s.hidden))
+      .map((s) => s.title);
+    setError(null);
+    const replace = (next: CalendarImport) =>
+      setItems((all) => all?.map((x) => (x.id === c.id ? next : x)) ?? null);
+    // Od razu w widoku; przy błędzie — powrót do poprzedniego stanu.
+    replace({
+      ...c,
+      subjects: c.subjects.map((s) => (s.title === title ? { ...s, hidden: !show } : s)),
+    });
+    try {
+      replace((await api.setCalendarSubjects(c.id, excluded)).import);
+    } catch (e) {
+      replace(c);
+      setError(errorText(e));
+    }
+  };
+
   return (
     <div className="cal-imports">
       <h3 className="small muted">Plan zajęć i kalendarze z pliku (.ics)</h3>
@@ -537,7 +557,8 @@ function CalendarImports() {
               <div>
                 <strong>{c.name}</strong>
                 <div className="small muted">
-                  {plural(c.eventCount, 'wydarzenie', 'wydarzenia', 'wydarzeń')}
+                  {plural(c.visibleCount, 'wydarzenie', 'wydarzenia', 'wydarzeń')}
+                  {c.visibleCount < c.eventCount ? ` z ${c.eventCount}` : ''}
                   {c.firstAt && c.lastAt
                     ? ` · ${shortDate(c.firstAt)} – ${shortDate(c.lastAt)}`
                     : ''}
@@ -575,6 +596,34 @@ function CalendarImports() {
                   Usuń
                 </button>
               </div>
+              {c.subjects.length > 1 && (
+                <details className="cal-subjects">
+                  <summary className="small">
+                    Przedmioty — pokazywane {c.subjects.filter((s) => !s.hidden).length} z{' '}
+                    {c.subjects.length}
+                  </summary>
+                  <p className="small muted">
+                    Odznacz przedmioty innych grup — znikną z przeglądu dnia, zajętości i odpowiedzi
+                    asystenta. Wybór zostaje po wgraniu nowej wersji planu.
+                  </p>
+                  {c.subjects.map((s) => (
+                    <label key={s.title} className="check">
+                      <input
+                        type="checkbox"
+                        checked={!s.hidden}
+                        disabled={busy}
+                        onChange={(e) => void toggleSubject(c, s.title, e.target.checked)}
+                      />
+                      <span>
+                        {s.title}{' '}
+                        <span className="small muted">
+                          ({plural(s.count, 'wydarzenie', 'wydarzenia', 'wydarzeń')})
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </details>
+              )}
             </li>
           ))}
         </ul>

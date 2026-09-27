@@ -64,9 +64,21 @@ test('plan zajęć: wgranie, przegląd dnia z salą, nowa wersja, usunięcie', a
   await expect(item).toContainText('Plan WSEI');
   await expect(item).toContainText('2 wydarzenia');
   await expect(item).toContainText('najbliższe:');
-  await box.locator('summary', { hasText: 'Jak pobrać plan' }).click();
-  await expect(box).toContainText('Zapisz jako ical');
-  await box.scrollIntoViewIfNeeded();
+  // Plan toku ma zajęcia innych grup: odznaczony przedmiot jest ukryty (także po odświeżeniu).
+  await item.locator('summary', { hasText: 'Przedmioty' }).click();
+  await item.getByLabel(/Bazy danych/).uncheck();
+  await expect(item).toContainText('1 wydarzenie z 2');
+  await page.reload();
+  const again = section(page)
+    .getByRole('list', { name: 'Wgrane kalendarze' })
+    .getByRole('listitem');
+  await expect(again).toContainText('1 wydarzenie z 2');
+  await again.locator('summary', { hasText: 'Przedmioty — pokazywane 1 z 2' }).click();
+  await expect(again.getByLabel(/Bazy danych/)).not.toBeChecked();
+  await expect(again.getByLabel(/Programowanie obiektowe/)).toBeChecked();
+  await section(page).locator('summary', { hasText: 'Jak pobrać plan' }).click();
+  await expect(section(page)).toContainText('Zapisz jako ical');
+  await section(page).scrollIntoViewIfNeeded();
   await shot(page, '24-calendar-import');
 
   await page.goto('/#/home');

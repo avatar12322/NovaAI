@@ -65,7 +65,7 @@ export const calendarAgendaTool: ToolDef<AgendaParams> = {
         notes: string | null;
       }>(
         `SELECT title, starts_at, ends_at, location, notes FROM local_calendar_events
-          WHERE owner_user_id = nova_uid() AND starts_at < $2 AND ends_at > $1
+          WHERE owner_user_id = nova_uid() AND NOT hidden AND starts_at < $2 AND ends_at > $1
           ORDER BY starts_at LIMIT $3`,
         [p.from, p.to, p.max],
       ),

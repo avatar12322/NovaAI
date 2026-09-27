@@ -408,7 +408,7 @@ function formatToolResult(tool: string, out: Record<string, unknown>): string {
       ? evs
           .map(
             (e) =>
-              `${e.start} – ${e.end}${e.allDay ? ' (cały dzień)' : ''}: ${e.subject || '(bez tytułu)'}${e.location ? ` — ${e.location}` : ''}${e.details ? ` (${e.details})` : ''}`,
+              `${e.start} – ${e.end}${e.allDay ? ' (cały dzień)' : ''}: ${e.subject || '(bez tytułu)'}${e.location ? ` — sala/miejsce: ${e.location}` : ''}${e.details ? ` (${e.details})` : ''}`,
           )
           .join('\n')
       : 'Brak wydarzeń w tym zakresie';

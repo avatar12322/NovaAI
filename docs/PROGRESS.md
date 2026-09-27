@@ -680,6 +680,16 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy (tylko zmienione obszary): `lib/markdown.test.ts` (6), web 28/28, e2e `assistant-motion` 4/4,
   api `src/calendar` + `src/briefing` 20/20, `src/model` + `src/documents` 85/85.
 
+### Wybór przedmiotów w planie; sala nazwana wprost (2026-09-27)
+
+- Plan toku z IDEIS zawiera zajęcia wszystkich ścieżek i grup. Przy wgranym planie: „Przedmioty — pokazywane
+  X z Y” z polami wyboru; odznaczone są ukryte w przeglądzie dnia, zajętości i u asystenta, a wybór zostaje po
+  „Wgraj nową wersję” (migracja `0019`: `excluded_titles`, `hidden`; RLS jak wcześniej, tylko właściciel).
+- Asystent dostawał salę bez etykiety („— F Montreal”) i nie rozpoznawał jej jako sali — teraz
+  „— sala/miejsce: F Montreal” (też dla wydarzeń z Outlooka).
+- Testy (zmienione obszary): api `src/calendar` + `src/briefing` + `microsoft.test.ts` 47/47, e2e
+  `calendar-import` 2/2.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

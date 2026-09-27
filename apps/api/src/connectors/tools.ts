@@ -90,7 +90,8 @@ async function busyOf(
   }
   const r = await ctx.deps.db.owner.query<{ starts_at: string; ends_at: string }>(
     `SELECT starts_at, ends_at FROM local_calendar_events
-      WHERE owner_user_id = $1 AND household_id = $2 AND starts_at < $4 AND ends_at > $3 ORDER BY starts_at`,
+      WHERE owner_user_id = $1 AND household_id = $2 AND NOT hidden AND starts_at < $4 AND ends_at > $3
+      ORDER BY starts_at`,
     [userId, ctx.householdId, from, to],
   );
   return { busy: r.rows.map((x) => ({ start: x.starts_at, end: x.ends_at })), source: 'local' };

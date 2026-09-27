@@ -190,10 +190,13 @@ export interface CalendarImport {
   id: string;
   name: string;
   eventCount: number;
+  /** Zajęcia z pokazywanych (nieodznaczonych) przedmiotów. */
+  visibleCount: number;
   updatedAt: string;
   firstAt: string | null;
   lastAt: string | null;
   nextAt: string | null;
+  subjects: Array<{ title: string; count: number; hidden: boolean }>;
 }
 
 export interface LocalEvent {
@@ -428,6 +431,9 @@ export const api = {
       'PUT',
     ),
   deleteCalendarImport: (id: string) => request<void>('DELETE', `/calendar/imports/${id}`),
+  /** Przedmioty ukryte w planie (np. zajęcia innych grup). */
+  setCalendarSubjects: (id: string, excluded: string[]) =>
+    request<{ import: CalendarImport }>('PATCH', `/calendar/imports/${id}`, { excluded }),
 
   reminders: (space: Space) => get<{ items: Reminder[] }>(`/reminders${qs({ space })}`),
   addReminder: (r: { text: string; dueAt: string; space: Space }) =>

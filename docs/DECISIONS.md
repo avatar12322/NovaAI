@@ -637,7 +637,10 @@ do planu.
 - IDEIS nie wypełnia LOCATION — sala jest w opisie („Sala: …”, razem z „Prowadzący”, „Grupy” itd.). Opis
   w liniach „Klucz: wartość”: sala (także „Miejsce”) trafia do miejsca, gdy LOCATION puste; reszta zwięźle
   („Grupy: Konw; Prowadzący: …”) bez pól powtarzających tytuł i czas oraz pustych. Opis bez takich linii bez
-  zmian. Asystent dostaje te szczegóły (do 200 znaków na wydarzenie) razem z salą.
+  zmian. Asystent dostaje te szczegóły (do 200 znaków na wydarzenie) razem z salą, oznaczoną „sala/miejsce”.
+- Plan toku obejmuje wszystkie grupy — właściciel odznacza przedmioty, których nie ma (lista tytułów w imporcie,
+  `excluded_titles`; wydarzenia `hidden`). Ukryte nie trafiają do przeglądu dnia, zajętości ani do asystenta;
+  wybór obowiązuje też dla nowej wersji pliku. Nowe przedmioty w nowej wersji są domyślnie pokazywane.
 - IDEIS nie wypełnia LOCATION — sala jest w opisie („Sala: …”, razem z „Prowadzący”, „Grupy” itd.). Opis
   w liniach „Klucz: wartość”: sala (także „Miejsce”) trafia do miejsca, gdy LOCATION puste; reszta zwięźle
   („Grupy: Konw; Prowadzący: …”) bez pól powtarzających tytuł i czas oraz pustych. Opis bez takich linii bez
