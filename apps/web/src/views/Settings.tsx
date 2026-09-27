@@ -7,6 +7,7 @@ import { api, ApiError, type BudgetStatus, type ModelStatus } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { formatMoney } from '../lib/format';
 import { DevicesPanel } from './Devices';
+import { HouseholdPanel } from './Household';
 import { PasskeysPanel } from './Passkeys';
 import { CalendarPanel, IntegrationsPanel } from './Integrations';
 
@@ -86,6 +87,7 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
           ))}
         </div>
       </section>
+      <HouseholdPanel />
       <section className="panel">
         <h2 className="h-sub">Konto</h2>
         <dl className="kv">

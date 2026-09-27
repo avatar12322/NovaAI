@@ -41,6 +41,10 @@ pnpm --filter @nova/api admin:prod enroll osoba1@example.com   # jednorazowy lin
 pnpm --filter @nova/api start:prod                             # API + frontend z jednego originu
 ```
 
+Kolejne osoby zaprasza właściciel domu w aplikacji: **Ustawienia → Domownicy** (imię + e-mail → jednorazowy
+link ważny 7 dni, wysyłany samodzielnie, np. SMS-em). Otwartej rejestracji nie ma; logowanie tylko kluczem
+dostępu. „Nowy link” — gdy zaproszenie wygasło albo ktoś zgubił urządzenie z kluczem.
+
 Serwer musi działać za TLS (reverse proxy przekazujący cały ruch na `NOVA_API_HOST:NOVA_API_PORT`);
 ciasteczka sesji mają wtedy flagę `Secure`. Frontend jest serwowany przez API z nagłówkiem CSP
 (tylko własne skrypty i połączenia). `NOVA_TRUST_PROXY=1` (liczba zaufanych przeskoków) sprawia,

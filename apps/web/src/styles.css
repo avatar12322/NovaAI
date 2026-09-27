@@ -2102,3 +2102,28 @@ kbd {
 .cal-subjects summary {
   cursor: pointer;
 }
+
+/* Domownicy i zaproszenia */
+.household .member {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+.note.invite-link {
+  flex-direction: column;
+  align-items: stretch;
+}
+.invite-link p {
+  margin: 0;
+}
+.invite-link .row {
+  flex-wrap: nowrap;
+}
+.invite-link .row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}

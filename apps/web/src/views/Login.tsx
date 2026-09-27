@@ -54,7 +54,8 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: () => void }) {
         <PasskeyLoginButton onLoggedIn={onLoggedIn} />
         {unavailable && (
           <p className="small muted">
-            Nie masz jeszcze klucza? Poproś administratora o jednorazowy link rejestracyjny.
+            Nie masz konta? Poproś właściciela domu o zaproszenie (Ustawienia → Domownicy) i otwórz
+            link z zaproszenia na swoim urządzeniu.
           </p>
         )}
         {!users && !unavailable && !error && <Spinner />}

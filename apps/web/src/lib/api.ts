@@ -185,6 +185,17 @@ export interface SlackLiveItem {
   permalink: string;
 }
 
+/** Osoba w domu; `email` widzi właściciel i sama osoba. */
+export interface HouseholdMember {
+  id: string;
+  displayName: string;
+  email: string | null;
+  role: 'owner' | 'member';
+  status: 'active' | 'invited';
+  inviteExpiresAt: string | null;
+  me: boolean;
+}
+
 /** Kalendarz wgrany z pliku .ics (np. plan zajęć). */
 export interface CalendarImport {
   id: string;
@@ -431,6 +442,14 @@ export const api = {
       'PUT',
     ),
   deleteCalendarImport: (id: string) => request<void>('DELETE', `/calendar/imports/${id}`),
+  // ---------- Domownicy (konta tylko z zaproszenia) ----------
+  householdMembers: () =>
+    get<{ canManage: boolean; members: HouseholdMember[] }>('/household/members'),
+  inviteMember: (body: { email: string; displayName: string }) =>
+    post<{ link: string; expiresAt: string; memberId: string }>('/household/invites', body),
+  memberLink: (id: string) =>
+    post<{ link: string; expiresAt: string }>(`/household/members/${id}/link`),
+  removeMember: (id: string) => request<void>('DELETE', `/household/members/${id}`),
   /** Przedmioty ukryte w planie (np. zajęcia innych grup). */
   setCalendarSubjects: (id: string, excluded: string[]) =>
     request<{ import: CalendarImport }>('PATCH', `/calendar/imports/${id}`, { excluded }),

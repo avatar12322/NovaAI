@@ -674,3 +674,22 @@ pokazywaniu odpowiedzi trzeba pokazać źródła; wyszukiwanie może wyłączyć
 - Adapter: wersja narzędzia wg identyfikatora modelu, wyniki lokalizowane do Polski, do 3 wznowień po
   `pause_turn`, tekst z wielu bloków (cytowania dzielą zdania) łączony bez separatora, źródła http(s) bez
   powtórzeń (do 8) zapisywane w metadanych odpowiedzi i pokazywane pod nią („Źródła z internetu”).
+
+## D-037 Rejestracja tylko z zaproszenia, logowanie tylko kluczem dostępu
+
+Decyzja właściciela (2026-09-27): logowanie wyłącznie kluczem dostępu (passkey, bez haseł); nowe konta tylko
+z zaproszenia — bez otwartej rejestracji, bo aplikacja jest domowa, a otwarta rejestracja na publicznej domenie
+to koszt modeli i powierzchnia ataku.
+
+- Pierwsza osoba (właściciel domu): CLI na serwerze — `admin create-household` + `admin enroll` (link 15 min).
+- Kolejne osoby: Ustawienia → Domownicy (tylko właściciel domu). Imię + e-mail → konto, członkostwo
+  „domownik” i prywatny asystent od razu; jednorazowy link `/#/enroll/<token>` ważny 7 dni. Aplikacja nie
+  wysyła e-maili — właściciel sam przekazuje link (SMS, komunikator). E-mail to tylko identyfikator konta.
+- „Nowy link” unieważnia wcześniejsze niewykorzystane linki tej osoby (zaproszenie wygasło, zgubione
+  urządzenie — nowy klucz dochodzi do istniejących). To samo dotyczy `admin enroll`.
+- „Usuń z domu”: członkostwo cofnięte, konto wyłączone (`disabled_at`), sesje i linki unieważnione od razu;
+  prywatne dane tej osoby zostają (RLS — nikt inny ich nie widzi). Ponowne zaproszenie tego samego adresu
+  przywraca to samo konto. Właściciela nie da się usunąć z panelu.
+- Najwyżej 8 aktywnych osób w domu; adres zajęty przez inne konto → 409 (bez ujawniania, czyje).
+- Lista domowników: adresy e-mail widzi właściciel i sama osoba. Audyt (`household.invite`,
+  `household.enroll_link`, `household.remove_member`) bez adresów i imion — tylko identyfikator konta.

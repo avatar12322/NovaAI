@@ -699,6 +699,18 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   źródła, liczba wyszukań), brama (koszt wyszukań, zasady tylko z narzędziem, bez ceny/zgody — bez narzędzia),
   zapis ceny w modelach domu; e2e `models` 4/4. Prawdziwe wyszukiwanie — niesprawdzone (atrapa API).
 
+### Domownicy: rejestracja z zaproszenia (2026-09-27)
+
+- Ustawienia → Domownicy: lista osób (właściciel / domownik, „zaproszony — link ważny do…”), zaproszenie
+  (imię + e-mail → jednorazowy link na 7 dni do utworzenia klucza dostępu, przycisk „Kopiuj”), „Nowy link”,
+  „Usuń z domu” (wylogowanie na wszystkich urządzeniach). Tylko właściciel domu zaprasza i usuwa (D-037).
+- API: `GET /api/household/members`, `POST /api/household/invites`, `POST /api/household/members/:id/link`,
+  `DELETE /api/household/members/:id`. Logowanie bez zmian — tylko klucz dostępu; ekran logowania mówi,
+  skąd wziąć zaproszenie.
+- Testy: API (zaproszenie → rejestracja klucza → własny asystent; domownik bez uprawnień; błędy 400/409;
+  pełny dom; nowy link unieważnia stary; usunięcie → 401; ponowne zaproszenie), e2e desktop + telefon
+  (zaproszenie w Ustawieniach, klucz na „drugim urządzeniu” z wirtualnym uwierzytelniaczem, usunięcie).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
