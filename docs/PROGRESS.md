@@ -631,8 +631,9 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Brak systemu Windows w sesji: Worker Rust sprawdzony na Linuksie (testy + interop z API) i kompilacyjnie dla
   `x86_64-pc-windows-gnu` (bez TLS — brak kompilatora mingw; nie instalowałem pakietów systemowych). Test ręczny:
   `workers/windows/README.md`.
-- Brak kont OAuth (Google Cloud client, Microsoft, Slack) — integracje sprawdzone wyłącznie na lokalnych atrapach;
-  połączenie z Google, Microsoft i Slackiem NIE jest sprawdzone. Google: klient OAuth „Web application”, redirect
+- Brak kont OAuth (Microsoft, Slack) — te integracje sprawdzone wyłącznie na lokalnych atrapach; połączenie
+  z Microsoft i Slackiem NIE jest sprawdzone. Google: właściciel połączył konto lokalnie i potwierdził odczyt poczty
+  (2026-09-27; `docs/DEPLOY.md`); wysyłka i zajętość w kalendarzu — niesprawdzone. Google: klient OAuth „Web application”, redirect
   `<NOVA_PUBLIC_URL>/api/connections/google/callback`, `GOOGLE_CLIENT_ID/SECRET`, weryfikacja zakresów Gmail przez
   Google przed udostępnieniem. Microsoft: rejestracja aplikacji w Microsoft Entra (README → Integracje),
   `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT`. Slack: aplikacja wewnętrzna z zakresami użytkownika, redirect

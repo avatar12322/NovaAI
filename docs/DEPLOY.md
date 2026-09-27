@@ -22,9 +22,20 @@ na serwerze właściciela.
   za minutę. W `.env`: `ELEVENLABS_MONTHLY_CHARS=100000` (≤ 100 000 kredytów nawet przy 1 kredycie za znak),
   `ELEVENLABS_STT_MONTHLY_MINUTES=60` (≈ 19 800 kredytów). Razem w najgorszym razie ok. 120 000 kredytów.
 
+## 3. Google (Gmail, Kalendarz) — gotowe lokalnie (2026-09-27)
+
+- Projekt Google Cloud `NovaAI`: włączone Gmail API i Google Calendar API; ekran zgody External, domena
+  autoryzowana `novaai.pl`; zakresy `gmail.readonly`, `gmail.send`, `calendar.freebusy`; użytkownicy testowi.
+- Klient OAuth „Web application”, redirect URI: `https://novaai.pl/api/connections/google/callback` i
+  `http://localhost:5173/api/connections/google/callback`. `GOOGLE_CLIENT_ID/SECRET` — w `.env` właściciela.
+- Sprawdzone przez właściciela lokalnie: połączenie konta i odczyt poczty. Niesprawdzone: wysyłka (ze zgodą)
+  i zajętość w kalendarzu.
+- **Przed wdrożeniem:** Audience → „Publish app” (w trybie Testing Google unieważnia połączenie po 7 dniach);
+  użytek osobisty (< 100 osób) bez weryfikacji — z ekranem „aplikacja niezweryfikowana”. Na serwerze te same
+  `GOOGLE_CLIENT_ID/SECRET`.
+
 ## Dalej (do zebrania)
 
-- [ ] Google: klient OAuth (Gmail, Kalendarz) — redirect `https://novaai.pl/api/connections/google/callback`
 - [ ] Microsoft: aplikacja w Entra — redirect `https://novaai.pl/api/connections/microsoft/callback`
 - [ ] Slack: aplikacja wewnętrzna — redirect `https://novaai.pl/api/connections/slack/callback`
 - [ ] Home Assistant (adres i token) — jeśli jest
