@@ -250,7 +250,8 @@ export const connectorRoutes =
       const r = await withUserTx(deps.db, { userId: auth.userId, scope: 'user' }, (c) =>
         c.query<{ id: string; title: string; starts_at: string; ends_at: string }>(
           `SELECT id, title, starts_at, ends_at FROM local_calendar_events
-            WHERE owner_user_id = nova_uid() AND ends_at > now() - interval '1 day' ORDER BY starts_at LIMIT 200`,
+            WHERE owner_user_id = nova_uid() AND import_id IS NULL AND ends_at > now() - interval '1 day'
+            ORDER BY starts_at LIMIT 200`,
         ),
       );
       return {

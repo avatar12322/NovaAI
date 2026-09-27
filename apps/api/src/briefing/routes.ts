@@ -36,7 +36,7 @@ export function briefingSummary(b: Omit<Briefing, 'summary'>): string {
   const parts: string[] = [`${b.greeting}. Dziś ${b.dateLabel}.`];
   if (b.events.length)
     parts.push(
-      `W kalendarzu: ${b.events.map((e) => `${time(e.startsAt)} ${e.title}`).join(', ')}.`,
+      `W kalendarzu: ${b.events.map((e) => `${time(e.startsAt)} ${e.title}${e.location ? ` (${e.location})` : ''}`).join(', ')}.`,
     );
   if (b.reminders.length)
     parts.push(
@@ -98,8 +98,9 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
       title: string;
       starts_at: string;
       ends_at: string;
+      location: string | null;
     }>(
-      `SELECT id, title, starts_at, ends_at FROM local_calendar_events
+      `SELECT id, title, starts_at, ends_at, location FROM local_calendar_events
         WHERE owner_user_id = nova_uid() AND starts_at < ${DAY_END} AND ends_at > ${DAY_START}
         ORDER BY starts_at LIMIT 10`,
     );
@@ -149,6 +150,7 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
       title: e.title,
       startsAt: e.starts_at,
       endsAt: e.ends_at,
+      location: e.location,
     })),
     approvals: data.counts.approvals,
     activeTasks: data.counts.tasks,

@@ -13,6 +13,8 @@ import { ConnectionService } from './connectors/service';
 import type { Connector, Provider } from './connectors/types';
 import { SlackConnector, type SlackEndpoints } from './connectors/slack';
 import { SLACK_TOOLS } from './connectors/slack-tools';
+import { calendarAgendaTool } from './calendar/tools';
+import type { ToolDef } from './tools/types';
 import { CONNECTOR_TOOLS } from './connectors/tools';
 import { vaultFromEnv } from './connectors/vault';
 import { createCostAdapters } from './services/adapters';
@@ -75,6 +77,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   for (const t of CONNECTOR_TOOLS) broker.register(t);
   for (const t of SLACK_TOOLS) broker.register(t);
   for (const t of DOCUMENT_TOOLS) broker.register(t);
+  broker.register(calendarAgendaTool as unknown as ToolDef);
   broker.register(reminderCreateTool);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(

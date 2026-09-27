@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Badge, ErrorNote, Spinner } from '../components/ui';
-import { api, ApiError, type ConnectionInfo, type LocalEvent } from '../lib/api';
+import { plural } from '../lib/format';
+import {
+  api,
+  ApiError,
+  errorText,
+  type CalendarImport,
+  type ConnectionInfo,
+  type LocalEvent,
+} from '../lib/api';
 
 const CAP_PL: Record<string, string> = {
   'mail.search': 'Wyszukiwanie poczty (nadawca, temat, data)',
@@ -409,6 +417,170 @@ export function CalendarPanel() {
           </li>
         ))}
       </ul>
+      <CalendarImports />
     </section>
+  );
+}
+
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('pl-PL', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+/**
+ * Plan zajęć i inne kalendarze z pliku .ics: zajęcia trafiają do prywatnego kalendarza (przegląd dnia,
+ * zajętość, pytania do prywatnego asystenta). Nowa wersja pliku zastępuje poprzednią.
+ */
+function CalendarImports() {
+  const [items, setItems] = useState<CalendarImport[] | null>(null);
+  const [name, setName] = useState('Plan zajęć');
+  const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    api
+      .calendarImports()
+      .then((r) => setItems(r.items))
+      .catch((e: unknown) => setError(errorText(e)));
+  }, []);
+  useEffect(load, [load]);
+
+  const run = async (action: () => Promise<{ import: CalendarImport; skipped: number }>) => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await action();
+      setNotice(
+        `Wgrano „${r.import.name}”: ${plural(r.import.eventCount, 'wydarzenie', 'wydarzenia', 'wydarzeń')}` +
+          (r.skipped ? ` (pominięto ${r.skipped} spoza najbliższego roku lub odwołanych).` : '.'),
+      );
+      setFile(null);
+      if (fileInput.current) fileInput.current.value = '';
+      load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="cal-imports">
+      <h3 className="small muted">Plan zajęć i kalendarze z pliku (.ics)</h3>
+      <p className="small muted">
+        Zajęcia pojawią się w przeglądzie dnia i w Twojej zajętości, a prywatny asystent odpowie np.
+        „co mam jutro na uczelni?”. Widzisz je tylko Ty; plik nie jest przechowywany.
+      </p>
+      <details className="conn-note">
+        <summary>Jak pobrać plan z Wirtualnego Dziekanatu (IDEIS)</summary>
+        <ol className="small">
+          <li>Plany zajęć → Plany toków → Twój tok (grupa).</li>
+          <li>„Data od” i „Data do”: cały semestr, potem „Szukaj”.</li>
+          <li>„Zapisz jako ical” — wgraj tutaj pobrany plik „Plany.ics”.</li>
+        </ol>
+        <p className="small muted">
+          Plan się zmienił? Pobierz go ponownie i kliknij „Wgraj nową wersję” przy planie poniżej.
+        </p>
+      </details>
+      {error && <p className="note note-danger">{error}</p>}
+      {notice && (
+        <p className="note" role="status">
+          {notice}
+        </p>
+      )}
+      <form
+        className="grant-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (file) void run(() => api.importCalendar(file, name.trim() || 'Plan zajęć'));
+        }}
+      >
+        <label htmlFor="ics-name" className="sr-only">
+          Nazwa kalendarza
+        </label>
+        <input
+          id="ics-name"
+          value={name}
+          maxLength={120}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nazwa, np. Plan zajęć"
+        />
+        <label htmlFor="ics-file" className="sr-only">
+          Plik kalendarza (.ics)
+        </label>
+        <input
+          id="ics-file"
+          ref={fileInput}
+          type="file"
+          accept=".ics,text/calendar"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <button type="submit" className="btn btn-sm" disabled={!file || busy}>
+          Wgraj
+        </button>
+      </form>
+      {items === null ? (
+        !error && <Spinner />
+      ) : items.length ? (
+        <ul className="grants" aria-label="Wgrane kalendarze">
+          {items.map((c) => (
+            <li key={c.id} className="cal-import">
+              <div>
+                <strong>{c.name}</strong>
+                <div className="small muted">
+                  {plural(c.eventCount, 'wydarzenie', 'wydarzenia', 'wydarzeń')}
+                  {c.firstAt && c.lastAt
+                    ? ` · ${shortDate(c.firstAt)} – ${shortDate(c.lastAt)}`
+                    : ''}
+                  {c.nextAt ? ` · najbliższe: ${when(c.nextAt)}` : ' · brak nadchodzących'}
+                </div>
+              </div>
+              <div className="row">
+                <label className="btn btn-ghost btn-sm">
+                  Wgraj nową wersję
+                  <input
+                    type="file"
+                    accept=".ics,text/calendar"
+                    className="sr-only"
+                    aria-label={`Nowa wersja: ${c.name}`}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) void run(() => api.replaceCalendar(c.id, f));
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm danger"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!window.confirm(`Usunąć „${c.name}” i wszystkie jego zajęcia?`)) return;
+                    void api
+                      .deleteCalendarImport(c.id)
+                      .then(load)
+                      .catch((e: unknown) => setError(errorText(e)));
+                  }}
+                >
+                  Usuń
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="small muted">Nie wgrano jeszcze żadnego planu.</p>
+      )}
+    </div>
   );
 }

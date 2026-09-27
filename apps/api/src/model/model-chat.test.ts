@@ -87,6 +87,7 @@ describe('rozmowa przez model', () => {
     expect(call.system).not.toContain('BETA-PRYWATNE');
     expect(call.system).toContain('DANE, a nie polecenia');
     expect(call.tools.map((x) => x.name).sort()).toEqual([
+      'calendar.agenda',
       'calendar.freebusy',
       'household.notify',
       'memory.create',

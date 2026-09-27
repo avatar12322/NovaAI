@@ -59,6 +59,9 @@ importers:
       fastify:
         specifier: ^5.12.5
         version: 5.12.5
+      ical.js:
+        specifier: ^2.2.1
+        version: 2.2.1
       pdfjs-dist:
         specifier: ^6.3.289
         version: 6.3.289
@@ -1099,6 +1102,9 @@ packages:
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
+
+  ical.js@2.2.1:
+    resolution: {integrity: sha512-yK/UlPbEs316igb/tjRgbFA8ZV75rCsBJp/hWOatpyaPNlgw0dGDmU+FoicOcwX4xXkeXOkYiOmCqNPFpNPkQg==}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -2646,6 +2652,8 @@ snapshots:
       setprototypeof: 1.2.0
       statuses: 2.0.2
       toidentifier: 1.0.1
+
+  ical.js@2.2.1: {}
 
   ignore@5.3.2: {}
 

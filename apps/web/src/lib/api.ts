@@ -87,11 +87,12 @@ async function uploadFile<T>(
   path: string,
   file: Blob,
   contentType = 'application/octet-stream',
+  method: 'POST' | 'PUT' = 'POST',
 ): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
-      method: 'POST',
+      method,
       credentials: 'same-origin',
       headers: { 'content-type': contentType, 'x-nova-csrf': '1' },
       body: file,
@@ -182,6 +183,17 @@ export interface SlackLiveItem {
   ts: string;
   text: string;
   permalink: string;
+}
+
+/** Kalendarz wgrany z pliku .ics (np. plan zajęć). */
+export interface CalendarImport {
+  id: string;
+  name: string;
+  eventCount: number;
+  updatedAt: string;
+  firstAt: string | null;
+  lastAt: string | null;
+  nextAt: string | null;
 }
 
 export interface LocalEvent {
@@ -400,6 +412,22 @@ export const api = {
   addLocalEvent: (e: { title: string; startsAt: string; endsAt: string }) =>
     post<{ id: string }>('/calendar/local-events', e),
   deleteLocalEvent: (id: string) => request<void>('DELETE', `/calendar/local-events/${id}`),
+  // ---------- Kalendarz z pliku .ics (np. plan zajęć) ----------
+  calendarImports: () => get<{ items: CalendarImport[] }>('/calendar/imports'),
+  importCalendar: (file: Blob, name: string) =>
+    uploadFile<{ import: CalendarImport; skipped: number }>(
+      `/calendar/imports?name=${encodeURIComponent(name)}`,
+      file,
+      'text/calendar',
+    ),
+  replaceCalendar: (id: string, file: Blob) =>
+    uploadFile<{ import: CalendarImport; skipped: number }>(
+      `/calendar/imports/${id}`,
+      file,
+      'text/calendar',
+      'PUT',
+    ),
+  deleteCalendarImport: (id: string) => request<void>('DELETE', `/calendar/imports/${id}`),
 
   reminders: (space: Space) => get<{ items: Reminder[] }>(`/reminders${qs({ space })}`),
   addReminder: (r: { text: string; dueAt: string; space: Space }) =>

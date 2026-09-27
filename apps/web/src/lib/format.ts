@@ -118,3 +118,11 @@ export function stepErrorPl(error: string): string {
   const m = /^Odmowa: (connector:[a-z_]+)$/.exec(error);
   return (m && CONNECTOR_DENY_PL[m[1]!]) || error;
 }
+
+/** Polska odmiana liczebników: 1 wydarzenie, 2–4 wydarzenia, 5+ wydarzeń (12–14 też „wydarzeń”). */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const d = n % 10;
+  const t = n % 100;
+  const form = n === 1 ? one : d >= 2 && d <= 4 && (t < 12 || t > 14) ? few : many;
+  return `${n} ${form}`;
+}

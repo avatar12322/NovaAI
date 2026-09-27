@@ -61,7 +61,14 @@ export interface Briefing {
   date: string;
   dateLabel: string;
   reminders: Array<{ id: string; text: string; dueAt: string; shared: boolean }>;
-  events: Array<{ id: string; title: string; startsAt: string; endsAt: string }>;
+  /** Wydarzenia kalendarza lokalnego (także wgrany plan zajęć); `location` — np. sala. */
+  events: Array<{
+    id: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    location?: string | null;
+  }>;
   approvals: number;
   activeTasks: number;
   unread: number;

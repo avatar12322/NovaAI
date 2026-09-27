@@ -19,6 +19,7 @@ import { serviceRoutes } from './services/routes';
 import { modelProviderRoutes } from './model/routes';
 import { briefingRoutes } from './briefing/routes';
 import { voiceRoutes } from './voice/routes';
+import { calendarImportRoutes } from './calendar/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -195,6 +196,7 @@ export async function buildServer(
       await api.register(modelProviderRoutes(deps));
       await api.register(briefingRoutes(deps));
       await api.register(voiceRoutes(deps));
+      await api.register(calendarImportRoutes(deps));
     },
     { prefix: '/api' },
   );

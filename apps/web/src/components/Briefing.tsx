@@ -82,6 +82,7 @@ export function BriefingPanel() {
             b.events.map((e) => (
               <div key={e.id}>
                 <span className="mono">{time(e.startsAt)}</span> {e.title}
+                {e.location && <span className="muted"> · {e.location}</span>}
               </div>
             ))
           ) : (

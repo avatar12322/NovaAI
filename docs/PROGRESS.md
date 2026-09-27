@@ -640,6 +640,25 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 298/298, web 21/21; `pnpm test:e2e` → 56/56;
   `pnpm test:prod-smoke` → 1/1.
 
+### Plan zajęć z pliku .ics; model zna datę (2026-09-27)
+
+- Ustawienia → Kalendarz → „Plan zajęć i kalendarze z pliku (.ics)”: wgranie (np. „Zapisz jako ical” z Wirtualnego
+  Dziekanatu IDEIS), lista z liczbą wydarzeń, zakresem i najbliższymi zajęciami, „Wgraj nową wersję”, „Usuń”,
+  instrukcja pobrania planu. Zajęcia w przeglądzie dnia (z salą), w zajętości i dla prywatnego asystenta
+  (narzędzie `calendar.agenda`). Model dostaje bieżącą datę i godzinę w Polsce (D-035). Migracja `0018`.
+- Sprawdzone: eksport planu z serwisu uczelni zwraca poprawny plik iCalendar (ical.net), ale zakres dat zależy
+  od sesji przeglądarki — dlatego import pliku, nie pobieranie z adresu. Prawdziwego planu z zajęciami nie
+  wgrywałem (plik z bieżącą datą był pusty; plan właściciela — do sprawdzenia przez niego).
+- Testy: `calendar/ics.test.ts` (7: strefa bez definicji i zmiana czasu, nazwa strefy z Windows, czas pływający
+  i UTC, cały dzień, brak końca, powtarzanie z EXDATE / przeniesieniem / odwołaniem, zawijanie linii i znaki
+  ucieczki, okno i limit, błędne pliki), `calendar/imports.test.ts` (6: wgranie, przegląd dnia z salą, lista bez
+  zaimportowanych, audyt bez tytułów, nowa wersja, usunięcie, izolacja Alfa/Beta, błędne pliki, 413, CSRF,
+  logowanie; asystent prywatny — data w instrukcjach, narzędzie bez zgody, NovaAI bez narzędzia, Beta nie widzi
+  planu Alfy), `lib/format.test.ts` (+1 odmiana liczebników), e2e `calendar-import.spec.ts`.
+  Zrzut: `docs/screens/*-24-calendar-import.png`.
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 311/311, web 22/22; `pnpm test:e2e` → 58/58;
+  `pnpm test:prod-smoke` → 1/1.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

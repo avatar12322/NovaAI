@@ -124,6 +124,11 @@ ElevenLabs, NovaAI nagrywa wypowiedź i rozpoznaje ją przez serwer (`scribe_v2`
 `ELEVENLABS_STT_MONTHLY_MINUTES`, 0 wyłącza). Bez klucza aplikacja podaje konkretną przyczynę błędu i co zrobić.
 Szczegóły: `docs/DECISIONS.md` D-034.
 
+**Plan zajęć (.ics)** — Ustawienia → Kalendarz → „Plan zajęć i kalendarze z pliku”. Wgraj plik iCalendar, np.
+z Wirtualnego Dziekanatu (Plany toków → zakres dat → Szukaj → „Zapisz jako ical”), eksport z Google lub Outlooka.
+Zajęcia trafiają do przeglądu dnia i prywatny asystent o nich wie; nową wersję planu wgrywasz tym samym
+przyciskiem. Szczegóły: `docs/DECISIONS.md` D-035.
+
 Bez konfiguracji integracje są oznaczone jako „niedostępne”. Wymagany jest też `NOVA_SECRET_KEY` (szyfrowanie
 tokenów). Każdy użytkownik łączy własne konto w Ustawieniach; NovaAI nie widzi cudzej poczty.
 
