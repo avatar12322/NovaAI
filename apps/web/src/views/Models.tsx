@@ -567,6 +567,8 @@ type ModelDraft = {
   output: string;
   cacheRead: string;
   cacheWrite: string;
+  /** Cena za 1000 wyszukiwań w internecie (Anthropic); puste = wyłączone. */
+  webSearch: string;
   source: string;
   verifiedAt: string;
   maxTokens: string;
@@ -622,6 +624,7 @@ function ModelForm({
     output: initial ? String(initial.pricing.outputPerMTok).replace('.', ',') : '',
     cacheRead: initial?.pricing.cacheReadPerMTok?.toString().replace('.', ',') ?? '',
     cacheWrite: initial?.pricing.cacheWritePerMTok?.toString().replace('.', ',') ?? '',
+    webSearch: initial?.pricing.webSearchPer1k?.toString().replace('.', ',') ?? '',
     source: initial?.pricing.source ?? presetFor(startProvider)?.pricingUrl ?? '',
     verifiedAt: initial?.pricing.verifiedAt ?? today(),
     maxTokens: String(initial?.maxTokens ?? 4000),
@@ -653,10 +656,11 @@ function ModelForm({
     const output = decimal(f.output);
     const cacheRead = decimal(f.cacheRead);
     const cacheWrite = decimal(f.cacheWrite);
+    const webSearch = decimal(f.webSearch);
     if (
       input === null ||
       output === null ||
-      [input, output, cacheRead, cacheWrite].some(Number.isNaN)
+      [input, output, cacheRead, cacheWrite, webSearch].some(Number.isNaN)
     ) {
       setError('Ceny: liczby, np. 3 albo 0,25 (za milion tokenów).');
       return;
@@ -677,6 +681,7 @@ function ModelForm({
         outputPerMTok: output,
         cacheReadPerMTok: cacheRead,
         cacheWritePerMTok: cacheWrite,
+        webSearchPer1k: webSearch,
         source: f.source.trim() || null,
         verifiedAt: f.verifiedAt || null,
       },
@@ -771,6 +776,20 @@ function ModelForm({
       <label>
         Zapis do cache (opcjonalnie)
         <input value={f.cacheWrite} onChange={set('cacheWrite')} inputMode="decimal" />
+      </label>
+      <label className="wide">
+        Wyszukiwanie w internecie — cena za 1000 wyszukań (opcjonalnie)
+        <input
+          value={f.webSearch}
+          onChange={set('webSearch')}
+          inputMode="decimal"
+          placeholder="puste = asystent nie szuka w internecie"
+        />
+        <span className="small muted">
+          Tylko modele Claude (Anthropic): 10 USD za 1000 wyszukań plus tokeny wyników — wpisz w
+          walucie cennika (np. 10 przy USD). Najwyżej 3 wyszukania na odpowiedź, liczone do limitu
+          kosztów.
+        </span>
       </label>
       <label className="wide">
         Źródło cennika
@@ -892,6 +911,9 @@ function ModelItem({
         priorytet {m.priority}
         {m.dataPolicy === 'shared_only' ? ' · tylko rozmowy wspólne' : ''}
         {m.overridesServer ? ' · zastępuje model z pliku serwera' : ''}
+        {p.webSearchPer1k !== null
+          ? ` · wyszukiwanie w internecie: ${fmt(p.webSearchPer1k)} ${p.currency} za 1000`
+          : ''}
       </p>
       {manage && !editing && (
         <div className="row service-actions">

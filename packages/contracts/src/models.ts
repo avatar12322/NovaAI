@@ -153,6 +153,8 @@ export const ModelPricingInput = z.object({
   outputPerMTok: Price,
   cacheReadPerMTok: Price.nullable().optional(),
   cacheWritePerMTok: Price.nullable().optional(),
+  /** Wyszukiwanie w internecie (Anthropic): cena za 1000 wyszukań; puste = wyłączone. */
+  webSearchPer1k: Price.nullable().optional(),
   source: z.string().trim().max(300).nullable().optional(),
   verifiedAt: z.iso.date().nullable().optional(),
 });
@@ -254,6 +256,7 @@ export interface HouseholdModelInfo {
     outputPerMTok: number;
     cacheReadPerMTok: number | null;
     cacheWritePerMTok: number | null;
+    webSearchPer1k: number | null;
     source: string | null;
     verifiedAt: string | null;
   };

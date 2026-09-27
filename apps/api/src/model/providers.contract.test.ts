@@ -186,6 +186,109 @@ describe('AnthropicProvider (SDK) — kontrakt Messages API', () => {
     });
   });
 
+  it('wyszukiwanie w internecie: wersja narzędzia wg modelu, wznowienie po pause_turn, źródła i liczba wyszukań', async () => {
+    const msg = (content: unknown[], stop: string, searches: number) => ({
+      id: 'msg_w',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-sonnet-5',
+      content,
+      stop_reason: stop,
+      stop_sequence: null,
+      usage: {
+        input_tokens: 100,
+        output_tokens: 20,
+        server_tool_use: { web_search_requests: searches },
+      },
+    });
+    const search = [
+      { type: 'text', text: 'Sprawdzam pogodę. ' },
+      {
+        type: 'server_tool_use',
+        id: 'srvtoolu_1',
+        name: 'web_search',
+        input: { query: 'pogoda Kraków jutro' },
+      },
+      {
+        type: 'web_search_tool_result',
+        tool_use_id: 'srvtoolu_1',
+        content: [
+          {
+            type: 'web_search_result',
+            url: 'https://pogoda.example/krakow',
+            title: 'Pogoda Kraków',
+            encrypted_content: 'ENC',
+            page_age: null,
+          },
+        ],
+      },
+    ];
+    const cite = (url: string, title: string) => ({
+      type: 'web_search_result_location',
+      url,
+      title,
+      encrypted_index: 'IDX',
+      cited_text: 'jutro 14°C',
+    });
+    const answer = [
+      { type: 'text', text: 'Jutro w Krakowie ', citations: null },
+      {
+        type: 'text',
+        text: 'będzie 14°C',
+        citations: [cite('https://pogoda.example/krakow', 'Pogoda Kraków')],
+      },
+      {
+        type: 'text',
+        text: ' i deszcz.',
+        citations: [
+          cite('https://pogoda.example/krakow', 'Pogoda Kraków'),
+          cite('javascript:alert(1)', 'zły'),
+        ],
+      },
+    ];
+    let n = 0;
+    respond = () => ({
+      status: 200,
+      body: n++ === 0 ? msg(search, 'pause_turn', 1) : msg(answer, 'end_turn', 1),
+    });
+    const r = await provider().complete(
+      req({ model: 'claude-sonnet-5', tools: [], webSearch: { maxUses: 3 } }),
+    );
+    expect(captured).toHaveLength(2);
+    expect(captured[0]!.body.tools).toEqual([
+      {
+        type: 'web_search_20260209',
+        name: 'web_search',
+        max_uses: 3,
+        user_location: { type: 'approximate', country: 'PL', timezone: 'Europe/Warsaw' },
+      },
+    ]);
+    // Wznowienie: wstrzymana wiadomość asystenta odesłana bez zmian, bez dodatkowej wiadomości użytkownika.
+    const resumed = captured[1]!.body.messages;
+    expect(resumed).toHaveLength(4);
+    expect(resumed[3]).toMatchObject({ role: 'assistant' });
+    expect(resumed[3].content[2]).toMatchObject({
+      type: 'web_search_tool_result',
+      content: [{ encrypted_content: 'ENC' }],
+    });
+    expect(r).toEqual({
+      text: 'Sprawdzam pogodę. Jutro w Krakowie będzie 14°C i deszcz.',
+      toolCalls: [],
+      usage: { inputTokens: 200, outputTokens: 40, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      stopReason: 'end_turn',
+      webSearches: 2,
+      webSources: [{ url: 'https://pogoda.example/krakow', title: 'Pogoda Kraków' }],
+    });
+
+    // Starszy model: podstawowa wersja narzędzia (bez filtrowania wyników).
+    captured = [];
+    respond = () => ({ status: 200, body: msg([{ type: 'text', text: 'ok' }], 'end_turn', 0) });
+    await provider().complete(
+      req({ model: 'claude-haiku-4-5-20251001', tools: [], webSearch: { maxUses: 3 } }),
+    );
+    expect(captured[0]!.body.tools[0].type).toBe('web_search_20250305');
+  });
+
   it('bez narzędzi i effort nie wysyła tych pól', async () => {
     respond = () => ({
       status: 200,

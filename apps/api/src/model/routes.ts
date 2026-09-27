@@ -59,6 +59,7 @@ interface ModelRow {
   output_per_mtok: string;
   cache_read_per_mtok: string | null;
   cache_write_per_mtok: string | null;
+  web_search_per_1k: string | null;
   pricing_source: string | null;
   pricing_verified_at: string | null;
   use_simple: boolean;
@@ -157,7 +158,8 @@ export const modelProviderRoutes =
               `SELECT m.id, m.provider_id, COALESCE(p.name, m.server_provider) AS provider_name,
                       m.server_provider IS NOT NULL AS server_provider, m.name, m.model, m.max_tokens,
                       m.data_policy, m.price_currency, m.input_per_mtok::text, m.output_per_mtok::text,
-                      m.cache_read_per_mtok::text, m.cache_write_per_mtok::text, m.pricing_source,
+                      m.cache_read_per_mtok::text, m.cache_write_per_mtok::text,
+                      m.web_search_per_1k::text, m.pricing_source,
                       to_char(m.pricing_verified_at, 'YYYY-MM-DD') AS pricing_verified_at,
                       m.use_simple, m.use_complex, m.priority, m.enabled
                  FROM household_models m LEFT JOIN model_providers p ON p.id = m.provider_id
@@ -234,6 +236,7 @@ export const modelProviderRoutes =
             outputPerMTok: Number(m.output_per_mtok),
             cacheReadPerMTok: num(m.cache_read_per_mtok),
             cacheWritePerMTok: num(m.cache_write_per_mtok),
+            webSearchPer1k: num(m.web_search_per_1k),
             source: m.pricing_source,
             verifiedAt: m.pricing_verified_at,
           },
@@ -494,8 +497,9 @@ export const modelProviderRoutes =
         .query(
           `INSERT INTO household_models (id, household_id, provider_id, server_provider, name, model, max_tokens,
              data_policy, price_currency, input_per_mtok, output_per_mtok, cache_read_per_mtok,
-             cache_write_per_mtok, pricing_source, pricing_verified_at, use_simple, use_complex, priority, enabled)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+             cache_write_per_mtok, pricing_source, pricing_verified_at, use_simple, use_complex, priority, enabled,
+             web_search_per_1k)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
           [
             id,
             m.householdId,
@@ -516,6 +520,7 @@ export const modelProviderRoutes =
             body.useComplex,
             body.priority,
             body.enabled,
+            body.pricing.webSearchPer1k ?? null,
           ],
         )
         .catch((e: unknown) => mapUnique(e, 'Model'));
@@ -560,6 +565,7 @@ export const modelProviderRoutes =
         set('output_per_mtok', body.pricing.outputPerMTok);
         set('cache_read_per_mtok', body.pricing.cacheReadPerMTok ?? null);
         set('cache_write_per_mtok', body.pricing.cacheWritePerMTok ?? null);
+        set('web_search_per_1k', body.pricing.webSearchPer1k ?? null);
         set('pricing_source', body.pricing.source || null);
         set('pricing_verified_at', body.pricing.verifiedAt ?? null);
       }

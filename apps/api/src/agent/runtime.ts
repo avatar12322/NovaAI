@@ -110,6 +110,8 @@ export interface AgentTurnResult {
   demo: boolean;
   /** Powód odpowiedzi zastępczej (bez wywołania modelu lub po odmowie). */
   notice?: 'budget_blocked' | 'model_unavailable' | 'provider_error' | 'refusal';
+  /** Źródła z internetu cytowane w odpowiedzi (wyszukiwanie po stronie dostawcy) — pokazywane pod odpowiedzią. */
+  webSources?: Array<{ url: string; title: string }>;
 }
 
 export interface AgentRuntime {

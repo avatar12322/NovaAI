@@ -690,6 +690,15 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy (zmienione obszary): api `src/calendar` + `src/briefing` + `microsoft.test.ts` 47/47, e2e
   `calendar-import` 2/2.
 
+### Wyszukiwanie w internecie (Anthropic) (2026-09-27)
+
+- Decyzje właściciela: Slack, Outlook uczelniany i Home Assistant — pominięte; wyszukiwanie przez Anthropic na
+  tym samym kluczu. Modele AI → cennik modelu → „Wyszukiwanie w internecie — cena za 1000” włącza je dla modelu
+  Claude; koszt w limicie budżetu; źródła pod odpowiedzią (D-036). Migracja `0020`.
+- Testy (zmienione obszary): kontrakt adaptera (wersja narzędzia wg modelu, `pause_turn`, łączenie tekstu,
+  źródła, liczba wyszukań), brama (koszt wyszukań, zasady tylko z narzędziem, bez ceny/zgody — bez narzędzia),
+  zapis ceny w modelach domu; e2e `models` 4/4. Prawdziwe wyszukiwanie — niesprawdzone (atrapa API).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

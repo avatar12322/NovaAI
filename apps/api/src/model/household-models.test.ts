@@ -218,7 +218,20 @@ describe('uprawnienia', () => {
     expect((await addModel(alfa, foreign)).status).toBe(404);
     // Model dodany w domu Alfy nie trafia do konfiguracji innego domu.
     const pid = providerId((await addProvider(alfa)).body);
-    await addModel(alfa, pid, { pricing: { currency: 'PLN', inputPerMTok: 1, outputPerMTok: 2 } });
+    const added = await addModel(alfa, pid, {
+      pricing: { currency: 'PLN', inputPerMTok: 1, outputPerMTok: 2, webSearchPer1k: 40 },
+    });
+    // Cena wyszukiwania w internecie zapisana i widoczna w cenniku (i w konfiguracji bramy).
+    expect(added.body.models[0].pricing).toMatchObject({ webSearchPer1k: 40 });
+    const snap = await t.deps.gateway.snapshot(t.seed.householdId);
+    expect(snap.config.models['mock-main']!.pricing.webSearchPer1k).toBe(40);
+    const id = added.body.models[0].id;
+    await alfa.patch(`/api/model/models/${id}`, {
+      pricing: { currency: 'PLN', inputPerMTok: 1, outputPerMTok: 2, webSearchPer1k: null },
+    });
+    expect((await alfa.get('/api/model/providers')).body.models[0].pricing.webSearchPer1k).toBe(
+      null,
+    );
     expect((await t.deps.gateway.snapshot(t.seed.householdId)).hasAvailable()).toBe(true);
     const snapOther = await t.deps.gateway.snapshot(other.householdId);
     expect(snapOther.hasAvailable()).toBe(false);

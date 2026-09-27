@@ -23,6 +23,14 @@ export interface ProviderRequest {
   signal?: AbortSignal;
   /** Fragmenty tekstu w trakcie generowania (dostawcy ze strumieniowaniem); wynik końcowy bez zmian. */
   onText?: (delta: string) => void;
+  /** Wyszukiwanie w internecie po stronie dostawcy (tylko adaptery, które je obsługują). */
+  webSearch?: { maxUses: number };
+}
+
+/** Źródło z internetu, na które powołuje się odpowiedź (cytowanie dostawcy). */
+export interface WebSource {
+  url: string;
+  title: string;
 }
 
 export interface ProviderUsage {
@@ -38,6 +46,10 @@ export interface ProviderResponse {
   /** null = dostawca nie zwrócił wiarygodnych metadanych — koszt będzie estymacją. */
   usage: ProviderUsage | null;
   stopReason: string | null;
+  /** Liczba wykonanych wyszukiwań w internecie (rozliczana osobno od tokenów). */
+  webSearches?: number;
+  /** Źródła cytowane w odpowiedzi — muszą być pokazane użytkownikowi. */
+  webSources?: WebSource[];
 }
 
 export interface ModelProvider {

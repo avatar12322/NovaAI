@@ -13,6 +13,7 @@ import {
 } from './gateway';
 import { AnthropicProvider } from './providers/anthropic';
 import { FakeProvider } from './providers/fake';
+import type { ModelProvider, ProviderRequest } from './types';
 
 /** M3 — ModelGateway: dostępność, routing, koszt, budżet (rezerwacje), fallback. */
 let t: TestApp;
@@ -294,6 +295,55 @@ describe('koszt i zapis zużycia', () => {
     const usd = await gw.complete(request({ capability: 'chat.usd' }));
     // 1000×1 + 500×2 = 2000 mikro USD × 4 = 8000 mikro PLN
     expect(usd.costMicros).toBe(8_000);
+  });
+
+  it('wyszukiwanie w internecie: tylko Anthropic z ceną; koszt wyszukań w budżecie; zasady w instrukcjach', async () => {
+    const seen: ProviderRequest[] = [];
+    // Dostawca udający Anthropic (bez sieci): 2 wyszukania w odpowiedzi.
+    const anthropicLike: ModelProvider = {
+      kind: 'anthropic',
+      async complete(r) {
+        seen.push(r);
+        return {
+          text: 'Jutro 14°C.',
+          toolCalls: [],
+          usage: { inputTokens: 1000, outputTokens: 500, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          stopReason: 'end_turn',
+          webSearches: 2,
+          webSources: [{ url: 'https://pogoda.example', title: 'Pogoda' }],
+        };
+      },
+    };
+    const base = cfg();
+    const config = ModelsConfigSchema.parse({
+      ...base,
+      models: {
+        ...base.models,
+        // 10 USD za 1000 wyszukań, kurs 4 => 1 wyszukanie = 0,04 zł = 40 000 mikro
+        search: {
+          provider: 'paid',
+          model: 'claude-test',
+          maxTokens: 1000,
+          pricing: { currency: 'USD', inputPerMTok: 1, outputPerMTok: 2, webSearchPer1k: 10 },
+        },
+      },
+      routes: { ...base.routes, 'chat.search': ['search'] },
+    });
+    const gw = new ModelGateway(t.db, config, {}, { paid: anthropicLike });
+    const r = await gw.complete(request({ capability: 'chat.search', webSearch: true }));
+    expect(seen[0]!.webSearch).toEqual({ maxUses: 3 });
+    expect(seen[0]!.system).toMatch(/^sys\n\nWyszukiwanie w internecie \(web_search\) jest płatne/);
+    // Tokeny: (1000×1 + 500×2) × 4 = 8000; wyszukania: 2 × 40 000 = 80 000.
+    expect(r).toMatchObject({ costMicros: 88_000, webSearches: 2, paid: true });
+    expect(r.webSources).toEqual([{ url: 'https://pogoda.example', title: 'Pogoda' }]);
+
+    // Bez zgody na wyszukiwanie w tej turze albo bez ceny w cenniku — bez narzędzia i bez zasad.
+    await gw.complete(request({ capability: 'chat.search', webSearch: false }));
+    await gw.complete(request({ webSearch: true }));
+    for (const x of seen.slice(1)) {
+      expect(x.webSearch).toBeUndefined();
+      expect(x.system).toBe('sys');
+    }
   });
 
   it('brak metadanych usage => koszt oznaczony jako estymacja', async () => {

@@ -660,6 +660,9 @@ function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: bo
       {m.role === 'assistant' && (
         <Sources sources={(m.meta.sources as MessageSource[] | undefined) ?? []} />
       )}
+      {m.role === 'assistant' && (
+        <WebSources sources={(m.meta.webSources as WebSource[] | undefined) ?? []} />
+      )}
       {m.role === 'assistant' && <SpeakButton text={m.content} source={{ messageId: m.id }} />}
       {proposed.some((p) => p.approval) && (
         <p className="msg-note">
@@ -680,6 +683,41 @@ function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: bo
  * Źródła odpowiedzi: dokument i strona/fragment, z odnośnikiem do treści fragmentu. Gdy odpowiedź nie
  * cytuje żadnego [Dn], pokazujemy fragmenty przekazane modelowi — z jawnym opisem, że to tylko kontekst.
  */
+interface WebSource {
+  url: string;
+  title: string;
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
+/** Źródła z internetu cytowane w odpowiedzi (wyszukiwanie) — zawsze widoczne pod odpowiedzią. */
+function WebSources({ sources }: { sources: WebSource[] }) {
+  const safe = sources.filter((s) => /^https?:\/\//i.test(s.url));
+  if (!safe.length) return null;
+  return (
+    <div className="sources web-sources">
+      <span className="sources-label">Źródła z internetu</span>
+      <ul>
+        {safe.map((s) => (
+          <li key={s.url}>
+            <a className="source" href={s.url} target="_blank" rel="noopener noreferrer">
+              <Icon name="search" size={14} />
+              <span className="source-title">{s.title || hostOf(s.url)}</span>
+              <span className="muted">· {hostOf(s.url)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Sources({ sources }: { sources: MessageSource[] }) {
   const cited = sources.filter((s) => s.cited);
   const shown = cited.length ? cited : sources;

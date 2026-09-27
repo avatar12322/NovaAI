@@ -42,6 +42,8 @@ na serwerze właściciela.
 
 ## Dalej (do zebrania)
 
+- [x] Wyszukiwanie w internecie: Anthropic (ten sam klucz) — cena w cenniku modelu (D-036)
+- [-] Pominięte (decyzja właściciela): Slack, Outlook uczelniany, Home Assistant
 - [ ] Microsoft: konto **uczelniane** (Microsoft 365 uczelni) — dostęp zależy od zasad zgody w Entra uczelni
       (zwykle wymagana zgoda administratora dla uprawnień do poczty); do sprawdzenia, czy student może
       zarejestrować aplikację. Redirect `https://novaai.pl/api/connections/microsoft/callback`

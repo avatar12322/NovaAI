@@ -36,6 +36,7 @@ interface ModelRow {
   output_per_mtok: string;
   cache_read_per_mtok: string | null;
   cache_write_per_mtok: string | null;
+  web_search_per_1k: string | null;
   pricing_source: string | null;
   pricing_verified_at: string | null;
   use_simple: boolean;
@@ -62,7 +63,7 @@ export class DbHouseholdModels implements HouseholdModelSource {
       this.db.owner.query<ModelRow>(
         `SELECT m.name, m.model, COALESCE(p.name, m.server_provider) AS provider_name, m.max_tokens, m.data_policy, m.price_currency,
                 m.input_per_mtok::text, m.output_per_mtok::text, m.cache_read_per_mtok::text,
-                m.cache_write_per_mtok::text, m.pricing_source,
+                m.cache_write_per_mtok::text, m.web_search_per_1k::text, m.pricing_source,
                 to_char(m.pricing_verified_at, 'YYYY-MM-DD') AS pricing_verified_at,
                 m.use_simple, m.use_complex, m.priority
            FROM household_models m LEFT JOIN model_providers p ON p.id = m.provider_id
@@ -117,6 +118,7 @@ export class DbHouseholdModels implements HouseholdModelSource {
           outputPerMTok: Number(m.output_per_mtok),
           cacheReadPerMTok: num(m.cache_read_per_mtok),
           cacheWritePerMTok: num(m.cache_write_per_mtok),
+          webSearchPer1k: num(m.web_search_per_1k),
           verifiedAt: m.pricing_verified_at,
           source: m.pricing_source ?? 'household',
         },

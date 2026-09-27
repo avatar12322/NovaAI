@@ -189,6 +189,8 @@ export class ModelAgentRuntime implements AgentRuntime {
         messages: this.messages(input, ctx),
         tools: input.followUp ? [] : this.tools.describe(allowedCapabilities),
         ...(input.stream ? { stream: input.stream } : {}),
+        // Wyszukiwanie w zwykłej turze; w turze uzupełniającej model odpowiada na wynikach narzędzi.
+        webSearch: !input.followUp,
       });
       const usage = {
         provider: res.provider,
@@ -219,6 +221,7 @@ export class ModelAgentRuntime implements AgentRuntime {
         toolCalls: res.toolCalls.map((t) => ({ tool: t.name, params: t.input })),
         usage,
         runtime: `${res.provider}:${res.model}`,
+        ...(res.webSources?.length ? { webSources: res.webSources } : {}),
       };
     } catch (err) {
       if (err instanceof BudgetBlocked) {

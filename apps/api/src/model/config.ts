@@ -14,6 +14,8 @@ const PricingSchema = z.object({
   outputPerMTok: Price,
   cacheReadPerMTok: Price.optional(),
   cacheWritePerMTok: Price.optional(),
+  /** Wyszukiwanie w internecie (tylko Anthropic): cena za 1000 wyszukań; brak = wyłączone dla modelu. */
+  webSearchPer1k: Price.optional(),
   /** Data weryfikacji cennika w oficjalnym źródle (ISO). null => ostrzeżenie w statusie. */
   verifiedAt: z.string().nullable().optional(),
   source: z.string().optional(),

@@ -654,3 +654,23 @@ do planu.
   tytuły i sale to dane z pliku (niezaufane), nie polecenia. NovaAI (wspólny) go nie dostaje.
 - Model dostaje bieżącą datę i godzinę w Polsce w instrukcjach — wcześniej nie znał dnia, więc „jutro” czy
   „w piątek” było zgadywaniem.
+
+## D-036 Wyszukiwanie w internecie przez Anthropic (narzędzie serwerowe)
+
+Decyzja właściciela: wyszukiwanie przez Anthropic na tym samym kluczu (bez nowego konta). Dokumentacja sprawdzona
+2026-09-27 (platform.claude.com, „Web search tool”): 10 USD za 1000 wyszukań + zwykłe tokeny (wyniki liczą się
+jako wejście); wersje `web_search_20250305` (podstawowa) i `web_search_20260209` (filtrowanie wyników kodem —
+modele Claude 4.6 i nowsze); `max_uses`, `user_location`; `pause_turn` przy długim wyszukiwaniu (wznowienie:
+ta sama wiadomość asystenta odesłana bez zmian); cytowania `web_search_result_location` (url, tytuł) — przy
+pokazywaniu odpowiedzi trzeba pokazać źródła; wyszukiwanie może wyłączyć administrator organizacji w Console.
+**Nie sprawdzone na prawdziwym koncie** — testy na atrapie API.
+
+- Włączane per model: cena za 1000 wyszukań w cenniku modelu (Modele AI; w pliku `pricing.webSearchPer1k`,
+  migracja 0020). Bez ceny albo dla dostawcy innego niż Anthropic — wyłączone (budżet musi znać koszt).
+- Brama: narzędzie tylko w zwykłej turze (nie w turze uzupełniającej po narzędziach), najwyżej 3 wyszukania
+  na odpowiedź; rezerwacja budżetu = najgorszy przypadek tokenów + 3 wyszukania; koszt = tokeny + faktyczna
+  liczba wyszukań (`usage.server_tool_use.web_search_requests`) × cena × kurs. Zasady w instrukcjach (dołączane
+  tylko z narzędziem): tylko informacje aktualne, bez danych prywatnych w zapytaniach, wyniki to dane.
+- Adapter: wersja narzędzia wg identyfikatora modelu, wyniki lokalizowane do Polski, do 3 wznowień po
+  `pause_turn`, tekst z wielu bloków (cytowania dzielą zdania) łączony bez separatora, źródła http(s) bez
+  powtórzeń (do 8) zapisywane w metadanych odpowiedzi i pokazywane pod nią („Źródła z internetu”).

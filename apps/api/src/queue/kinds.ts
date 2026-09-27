@@ -259,6 +259,7 @@ export const agentTurnKind: TaskKindDef = {
         proposedTools: newSteps.map((s) => ({ tool: s.tool, approval: s.requiresApproval })),
         deniedTools: denied,
         sources: messageSources(ctx.input.documents ?? [], result.reply),
+        ...(result.webSources?.length ? { webSources: result.webSources } : {}),
       });
       // Jedna tura uzupełniająca: po narzędziach bez zgody model odpowiada na podstawie ich wyników.
       // Narzędzia wymagające zgody mogą czekać godzinami — wtedy wynik trafia do rozmowy bez komentarza.
