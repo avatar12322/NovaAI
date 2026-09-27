@@ -28,15 +28,17 @@ na serwerze właściciela.
   autoryzowana `novaai.pl`; zakresy `gmail.readonly`, `gmail.send`, `calendar.freebusy`; użytkownicy testowi.
 - Klient OAuth „Web application”, redirect URI: `https://novaai.pl/api/connections/google/callback` i
   `http://localhost:5173/api/connections/google/callback`. `GOOGLE_CLIENT_ID/SECRET` — w `.env` właściciela.
-- Sprawdzone przez właściciela lokalnie: połączenie konta i odczyt poczty. Niesprawdzone: wysyłka (ze zgodą)
-  i zajętość w kalendarzu.
+- Sprawdzone przez właściciela lokalnie: połączenie konta, odczyt poczty, wysyłka e-maila po zatwierdzeniu
+  (uprawnienie dołożone przez „Zmień uprawnienia”). Niesprawdzone: zajętość w kalendarzu.
 - **Przed wdrożeniem:** Audience → „Publish app” (w trybie Testing Google unieważnia połączenie po 7 dniach);
   użytek osobisty (< 100 osób) bez weryfikacji — z ekranem „aplikacja niezweryfikowana”. Na serwerze te same
   `GOOGLE_CLIENT_ID/SECRET`.
 
 ## Dalej (do zebrania)
 
-- [ ] Microsoft: aplikacja w Entra — redirect `https://novaai.pl/api/connections/microsoft/callback`
+- [ ] Microsoft: konto **uczelniane** (Microsoft 365 uczelni) — dostęp zależy od zasad zgody w Entra uczelni
+      (zwykle wymagana zgoda administratora dla uprawnień do poczty); do sprawdzenia, czy student może
+      zarejestrować aplikację. Redirect `https://novaai.pl/api/connections/microsoft/callback`
 - [ ] Slack: aplikacja wewnętrzna — redirect `https://novaai.pl/api/connections/slack/callback`
 - [ ] Home Assistant (adres i token) — jeśli jest
 - [ ] Wyszukiwanie w internecie — decyzja (płatne)

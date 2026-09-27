@@ -648,7 +648,7 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   `workers/windows/README.md`.
 - Brak kont OAuth (Microsoft, Slack) — te integracje sprawdzone wyłącznie na lokalnych atrapach; połączenie
   z Microsoft i Slackiem NIE jest sprawdzone. Google: właściciel połączył konto lokalnie i potwierdził odczyt poczty
-  (2026-09-27; `docs/DEPLOY.md`); wysyłka i zajętość w kalendarzu — niesprawdzone. Google: klient OAuth „Web application”, redirect
+  (2026-09-27; `docs/DEPLOY.md`) oraz wysyłkę po zatwierdzeniu; zajętość w kalendarzu — niesprawdzona. Google: klient OAuth „Web application”, redirect
   `<NOVA_PUBLIC_URL>/api/connections/google/callback`, `GOOGLE_CLIENT_ID/SECRET`, weryfikacja zakresów Gmail przez
   Google przed udostępnieniem. Microsoft: rejestracja aplikacji w Microsoft Entra (README → Integracje),
   `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT`. Slack: aplikacja wewnętrzna z zakresami użytkownika, redirect
