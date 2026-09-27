@@ -693,3 +693,26 @@ to koszt modeli i powierzchnia ataku.
 - Najwyżej 8 aktywnych osób w domu; adres zajęty przez inne konto → 409 (bez ujawniania, czyje).
 - Lista domowników: adresy e-mail widzi właściciel i sama osoba. Audyt (`household.invite`,
   `household.enroll_link`, `household.remove_member`) bez adresów i imion — tylko identyfikator konta.
+
+## D-038 Wdrożenie na VPS: Caddy + systemd + Postgres na hoście
+
+Serwer właściciela (OVH VPS-1, Ubuntu 24.04, `novaai.pl`). Instalację uruchamia właściciel skryptem
+`infra/deploy/setup-server.sh` — asystent nie ma dostępu do serwera. Dokumentacja sprawdzona 2026-09-27: Caddy
+(instalacja z repozytorium Cloudsmith), NodeSource (`setup_22.x`, Ubuntu 24.04), klucze hosta GitHub.
+
+- Bez Dockera: jedna aplikacja i jedna baza na 4 GB RAM — mniej warstw do utrzymania. PostgreSQL 16 z Ubuntu
+  (aktualizacje bezpieczeństwa z systemu), tylko localhost; role `nova_owner` / `nova_app` jak w
+  `infra/db/init.sql`, z losowymi hasłami.
+- Caddy: automatyczny certyfikat Let's Encrypt i odnawianie, HTTP → HTTPS, `www` → domena główna, HSTS (bez
+  `includeSubDomains`/preload — łatwo wycofać), kompresja; bez dziennika dostępu (adresy IP domowników). API słucha
+  tylko na `127.0.0.1:4000`, `NOVA_TRUST_PROXY=1`.
+- systemd: użytkownik `novaai` bez powłoki, `ProtectSystem=strict` (aplikacja nie zapisuje na dysk — dane w
+  Postgres), bez uprawnień, restart po awarii. Node 22 — tę wersję obejmują testy i bundel (`target: node22`).
+- Kod z GitHuba przez klucz wdrożeniowy tylko do odczytu (serwer nie może niczego wypchnąć); aktualizacja
+  `update.sh`: fast-forward gałęzi, `pnpm install --frozen-lockfile`, build, kopia bazy przed migracją,
+  migracja, restart, sprawdzenie `/api/health` (produkcja, bez logowania testowego, bez oczekujących migracji).
+- Sekrety: hasła ról i `NOVA_SECRET_KEY` generowane na serwerze do `.env` (0600, właściciel `novaai`), nigdzie
+  nie wypisywane ani nie commitowane; klucze usług wpisuje właściciel. Szablon `infra/deploy/env.production`
+  bez sekretów.
+- Kopie: `pg_dump` codziennie (14 dni) — skrypt kopiowany do `/usr/local/sbin` (root nie uruchamia pliku z
+  katalogu aplikacji); kopia VPS w OVH; pobieranie kopii na własny komputer — ręcznie (DEPLOY.md).

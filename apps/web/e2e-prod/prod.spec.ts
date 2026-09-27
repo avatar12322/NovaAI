@@ -66,7 +66,9 @@ test('produkcja: CSP bez naruszeń, brak logowania testowego, konto z CLI, czat 
   await virtualAuthenticator(page);
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Zaloguj kluczem dostępu' })).toBeVisible();
-  await expect(page.getByText('Poproś administratora')).toBeVisible();
+  await expect(
+    page.getByText('Poproś właściciela domu o zaproszenie', { exact: false }),
+  ).toBeVisible();
 
   const email = `prod-${Date.now()}@example.test`;
   admin('create-household', 'Dom produkcyjny (test)', `${email}:Osoba Prod`);

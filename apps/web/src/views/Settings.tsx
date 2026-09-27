@@ -87,7 +87,6 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
           ))}
         </div>
       </section>
-      <HouseholdPanel />
       <section className="panel">
         <h2 className="h-sub">Konto</h2>
         <dl className="kv">
@@ -103,6 +102,8 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
           <Icon name="logout" /> Wyloguj
         </button>
       </section>
+      {/* Pod „Konto”: lista wczytuje się asynchronicznie i nie przesuwa przycisku „Wyloguj”. */}
+      <HouseholdPanel />
     </section>
   );
 }

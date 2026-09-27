@@ -1,0 +1,14 @@
+# Caddy przed NovaAI: HTTPS (certyfikat Let's Encrypt automatycznie), www → domena główna.
+# API słucha tylko na 127.0.0.1:4000; strumienie (SSE) i WebSocket Caddy przekazuje bez buforowania.
+# Bez dziennika dostępu (adresy IP domowników); błędy Caddy: journalctl -u caddy.
+# Instalacja: setup-server.sh / update.sh kopiują ten plik do /etc/caddy/Caddyfile.
+
+novaai.pl {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy 127.0.0.1:4000
+}
+
+www.novaai.pl {
+	redir https://novaai.pl{uri} permanent
+}

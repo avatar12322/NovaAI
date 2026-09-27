@@ -95,7 +95,10 @@ test('NovaAI: rozmowa wspólna widoczna dla obojga', async ({ page }) => {
   await page.goto('/#/chat/shared');
   // Tytuł wspólnej rozmowy pochodzi z pierwszej wiadomości — Beta znajduje ją na liście po treści.
   await page.locator('.list-item').filter({ hasText: text }).click();
-  await expect(page.locator('.msg-body').filter({ hasText: text })).toBeVisible();
+  // Dokładny tekst: odpowiedź demo może cytować wiadomość („Otrzymałem: „…””).
+  await expect(
+    page.locator('.msg-body').filter({ hasText: new RegExp(`^${text}$`) }),
+  ).toBeVisible();
 });
 
 test('ustawienia pokazują stan usług i tryb demo; baner offline', async ({ page, context }) => {

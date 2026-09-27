@@ -29,6 +29,9 @@ Healthcheck: `curl http://127.0.0.1:4000/api/health`.
 
 ## Produkcja: pierwsze uruchomienie (bez kont testowych)
 
+Serwer Ubuntu (VPS): gotowy zestaw w `infra/deploy/` — instrukcja krok po kroku w `docs/DEPLOY.md` → 5
+(`setup-server.sh` instaluje wszystko poniżej, z Caddy, systemd i kopiami bazy). Ręcznie:
+
 ```bash
 # .env: NOVA_ENV=production, NOVA_DEV_LOGIN=false, NOVA_SECRET_KEY=<32 bajty base64>,
 #       NOVA_WEB_ORIGIN=https://twoja-domena, NOVA_RP_ID=twoja-domena, NOVA_WEB_DIST=apps/web/dist,

@@ -1,0 +1,37 @@
+# NovaAI (API + frontend z jednego originu) za Caddy. Instalacja: setup-server.sh
+# → /etc/systemd/system/novaai.service. Logi: journalctl -u novaai -f
+[Unit]
+Description=NovaAI
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=novaai
+Group=novaai
+WorkingDirectory=/opt/novaai/app
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --enable-source-maps apps/api/dist/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Ograniczenia: aplikacja niczego nie zapisuje na dysku (dane są w Postgres).
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

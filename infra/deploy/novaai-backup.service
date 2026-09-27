@@ -1,0 +1,10 @@
+# Kopia bazy NovaAI (pg_dump) — uruchamiana przez novaai-backup.timer.
+[Unit]
+Description=Kopia bazy NovaAI
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+# Skrypt skopiowany z repozytorium (infra/deploy/backup.sh) do katalogu root — nie z katalogu aplikacji.
+ExecStart=/usr/local/sbin/novaai-backup

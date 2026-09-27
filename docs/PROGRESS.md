@@ -711,6 +711,17 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   pełny dom; nowy link unieważnia stary; usunięcie → 401; ponowne zaproszenie), e2e desktop + telefon
   (zaproszenie w Ustawieniach, klucz na „drugim urządzeniu” z wirtualnym uwierzytelniaczem, usunięcie).
 
+### Zestaw wdrożeniowy na VPS (2026-09-27)
+
+- `infra/deploy/`: `setup-server.sh` (Node 22, pnpm, PostgreSQL 16, Caddy, ufw, użytkownik `novaai`, klucz
+  wdrożeniowy, baza i `.env` z losowymi sekretami, usługi, build, migracje, start), `update.sh`, `admin.sh`,
+  `backup.sh` + timer, `Caddyfile`, `novaai.service`, szablon `env.production`. Instrukcja krok po kroku:
+  `docs/DEPLOY.md` → 5; decyzje D-038.
+- Sprawdzone lokalnie: shellcheck, `caddy validate` i `caddy fmt` (Caddy 2.10.2), `systemd-analyze verify` i
+  `security` (ekspozycja 3.6 OK), szablon `.env` przez parser konfiguracji aplikacji, SQL ról dwa razy z rzędu
+  (idempotentny) i wszystkie migracje na świeżej bazie z tymi rolami, smoke test ścieżki produkcyjnej.
+  **Nie uruchomione na prawdziwym serwerze** — uruchamia właściciel.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -749,7 +760,7 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
    (albo `models.local.json`), limit w „Koszt modeli”, klienci OAuth
    Google i Microsoft, aplikacja Slack, klucze administracyjne raportów kosztów (README → Integracje) i sprawdzenie na
    własnych kontach; Worker na Windows.
-2. Konfiguracja wdrożenia przez właściciela: reverse proxy z TLS (także redirect HTTPS dla Slacka), kopie zapasowe
-   Postgres, usługa systemowa dla `start:prod`; wpisanie tych usług i ich kosztów w „Usługi i koszty”.
+2. Wdrożenie przez właściciela na `novaai.pl` według `docs/DEPLOY.md` → 5 (zestaw `infra/deploy/`); potem
+   wpisanie VPS, domeny i planów usług z kosztami w „Usługi i koszty”.
 3. Poczta, Slack i dokumenty z prawdziwym modelem: ocena odporności na wstrzyknięcia i jakości odpowiedzi; potem
    Web Push (VAPID) i ewentualnie automatyczna synchronizacja raportów kosztów w tle.
