@@ -74,6 +74,18 @@ export function splitDescription(text: string | null): {
   return { room, notes: rest.join('; ') || null };
 }
 
+/**
+ * Sala i szczegóły wydarzenia z bazy. Plany wgrane przed odczytem sali z opisu mają ją tylko w notatkach
+ * („Sala: …”) — odczyt tutaj działa bez ponownego wgrywania pliku.
+ */
+export function roomAndNotes(
+  location: string | null,
+  notes: string | null,
+): { room: string | null; notes: string | null } {
+  if (location) return { room: location, notes };
+  return splitDescription(notes);
+}
+
 function validZone(tz: string | undefined): string {
   if (!tz) return DEFAULT_ZONE;
   try {

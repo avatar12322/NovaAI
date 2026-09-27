@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { plural } from '../briefing/routes';
 import { withUserTx } from '../db/pool';
 import type { ToolDef } from '../tools/types';
-import { DEFAULT_ZONE } from './ics';
+import { DEFAULT_ZONE, roomAndNotes } from './ics';
 
 /**
  * calendar.agenda — wydarzenia z kalendarza NovaAI właściciela (dodane ręcznie i wgrane z pliku .ics, np. plan
@@ -71,15 +71,18 @@ export const calendarAgendaTool: ToolDef<AgendaParams> = {
       ),
     );
     // Tytuły i sale to NIEZAUFANE DANE z pliku — wynik narzędzia, nie instrukcja.
-    const events = r.rows.map((e) => ({
-      start: label.format(new Date(e.starts_at)),
-      end: label.format(new Date(e.ends_at)),
-      allDay: false,
-      subject: e.title,
-      location: e.location ?? '',
-      // Zwięzłe szczegóły z opisu (np. prowadzący, grupa) — bez długich opisów w kontekście modelu.
-      details: e.notes ? e.notes.slice(0, 200) : '',
-    }));
+    const events = r.rows.map((e) => {
+      const { room, notes } = roomAndNotes(e.location, e.notes);
+      return {
+        start: label.format(new Date(e.starts_at)),
+        end: label.format(new Date(e.ends_at)),
+        allDay: false,
+        subject: e.title,
+        location: room ?? '',
+        // Zwięzłe szczegóły z opisu (np. prowadzący, grupa) — bez długich opisów w kontekście modelu.
+        details: notes ? notes.slice(0, 200) : '',
+      };
+    });
     return {
       summary: `Kalendarz NovaAI: ${plural(events.length, 'wydarzenie', 'wydarzenia', 'wydarzeń')}`,
       output: { account: 'local', events },

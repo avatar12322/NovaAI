@@ -120,6 +120,19 @@ describe('plan zajęć z pliku .ics', () => {
     expect((await t.db.owner.query(`SELECT 1 FROM local_calendar_events`)).rows).toHaveLength(2);
   });
 
+  it('plan wgrany przed odczytem sali: sala z zapisanego opisu, bez ponownego wgrywania', async () => {
+    const id = (await send(alfa, PLAN)).json().import.id;
+    // Stan sprzed poprawki: pusta sala, pełny opis z IDEIS w notatkach (dane zmyślone).
+    await t.db.owner.query(
+      `UPDATE local_calendar_events SET location = NULL,
+         notes = E'Plan dla toku: Tok testowy\\n\\n Data zajęć: 2026.10.01\\n Sala: F Testowa \\n Prowadzący: dr Jan Testowy \\n Uwagi: \\n'
+       WHERE import_id = $1`,
+      [id],
+    );
+    const b = (await alfa.get('/api/briefing')).body;
+    expect(b.events[0]).toMatchObject({ title: 'Programowanie obiektowe', location: 'F Testowa' });
+  });
+
   it('błędne pliki: nie kalendarz, pusty plan (z instrukcją), za duży, bez logowania i CSRF', async () => {
     const notIcs = await send(alfa, 'Czas od;Czas do;Zajecia');
     expect(notIcs.statusCode).toBe(400);

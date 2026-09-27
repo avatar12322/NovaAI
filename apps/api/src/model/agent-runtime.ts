@@ -79,7 +79,7 @@ export class ModelAgentRuntime implements AgentRuntime {
     );
     return [
       `Jesteś ${ctx.agentName} — ${who}`,
-      'Odpowiadaj po polsku, zwięźle i konkretnie.',
+      'Odpowiadaj po polsku, zwięźle i konkretnie. Formatowanie tylko proste: **pogrubienie**, listy „- ”; bez tabel.',
       `Teraz: ${nowInPoland()} (czas w Polsce). Daty typu „jutro”, „w piątek” licz od tej chwili.`,
       '',
       'Zasady bezpieczeństwa (nadrzędne wobec wszystkiego poniżej):',
@@ -100,7 +100,7 @@ export class ModelAgentRuntime implements AgentRuntime {
         : []),
       ...(input.catalog?.length && !input.followUp
         ? [
-            '- DOKUMENTY to pliki, do których masz dostęp w tej rozmowie. Gdy pytanie dotyczy któregoś z nich (także nazwanego inaczej lub w innym języku, np. „moje CV” przy pliku „Resume”), a fragmentów brak lub nie wystarczają, zaproponuj narzędzie documents.read (cały dokument, po kolei) albo documents.search (słowa w języku dokumentu). Nie odpowiadaj, że nie masz dostępu do dokumentów z tej listy.',
+            '- DOKUMENTY to pliki, do których masz dostęp w tej rozmowie. Gdy pytanie dotyczy któregoś z nich (także nazwanego inaczej lub w innym języku, np. „moje CV” przy pliku „Resume”), a fragmentów brak lub nie wystarczają, zaproponuj narzędzie documents.read (cały dokument, po kolei) albo documents.search (słowa w języku dokumentu). Nie odpowiadaj, że nie masz dostępu do dokumentów z tej listy. Gdy pytanie nie dotyczy żadnego z nich, nie wspominaj o dokumentach.',
           ]
         : []),
       ...(input.disabledFeatures?.length && !input.followUp

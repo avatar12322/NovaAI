@@ -2,6 +2,7 @@ import type { Briefing } from '@nova/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../access';
 import type { AuthContext } from '../auth/session';
+import { roomAndNotes } from '../calendar/ics';
 import { withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
 import { forbidden } from '../lib/errors';
@@ -99,8 +100,9 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
       starts_at: string;
       ends_at: string;
       location: string | null;
+      notes: string | null;
     }>(
-      `SELECT id, title, starts_at, ends_at, location FROM local_calendar_events
+      `SELECT id, title, starts_at, ends_at, location, notes FROM local_calendar_events
         WHERE owner_user_id = nova_uid() AND starts_at < ${DAY_END} AND ends_at > ${DAY_START}
         ORDER BY starts_at LIMIT 10`,
     );
@@ -150,7 +152,7 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
       title: e.title,
       startsAt: e.starts_at,
       endsAt: e.ends_at,
-      location: e.location,
+      location: roomAndNotes(e.location, e.notes).room,
     })),
     approvals: data.counts.approvals,
     activeTasks: data.counts.tasks,

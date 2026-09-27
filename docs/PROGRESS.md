@@ -669,6 +669,17 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   trafił do repozytorium — testy na zmyślonych danych w tym samym układzie. Plan trzeba wgrać ponownie
   („Wgraj nową wersję”).
 
+### Formatowanie odpowiedzi; sala także w planach wgranych wcześniej (2026-09-27)
+
+- Odpowiedzi asystenta z prostym Markdownem (pogrubienie, kursywa, kod, nagłówki, listy, linki http(s)) zamiast
+  gwiazdek — `lib/markdown.tsx`, tylko elementy Reacta (bez HTML z treści), także przy odsłanianiu i pisaniu
+  na żywo (niedomknięte ** nie miga). Model: „formatowanie tylko proste, bez tabel”; nie wspomina o dokumentach,
+  gdy pytanie ich nie dotyczy.
+- Plan wgrany przed odczytem sali z opisu: sala odczytywana z zapisanych notatek („Sala: …”) w przeglądzie dnia
+  i dla asystenta — bez ponownego wgrywania.
+- Testy (tylko zmienione obszary): `lib/markdown.test.ts` (6), web 28/28, e2e `assistant-motion` 4/4,
+  api `src/calendar` + `src/briefing` 20/20, `src/model` + `src/documents` 85/85.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

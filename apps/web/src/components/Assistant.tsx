@@ -2,6 +2,7 @@ import type { Task } from '@nova/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useEventEffect } from '../lib/events';
+import { plainText, renderMarkdown } from '../lib/markdown';
 import { prefersReducedMotion, revealDuration, revealedText } from '../lib/reveal';
 import { stageOf } from '../lib/stage';
 
@@ -88,7 +89,7 @@ export function RevealText({ text, animate }: { text: string; animate: boolean }
     return () => cancelAnimationFrame(frame);
   }, [text]);
 
-  if (shown.length >= text.length) return <>{text}</>;
+  if (shown.length >= text.length) return <>{renderMarkdown(text)}</>;
   return (
     <span
       className="revealing"
@@ -97,9 +98,9 @@ export function RevealText({ text, animate }: { text: string; animate: boolean }
         setShown(text);
       }}
     >
-      <span className="sr-only">{text}</span>
+      <span className="sr-only">{plainText(text)}</span>
       <span aria-hidden="true">
-        {shown}
+        {renderMarkdown(shown)}
         <span className="caret" />
       </span>
     </span>

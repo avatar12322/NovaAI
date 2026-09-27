@@ -23,6 +23,7 @@ import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useDeltaEffect, useEventEffect } from '../lib/events';
 import { applyDelta, sameText, type LiveReply } from '../lib/live';
 import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
+import { renderMarkdown } from '../lib/markdown';
 import { clearPendingTurn, peekPendingTurn } from '../lib/pending';
 import { prefersReducedMotion } from '../lib/reveal';
 import { href, navigate, parseRoute } from '../lib/router';
@@ -488,7 +489,7 @@ function LiveBubble({ text, agentName }: { text: string; agentName: string }) {
         <span className="muted">pisze…</span>
       </header>
       <div className="msg-body" aria-hidden="true">
-        {text}
+        {renderMarkdown(text)}
         <span className="caret" />
       </div>
       <span className="sr-only" role="status">
