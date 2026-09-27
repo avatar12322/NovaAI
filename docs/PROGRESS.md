@@ -625,6 +625,21 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Niesprawdzone: prawdziwe konto ElevenLabs (rozpoznawanie po polsku, opóźnienie) i prawdziwe przeglądarki
   Brave/Opera/Firefox z mikrofonem.
 
+### Zmiana uprawnień połączonego konta; model wie, co jest wyłączone (2026-09-27)
+
+- Zgłoszenie po pierwszym prawdziwym połączeniu Google: „nie mam zgody nigdzie” — wysyłka e-maili jest celowo
+  domyślnie wyłączona (włączana świadomie), a po połączeniu nie dało się jej dołożyć bez odłączania konta; model
+  nie dostawał narzędzia i nie wiedział dlaczego.
+- Teraz: „Zmień uprawnienia” przy połączonym koncie (wybór zaczyna się od obecnych, „Zapisz uprawnienia” →
+  zgoda u dostawcy, połączenie zastąpione nowym; Google dokłada zakres do przyznanych). Model dostaje listę
+  funkcji kont możliwych do włączenia, a wyłączonych (tylko u skonfigurowanych dostawców), z informacją, że
+  włącza się je w Ustawienia → Integracje — i nie udaje, że je wykonał.
+- Testy: `model-chat.test.ts` (+2: konto tylko do odczytu — narzędzia odczytu są, wysyłki nie ma, podpowiedź
+  w instrukcjach; bez skonfigurowanych integracji — bez podpowiedzi), e2e `integrations.spec.ts` (+1: „Zmień
+  uprawnienia”, Anuluj, zapis z wysyłką — zakresy w adresie zgody Microsoft).
+- Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 298/298, web 21/21; `pnpm test:e2e` → 56/56;
+  `pnpm test:prod-smoke` → 1/1.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

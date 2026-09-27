@@ -80,6 +80,58 @@ test('Microsoft: niepołączone konto, minimalne uprawnienia, Teams i zgoda admi
   await expect(card(page).locator('.badge')).toHaveText('nie połączono');
 });
 
+test('połączone konto: „Zmień uprawnienia” dokłada wysyłkę bez odłączania konta', async ({
+  page,
+}) => {
+  // Stan „połączono (tylko odczyt)” podstawiony w odpowiedzi serwera; zmiana idzie prawdziwym /start.
+  await page.route('**/api/connections', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    for (const it of body.items)
+      if (it.provider === 'microsoft')
+        it.connection = {
+          status: 'connected',
+          scopes: [],
+          capabilities: ['mail.search', 'mail.read', 'calendar.freebusy', 'calendar.read'],
+          account: 'alfa@example.test',
+          updatedAt: new Date().toISOString(),
+          lastError: null,
+        };
+    return route.fulfill({ response: res, json: body });
+  });
+  let authorize: URL | null = null;
+  await page.route('https://login.microsoftonline.com/**', (route) => {
+    authorize = new URL(route.request().url());
+    return route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<p>Atrapa zgody (test)</p>',
+    });
+  });
+  await loginAlfa(page);
+  await page.goto('/#/settings');
+  const ms = card(page);
+  await expect(ms.locator('.badge')).toHaveText('połączono');
+  await expect(ms.locator('.cap-status')).toContainText('Wysyłka e-maili');
+  await expect(ms.getByRole('checkbox')).toHaveCount(0);
+
+  await ms.getByRole('button', { name: 'Zmień uprawnienia' }).click();
+  // Wybór zaczyna się od obecnych uprawnień; Anuluj chowa go bez zmian.
+  await expect(ms.getByLabel(/Wyszukiwanie poczty/)).toBeChecked();
+  await expect(ms.getByLabel(/Wysyłka e-maili/)).not.toBeChecked();
+  await ms.getByRole('button', { name: 'Anuluj' }).click();
+  await expect(ms.getByRole('checkbox')).toHaveCount(0);
+
+  await ms.getByRole('button', { name: 'Zmień uprawnienia' }).click();
+  await ms.getByLabel(/Wysyłka e-maili/).check();
+  await ms.getByRole('button', { name: 'Zapisz uprawnienia' }).click();
+  await expect(page.getByText('Atrapa zgody (test)')).toBeVisible();
+  // Obecne uprawnienia + wysyłka; Mail.Read obejmuje wyszukiwanie (bez osobnego Mail.ReadBasic).
+  expect((authorize as unknown as URL).searchParams.get('scope')).toBe(
+    'offline_access openid profile https://graph.microsoft.com/Calendars.ReadBasic https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send',
+  );
+});
+
 test('czat: prośba o pocztę bez połączonego konta daje czytelny powód', async ({ page }) => {
   await loginAlfa(page);
   await page.goto('/#/chat/private');

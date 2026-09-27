@@ -452,6 +452,17 @@ export const CONNECTOR_TOOLS: ToolDef[] = [
   mailDraftTool as unknown as ToolDef,
 ];
 
+/** Nazwy zdolności dla modelu, gdy są wyłączone (co powiedzieć użytkownikowi). */
+export const CAPABILITY_PL: Partial<Record<ConnectorCapability, string>> = {
+  'mail.search': 'wyszukiwanie poczty',
+  'mail.read': 'odczyt treści e-maili',
+  'mail.send': 'wysyłka e-maili',
+  'mail.draft': 'szkice e-maili',
+  'calendar.read': 'odczyt wydarzeń kalendarza',
+  'chat.read': 'odczyt wiadomości ze Slacka',
+  'chat.send': 'wysyłanie wiadomości na Slacku',
+};
+
 /** Narzędzia wymagające połączonego konta z daną zdolnością (bez konta model ich nie dostaje). */
 export const CONNECTOR_REQUIRED: ReadonlyMap<string, ConnectorCapability> = new Map([
   ['calendar.events', 'calendar.read'],

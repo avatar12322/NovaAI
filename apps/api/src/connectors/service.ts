@@ -409,6 +409,16 @@ export class ConnectionService {
     if (row) await this.markReauth(row.id);
   }
 
+  /** Czy zdolność da się w ogóle włączyć: obsługuje ją dostawca skonfigurowany na tym serwerze. */
+  enableable(cap: ConnectorCapability): boolean {
+    return (
+      !!this.vault &&
+      [...this.connectors.values()].some(
+        (c) => c.capabilities.includes(cap) && !c.configurationError(),
+      )
+    );
+  }
+
   /** Połączeni dostawcy użytkownika, którzy obsługują zdolność (wybór użytkownika i przyznane zakresy). */
   async capable(userId: string, cap: ConnectorCapability): Promise<Provider[]> {
     if (!this.vault) return [];

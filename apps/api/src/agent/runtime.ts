@@ -70,6 +70,8 @@ export interface AgentTurnInput {
    * model formułuje odpowiedź na ich podstawie i nie dostaje narzędzi (jedna runda, bez pętli).
    */
   followUp?: boolean;
+  /** Funkcje kont możliwe do włączenia, a teraz wyłączone (brak połączenia albo uprawnienia) — po polsku. */
+  disabledFeatures?: string[];
 }
 
 export interface AgentUserContext {

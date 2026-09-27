@@ -211,6 +211,57 @@ describe('tura uzupełniająca po narzędziach', () => {
 });
 
 describe('brak modelu dla kontekstu prywatnego', () => {
+  it('konto Google bez wysyłki: model ma odczyt poczty, nie ma wysyłki i wie, gdzie ją włączyć', async () => {
+    const p = new FakeProvider();
+    const app = await createTestApp(
+      { GOOGLE_CLIENT_ID: 'cid', GOOGLE_CLIENT_SECRET: 'csecret' },
+      { modelsConfig, providerOverrides: { llm: p } },
+    );
+    try {
+      const a = await login(app.app, 'alfa');
+      const ask = async () => {
+        p.calls = [];
+        const conv = (await a.post('/api/conversations', { space: 'private' })).body;
+        await a.post(`/api/conversations/${conv.id}/messages`, { content: 'wyślij maila do Ani' });
+        await app.drain();
+        return p.calls[0]!;
+      };
+      // Bez połączonego konta: narzędzi poczty brak, model wie, że trzeba połączyć konto.
+      let call = await ask();
+      expect(call.tools.map((x) => x.name)).not.toContain('mail.send');
+      expect(call.system).toContain('Funkcje kont wyłączone w tej rozmowie');
+      for (const f of ['wyszukiwanie poczty', 'odczyt treści e-maili', 'wysyłka e-maili'])
+        expect(call.system).toContain(f);
+
+      // Konto połączone tylko do odczytu (wysyłkę użytkownik włącza świadomie).
+      await app.db.owner.query(
+        `INSERT INTO connections (household_id, owner_user_id, provider, status, scopes, capabilities)
+         VALUES ($1, $2, 'google', 'connected', $3, $4)`,
+        [
+          app.seed.householdId,
+          app.seed.users.alfa,
+          ['https://www.googleapis.com/auth/gmail.readonly'],
+          ['mail.search', 'mail.read'],
+        ],
+      );
+      call = await ask();
+      const names = call.tools.map((x) => x.name);
+      expect(names).toEqual(expect.arrayContaining(['mail.search', 'mail.read']));
+      expect(names).not.toContain('mail.send');
+      expect(call.system).toContain(
+        'Funkcje kont wyłączone w tej rozmowie (konto niepołączone albo uprawnienie wyłączone): wysyłka e-maili.',
+      );
+      expect(call.system).toContain('Ustawienia → Integracje');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('bez skonfigurowanych integracji model nie dostaje podpowiedzi o funkcjach kont', async () => {
+    await chat(alfa, 'private', 'wyślij maila do Ani');
+    expect(provider.calls[0]!.system).not.toContain('Funkcje kont wyłączone');
+  });
+
   it('model tylko dla danych wspólnych nie dostaje prywatnej rozmowy', async () => {
     const onlyShared = ModelsConfigSchema.parse({
       providers: { llm: { kind: 'fake' } },

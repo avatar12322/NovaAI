@@ -145,6 +145,8 @@ function IntegrationCard({
 }) {
   const conn = c.connection && c.connection.status !== 'revoked' ? c.connection : null;
   const needsReauth = conn?.status === 'error';
+  // Zmiana uprawnień połączonego konta: ponowna zgoda u dostawcy z nowym wyborem (bez odłączania).
+  const [editing, setEditing] = useState(false);
   const [chosen, setChosen] = useState<Set<string>>(
     () =>
       new Set(
@@ -184,9 +186,20 @@ function IntegrationCard({
           </div>
         </div>
         {c.configured && conn && (
-          <button type="button" className="btn btn-ghost btn-sm danger" onClick={onDisconnect}>
-            Odłącz
-          </button>
+          <div className="row">
+            {conn.status === 'connected' && c.capabilities.length > 1 && !editing && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setEditing(true)}
+              >
+                Zmień uprawnienia
+              </button>
+            )}
+            <button type="button" className="btn btn-ghost btn-sm danger" onClick={onDisconnect}>
+              Odłącz
+            </button>
+          </div>
         )}
       </div>
 
@@ -228,7 +241,7 @@ function IntegrationCard({
       )}
       {missing && <p className="note note-warn">Dostawca nie przyznał uprawnień: {missing}.</p>}
 
-      {c.configured && (!conn || needsReauth) && c.capabilities.length > 0 && (
+      {c.configured && (!conn || needsReauth || editing) && c.capabilities.length > 0 && (
         <fieldset className="cap-choice">
           <legend className="small muted">Na co pozwolić asystentowi</legend>
           {c.capabilities.map((cap) => (
@@ -253,10 +266,21 @@ function IntegrationCard({
               disabled={chosen.size === 0}
               onClick={() => onConnect(c.capabilities.filter((x) => chosen.has(x)))}
             >
-              {needsReauth ? 'Połącz ponownie' : 'Połącz'}
+              {needsReauth ? 'Połącz ponownie' : editing ? 'Zapisz uprawnienia' : 'Połącz'}
             </button>
+            {editing && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setEditing(false)}
+              >
+                Anuluj
+              </button>
+            )}
             <span className="small muted">
-              Logowanie odbywa się na stronie {PROVIDER_PL[c.provider] ?? c.provider}.
+              {editing
+                ? `Potwierdzisz zmianę na stronie ${PROVIDER_PL[c.provider] ?? c.provider}.`
+                : `Logowanie odbywa się na stronie ${PROVIDER_PL[c.provider] ?? c.provider}.`}
             </span>
           </div>
         </fieldset>

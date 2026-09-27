@@ -5,7 +5,7 @@ import { withUserTx } from '../db/pool';
 import { emitEvent } from '../events';
 import { insertMessage } from '../modules/conversations';
 import { writeAudit } from '../audit';
-import { CONNECTOR_REQUIRED } from '../connectors/tools';
+import { CAPABILITY_PL, CONNECTOR_REQUIRED } from '../connectors/tools';
 import { ToolDenied } from '../tools/types';
 import type { StepSpec } from './tasks';
 import type { MessageSource } from '@nova/contracts';
@@ -197,12 +197,16 @@ export const agentTurnKind: TaskKindDef = {
       if (!ctx.input.catalog?.length)
         capabilities = capabilities.filter((c) => !c.startsWith('documents.'));
       // Narzędzia poczty i szczegółów kalendarza tylko przy połączonym koncie z odpowiednią zdolnością.
+      // Zdolności możliwe do włączenia, a wyłączone (brak konta albo uprawnienia) — model mówi, gdzie je włączyć.
       const needed = new Set(capabilities.flatMap((c) => CONNECTOR_REQUIRED.get(c) ?? []));
+      const disabledFeatures: string[] = [];
       if (needed.size) {
         const available = new Set<string>();
         for (const cap of needed) {
           if ((await x.deps.connections.capable(x.principal.userId, cap)).length)
             available.add(cap);
+          else if (x.deps.connections.enableable(cap) && CAPABILITY_PL[cap])
+            disabledFeatures.push(CAPABILITY_PL[cap]);
         }
         capabilities = capabilities.filter((c) => {
           const cap = CONNECTOR_REQUIRED.get(c);
@@ -211,7 +215,11 @@ export const agentTurnKind: TaskKindDef = {
       }
       const stream = turnStream(x, 'reply');
       const result = await x.deps.runtime
-        .runTurn({ ...ctx.input, taskId: x.task.id, stream }, ctx.userContext, capabilities)
+        .runTurn(
+          { ...ctx.input, taskId: x.task.id, stream, disabledFeatures },
+          ctx.userContext,
+          capabilities,
+        )
         .finally(stream.flush);
       await x.progress(80);
 

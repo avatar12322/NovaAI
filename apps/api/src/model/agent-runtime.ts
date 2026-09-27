@@ -90,6 +90,11 @@ export class ModelAgentRuntime implements AgentRuntime {
             '- DOKUMENTY to pliki, do których masz dostęp w tej rozmowie. Gdy pytanie dotyczy któregoś z nich (także nazwanego inaczej lub w innym języku, np. „moje CV” przy pliku „Resume”), a fragmentów brak lub nie wystarczają, zaproponuj narzędzie documents.read (cały dokument, po kolei) albo documents.search (słowa w języku dokumentu). Nie odpowiadaj, że nie masz dostępu do dokumentów z tej listy.',
           ]
         : []),
+      ...(input.disabledFeatures?.length && !input.followUp
+        ? [
+            `- Funkcje kont wyłączone w tej rozmowie (konto niepołączone albo uprawnienie wyłączone): ${input.disabledFeatures.join(', ')}. Nie masz do nich narzędzi. Gdy użytkownik o nie prosi, nie udawaj, że je wykonujesz — powiedz, że włączy je w Ustawienia → Integracje (połączenie konta albo „Zmień uprawnienia”).`,
+          ]
+        : []),
       ...(input.followUp
         ? [
             '',
