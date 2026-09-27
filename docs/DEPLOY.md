@@ -34,6 +34,12 @@ na serwerze właściciela.
   użytek osobisty (< 100 osób) bez weryfikacji — z ekranem „aplikacja niezweryfikowana”. Na serwerze te same
   `GOOGLE_CLIENT_ID/SECRET`.
 
+## 4. Plan zajęć — import pliku .ics (2026-09-27)
+
+- WSEI Kraków, Wirtualny Dziekanat IDEIS: Plany toków → tok → zakres dat → Szukaj → „Zapisz jako ical” →
+  Ustawienia → Kalendarz → „Plan zajęć i kalendarze z pliku”. Link do planu nie działa jako subskrypcja (zakres
+  dat zależy od sesji przeglądarki). **Po wdrożeniu:** wgrać plan ponownie na serwerze (osobna baza).
+
 ## Dalej (do zebrania)
 
 - [ ] Microsoft: konto **uczelniane** (Microsoft 365 uczelni) — dostęp zależy od zasad zgody w Entra uczelni
