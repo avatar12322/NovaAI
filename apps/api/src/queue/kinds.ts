@@ -402,12 +402,13 @@ function formatToolResult(tool: string, out: Record<string, unknown>): string {
       allDay: boolean;
       subject: string;
       location: string;
+      details?: string;
     }>;
     body = evs.length
       ? evs
           .map(
             (e) =>
-              `${e.start} – ${e.end}${e.allDay ? ' (cały dzień)' : ''}: ${e.subject || '(bez tytułu)'}${e.location ? ` — ${e.location}` : ''}`,
+              `${e.start} – ${e.end}${e.allDay ? ' (cały dzień)' : ''}: ${e.subject || '(bez tytułu)'}${e.location ? ` — ${e.location}` : ''}${e.details ? ` (${e.details})` : ''}`,
           )
           .join('\n')
       : 'Brak wydarzeń w tym zakresie';

@@ -138,7 +138,7 @@ describe('treść i powtórzenia', () => {
     );
     const e = r.events[0]!;
     expect(e.title).toBe('Inżynieria, oprogramowania; wykład(część 2)');
-    expect(e.notes!.startsWith('Prowadzący: dr Jan Testowy\nForma: wykład')).toBe(true);
+    expect(e.notes!.startsWith('Prowadzący: dr Jan Testowy; Forma: wykład')).toBe(true);
     expect(e.notes).not.toContain('\u0007');
     expect(e.notes!.length).toBe(500);
   });
@@ -163,6 +163,57 @@ describe('treść i powtórzenia', () => {
     expect(r.events).toHaveLength(5);
     expect(iso(r.events[0]!.startsAt)).toBe('2026-10-01T06:00:00.000Z');
     expect(r.skipped).toBeGreaterThan(200);
+  });
+});
+
+describe('opis w liniach „Klucz: wartość” (Wirtualny Dziekanat IDEIS)', () => {
+  it('sala z opisu jako miejsce; szczegóły zwięźle, bez powtórzeń i pustych pól', () => {
+    // Układ jak w eksporcie IDEIS (ical.net): czas bez strefy, opis zawinięty; dane zmyślone.
+    const r = parseIcs(
+      ics(
+        ...event(
+          'DESCRIPTION:Plan dla toku: Ścieżka Testowa IS/TEST S inż. 2023/2024\\n\\n Data zaj',
+          ' ęć: 2026.10.01 czwartek\\n Czas od: 16:00\\n Czas do: 17:30\\n Liczba godzin: ',
+          ' 2h00m\\n Przedmiot: Systemy operacyjne \\n Forma zajęć: 1\\n Grupy: Konw\\n Sala: ',
+          ' F Testowa \\n Prowadzący: dr Jan Testowy \\n Forma zaliczenia: Zaliczenie ocena\\n Uwagi: \\n',
+          'DTEND:20261001T173000',
+          'DTSTART:20261001T160000',
+          'SUMMARY:Systemy operacyjne',
+          'UID:ideis-1',
+        ),
+      ),
+      WIDE,
+    );
+    expect(r.events).toEqual([
+      {
+        title: 'Systemy operacyjne',
+        startsAt: new Date('2026-10-01T14:00:00Z'),
+        endsAt: new Date('2026-10-01T15:30:00Z'),
+        location: 'F Testowa',
+        notes:
+          'Forma zajęć: 1; Grupy: Konw; Prowadzący: dr Jan Testowy; Forma zaliczenia: Zaliczenie ocena',
+      },
+    ]);
+  });
+
+  it('LOCATION ma pierwszeństwo; opis bez pól zostaje bez zmian', () => {
+    const r = parseIcs(
+      ics(
+        ...event(
+          'UID:a',
+          'DTSTART:20261005T080000Z',
+          'LOCATION:Aula główna',
+          'DESCRIPTION:Sala: F Inna\\nProwadzący: dr Anna Przykładowa',
+          'SUMMARY:A',
+        ),
+        ...event('UID:b', 'DTSTART:20261005T090000Z', 'DESCRIPTION:Przynieś laptopa.', 'SUMMARY:B'),
+      ),
+      WIDE,
+    );
+    expect(r.events.map((e) => [e.title, e.location, e.notes])).toEqual([
+      ['A', 'Aula główna', 'Prowadzący: dr Anna Przykładowa'],
+      ['B', null, 'Przynieś laptopa.'],
+    ]);
   });
 });
 

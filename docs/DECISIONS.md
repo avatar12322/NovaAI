@@ -634,6 +634,14 @@ do planu.
   pomijane. Czas ze strefą bez definicji w pliku (tak eksportuje ical.net w IDEIS) i czas „pływający” liczony
   w podanej strefie IANA, a gdy jej brak lub nie jest znana (np. nazwa z Windows) — w Europe/Warsaw; cały dzień
   od północy w Polsce. Tekst bez znaków sterujących, przycięty (tytuł, miejsce 200, opis 500 znaków).
+- IDEIS nie wypełnia LOCATION — sala jest w opisie („Sala: …”, razem z „Prowadzący”, „Grupy” itd.). Opis
+  w liniach „Klucz: wartość”: sala (także „Miejsce”) trafia do miejsca, gdy LOCATION puste; reszta zwięźle
+  („Grupy: Konw; Prowadzący: …”) bez pól powtarzających tytuł i czas oraz pustych. Opis bez takich linii bez
+  zmian. Asystent dostaje te szczegóły (do 200 znaków na wydarzenie) razem z salą.
+- IDEIS nie wypełnia LOCATION — sala jest w opisie („Sala: …”, razem z „Prowadzący”, „Grupy” itd.). Opis
+  w liniach „Klucz: wartość”: sala (także „Miejsce”) trafia do miejsca, gdy LOCATION puste; reszta zwięźle
+  („Grupy: Konw; Prowadzący: …”) bez pól powtarzających tytuł i czas oraz pustych. Opis bez takich linii bez
+  zmian. Asystent dostaje te szczegóły (do 200 znaków na wydarzenie) razem z salą.
 - Dane: `calendar_imports` + wydarzenia w `local_calendar_events` (kolumny `import_id`, `location`, `notes`) —
   RLS tylko właściciel (migracja 0018). Plik nie jest przechowywany. Nowa wersja pliku zastępuje wszystkie
   wydarzenia importu w jednej transakcji; usunięcie importu usuwa jego wydarzenia. Audyt z liczbą wydarzeń,

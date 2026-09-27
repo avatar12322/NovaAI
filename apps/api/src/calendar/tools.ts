@@ -57,8 +57,14 @@ export const calendarAgendaTool: ToolDef<AgendaParams> = {
   },
   async execute(ctx, p) {
     const r = await withUserTx(ctx.deps.db, { userId: ctx.principal.userId, scope: 'user' }, (c) =>
-      c.query<{ title: string; starts_at: Date; ends_at: Date; location: string | null }>(
-        `SELECT title, starts_at, ends_at, location FROM local_calendar_events
+      c.query<{
+        title: string;
+        starts_at: Date;
+        ends_at: Date;
+        location: string | null;
+        notes: string | null;
+      }>(
+        `SELECT title, starts_at, ends_at, location, notes FROM local_calendar_events
           WHERE owner_user_id = nova_uid() AND starts_at < $2 AND ends_at > $1
           ORDER BY starts_at LIMIT $3`,
         [p.from, p.to, p.max],
@@ -71,6 +77,8 @@ export const calendarAgendaTool: ToolDef<AgendaParams> = {
       allDay: false,
       subject: e.title,
       location: e.location ?? '',
+      // Zwięzłe szczegóły z opisu (np. prowadzący, grupa) — bez długich opisów w kontekście modelu.
+      details: e.notes ? e.notes.slice(0, 200) : '',
     }));
     return {
       summary: `Kalendarz NovaAI: ${plural(events.length, 'wydarzenie', 'wydarzenia', 'wydarzeń')}`,

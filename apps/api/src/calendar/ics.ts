@@ -34,6 +34,46 @@ function clean(v: unknown, max: number): string | null {
   return s ? s.slice(0, max) : null;
 }
 
+/** Klucze opisu powtarzające to, co już jest w wydarzeniu (tytuł, czas) — pomijane w szczegółach. */
+const REDUNDANT_KEYS = new Set([
+  'plan dla toku',
+  'data zajęć',
+  'czas od',
+  'czas do',
+  'liczba godzin',
+  'przedmiot',
+]);
+const ROOM_KEYS = new Set(['sala', 'miejsce', 'room', 'location']);
+
+/**
+ * Opis w liniach „Klucz: wartość” (np. Wirtualny Dziekanat IDEIS: „Sala: …”, „Prowadzący: …”): sala do miejsca,
+ * reszta zwięźle („Grupy: Konw; Prowadzący: …”), bez powtórzeń tytułu i czasu oraz pustych pól.
+ * Opis bez takich linii zostaje bez zmian.
+ */
+export function splitDescription(text: string | null): {
+  room: string | null;
+  notes: string | null;
+} {
+  if (!text) return { room: null, notes: null };
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const pairs = lines.map((l) => /^([^:]{1,40}):\s*(.*)$/.exec(l));
+  if (!pairs.some(Boolean)) return { room: null, notes: text };
+  let room: string | null = null;
+  const rest: string[] = [];
+  pairs.forEach((m, i) => {
+    if (!m) return void rest.push(lines[i]!);
+    const key = m[1]!.trim();
+    const value = m[2]!.trim();
+    if (!value || REDUNDANT_KEYS.has(key.toLowerCase())) return;
+    if (ROOM_KEYS.has(key.toLowerCase())) room ??= value;
+    else rest.push(`${key}: ${value}`);
+  });
+  return { room, notes: rest.join('; ') || null };
+}
+
 function validZone(tz: string | undefined): string {
   if (!tz) return DEFAULT_ZONE;
   try {
@@ -147,13 +187,14 @@ export function parseIcs(
       if (!endsAt || endsAt <= startsAt)
         endsAt = new Date(startsAt.getTime() + (start.isDate ? 86_400_000 : 3_600_000));
       const status = String(item.component.getFirstPropertyValue('status') ?? '').toUpperCase();
+      const described = splitDescription(clean(item.description, 2000));
       return {
         e: {
           title: clean(item.summary, 200) ?? '(bez tytułu)',
           startsAt,
           endsAt,
-          location: clean(item.location, 200),
-          notes: clean(item.description, 500),
+          location: clean(item.location, 200) ?? clean(described.room, 200),
+          notes: clean(described.notes, 500),
         },
         cancelled: status === 'CANCELLED',
       };

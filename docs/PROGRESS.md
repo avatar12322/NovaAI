@@ -658,6 +658,16 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   Zrzut: `docs/screens/*-24-calendar-import.png`.
 - Polecenia i wyniki: `pnpm check` → 6/6, 29/29, 311/311, web 22/22; `pnpm test:e2e` → 58/58;
   `pnpm test:prod-smoke` → 1/1.
+- Po pierwszym prawdziwym planie (właściciel, 45 zajęć): asystent znał daty, ale nie salę — IDEIS trzyma ją
+  w opisie, nie w LOCATION. Teraz sala z opisu („Sala: …”) i zwięzłe szczegóły (prowadzący, grupa) trafiają
+  do planu i do asystenta; sprawdzone lokalnie na pliku właściciela (45/45 z salą), plik nie trafił do
+  repozytorium — testy na zmyślonych danych w tym samym układzie (`src/calendar` → 15/15). Plan trzeba wgrać
+  ponownie („Wgraj nową wersję”).
+- Po pierwszym prawdziwym planie (właściciel, 45 zajęć): asystent znał daty, ale nie salę — IDEIS trzyma ją
+  w opisie, nie w LOCATION. Teraz sala z opisu („Sala: …”) i zwięzłe szczegóły (prowadzący, grupa) trafiają
+  do planu i do asystenta; sprawdzone lokalnie na pliku właściciela (45/45 z salą, godziny zgodne), plik nie
+  trafił do repozytorium — testy na zmyślonych danych w tym samym układzie. Plan trzeba wgrać ponownie
+  („Wgraj nową wersję”).
 
 ## Blokady
 

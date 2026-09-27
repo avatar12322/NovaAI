@@ -195,7 +195,7 @@ describe('asystent czyta plan zajęć (calendar.agenda)', () => {
     expect(first!.system).toMatch(/Teraz: \S+, \d{1,2} \S+ \d{4} \d\d:\d\d \(czas w Polsce\)/);
     expect(first!.tools.map((x) => x.name)).toContain('calendar.agenda');
     const fed = JSON.stringify(second!.messages);
-    expect(fed).toContain('Programowanie obiektowe — A-101');
+    expect(fed).toContain('Programowanie obiektowe — A-101 (Prowadzący: dr Jan Testowy)');
     expect(fed).toContain('Bazy danych — B-7');
     // Wynik (z listą zajęć) zostaje w prywatnej rozmowie właściciela.
     expect(msgs.find((m) => m.role === 'tool')!.content).toMatch(
