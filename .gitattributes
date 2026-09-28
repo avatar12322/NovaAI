@@ -1,0 +1,4 @@
+# Skrypty i pliki serwera zawsze z końcami linii LF — także w klonie na Windows (core.autocrlf=true zamienia
+# je na CRLF, a bash na serwerze nie uruchomi skryptu z \r: „set: pipefail: invalid option name”).
+*.sh text eol=lf
+infra/deploy/* text eol=lf
