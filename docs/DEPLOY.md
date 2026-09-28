@@ -62,16 +62,19 @@ aplikacja w `/opt/novaai/app`, API tylko na `127.0.0.1:4000`. Decyzje: D-038.
    kod, tworzy bazę i `.env` (losowe hasła i klucz szyfrowania — nigdzie nie wypisywane), buduje, migruje,
    uruchamia i sprawdza aplikację.
 3. Klucze usług — skopiuj wartości z lokalnego `.env`: `sudo nano /opt/novaai/app/.env` →
-   `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` oraz
-   `NOVA_CONTACT_EMAIL` (adres kontaktowy na stronie polityki prywatności) (zapis: Ctrl+O, Enter,
-   Ctrl+X), potem `sudo systemctl restart novaai`. **Zapisz linię `NOVA_SECRET_KEY=` w menedżerze haseł** — bez
-   niej kopia bazy nie odtworzy połączonych kont ani kluczy dodanych w aplikacji.
+   `ELEVENLABS_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` oraz `NOVA_CONTACT_EMAIL` (adres
+   kontaktowy na stronie polityki prywatności) (zapis: Ctrl+O, Enter, Ctrl+X), potem
+   `sudo systemctl restart novaai`. Klucz Anthropic dodaje się w aplikacji (pkt 5) — `ANTHROPIC_API_KEY`
+   w `.env` działa tylko z plikiem konfiguracji modeli (`NOVA_MODELS_CONFIG`). **Zapisz linię
+   `NOVA_SECRET_KEY=` w menedżerze haseł** — bez niej kopia bazy nie odtworzy połączonych kont ani kluczy
+   dodanych w aplikacji.
 4. Twoje konto (właściciel domu) i klucz dostępu:
    `sudo bash /opt/novaai/app/infra/deploy/admin.sh create-household "Nasz dom" "twoj@email:Imię"`
    `sudo bash /opt/novaai/app/infra/deploy/admin.sh enroll twoj@email` → otwórz wypisany link (ważny 15 min)
    na telefonie lub komputerze → „Utwórz klucz dostępu”.
 5. W aplikacji na `https://novaai.pl` (osobna baza — nic nie przechodzi z komputera):
-   Modele AI (model Anthropic z cenami i ceną wyszukiwania 10 USD / 1000) → Koszt modeli (40 / 50 zł) →
+   Modele AI i klucze API (Dodaj dostawcę → Anthropic + klucz API; Kursy walut → USD; Dodaj model z cenami
+   i ceną wyszukiwania 10 USD / 1000 — bez tego asystent odpowiada w trybie demo) → Koszt modeli (40 / 50 zł) →
    Integracje → Google (połącz, uprawnienia) → Kalendarz → wgraj plan .ics i wybierz przedmioty →
    Ustawienia → Domownicy (zaproszenia dla pozostałych osób).
 6. Sprawdzenie: `https://novaai.pl` z kłódką; `http://novaai.pl` i `https://www.novaai.pl` przekierowują na
