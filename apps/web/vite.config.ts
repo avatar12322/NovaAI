@@ -11,6 +11,9 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': { target: apiTarget, changeOrigin: false },
+      // Strony prawne serwuje API (w produkcji ten sam origin).
+      '/privacy': { target: apiTarget, changeOrigin: false },
+      '/terms': { target: apiTarget, changeOrigin: false },
     },
   },
   preview: {
@@ -18,6 +21,9 @@ export default defineConfig({
     port: 4173,
     proxy: {
       '/api': { target: apiTarget, changeOrigin: false },
+      // Strony prawne serwuje API (w produkcji ten sam origin).
+      '/privacy': { target: apiTarget, changeOrigin: false },
+      '/terms': { target: apiTarget, changeOrigin: false },
     },
   },
 });

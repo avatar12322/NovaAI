@@ -85,6 +85,10 @@ export function LoginView({ onLoggedIn }: { onLoggedIn: () => void }) {
             </div>
           </>
         )}
+        <nav className="legal-links small" aria-label="Informacje prawne">
+          <a href="/privacy">Polityka prywatności</a>
+          <a href="/terms">Warunki korzystania</a>
+        </nav>
       </div>
     </div>
   );

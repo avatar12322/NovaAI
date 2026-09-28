@@ -180,7 +180,7 @@ SQL
 Gotowe: https://$DOMAIN (certyfikat HTTPS Caddy pobiera przy pierwszym wejściu — do minuty).
 
 Dalej (docs/DEPLOY.md → „Wdrożenie”):
-  1. Klucze usług:   sudo nano $APP/.env     potem   sudo systemctl restart novaai
+  1. Klucze usług i NOVA_CONTACT_EMAIL:   sudo nano $APP/.env   potem   sudo systemctl restart novaai
   2. Twój dom:       sudo bash $APP/infra/deploy/admin.sh create-household "Nasz dom" "twoj@email:Imię"
   3. Twój klucz:     sudo bash $APP/infra/deploy/admin.sh enroll twoj@email
                      → otwórz wypisany link (15 min) i utwórz klucz dostępu.

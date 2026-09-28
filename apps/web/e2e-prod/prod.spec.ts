@@ -69,6 +69,13 @@ test('produkcja: CSP bez naruszeń, brak logowania testowego, konto z CLI, czat 
   await expect(
     page.getByText('Poproś właściciela domu o zaproszenie', { exact: false }),
   ).toBeVisible();
+  // Google: polityka prywatności na tej samej domenie, podlinkowana ze strony głównej.
+  await page.getByRole('link', { name: 'Polityka prywatności' }).click();
+  await expect(page.getByRole('heading', { name: 'Polityka prywatności', level: 1 })).toBeVisible();
+  await expect(page.getByText('including the Limited Use requirements')).toBeVisible();
+  await page.getByRole('link', { name: 'Warunki korzystania' }).click();
+  await expect(page.getByRole('heading', { name: 'Warunki korzystania', level: 1 })).toBeVisible();
+  await page.goto('/');
 
   const email = `prod-${Date.now()}@example.test`;
   admin('create-household', 'Dom produkcyjny (test)', `${email}:Osoba Prod`);

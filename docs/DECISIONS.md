@@ -716,3 +716,17 @@ Serwer właściciela (OVH VPS-1, Ubuntu 24.04, `novaai.pl`). Instalację urucham
   bez sekretów.
 - Kopie: `pg_dump` codziennie (14 dni) — skrypt kopiowany do `/usr/local/sbin` (root nie uruchamia pliku z
   katalogu aplikacji); kopia VPS w OVH; pobieranie kopii na własny komputer — ręcznie (DEPLOY.md).
+
+## D-039 Polityka prywatności i warunki jako strony aplikacji
+
+Google przy publikacji aplikacji OAuth (stan „In production”) wymaga polityki prywatności na tej samej domenie
+co strona główna, podlinkowanej ze strony głównej i z ekranu zgody, opisującej dostęp do danych Google, oraz
+oświadczenia o zgodności z „Google API Services User Data Policy, including the Limited Use requirements”
+(pomoc Google Cloud, sprawdzone 2026-09-27). Aplikacja zostaje niezweryfikowana (użytek osobisty, < 100 osób) —
+użytkownicy widzą ekran „aplikacja niezweryfikowana”; logo na ekranie zgody wymusiłoby weryfikację, więc bez logo.
+
+- `/privacy` i `/terms` generuje API (jedno źródło treści, ten sam origin, bez JavaScriptu); adres kontaktowy
+  z `NOVA_CONTACT_EMAIL` — prywatny adres właściciela nie trafia do repozytorium. Pusty => „właściciel domu”.
+- Treść opisuje faktyczne działanie (dostęp tylko na polecenie, wysyłka po zatwierdzeniu, brak synchronizacji
+  w tle, fragmenty wiadomości w rozmowie, przekazanie do Anthropic/ElevenLabs, odłączenie unieważnia token).
+  Włączenie kolejnej integracji (Microsoft, Slack) wymaga aktualizacji treści i daty.

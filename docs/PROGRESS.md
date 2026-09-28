@@ -722,6 +722,14 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   (idempotentny) i wszystkie migracje na świeżej bazie z tymi rolami, smoke test ścieżki produkcyjnej.
   **Nie uruchomione na prawdziwym serwerze** — uruchamia właściciel.
 
+### Polityka prywatności i warunki (publikacja aplikacji Google, 2026-09-27)
+
+- Publiczne strony `/privacy` i `/terms` serwowane przez API (bez logowania, CSP jak frontend), podlinkowane z
+  ekranu logowania (strona główna). Polityka opisuje zakresy Google (`gmail.readonly` tylko na polecenie,
+  `gmail.send` tylko po zatwierdzeniu, `calendar.freebusy`), przechowywanie (tokeny AES-256-GCM, fragmenty w
+  rozmowie tylko dla właściciela), przekazywanie (Anthropic, ElevenLabs), odłączenie i oświadczenie Limited
+  Use (PL + EN). Kontakt z `NOVA_CONTACT_EMAIL` (bez adresu w repozytorium). Test API + smoke test produkcji.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

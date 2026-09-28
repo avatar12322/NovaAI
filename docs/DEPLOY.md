@@ -30,6 +30,10 @@ na serwerze właściciela.
   `http://localhost:5173/api/connections/google/callback`. `GOOGLE_CLIENT_ID/SECRET` — w `.env` właściciela.
 - Sprawdzone przez właściciela lokalnie: połączenie konta, odczyt poczty, wysyłka e-maila po zatwierdzeniu
   (uprawnienie dołożone przez „Zmień uprawnienia”). Niesprawdzone: zajętość w kalendarzu.
+- Branding (ekran zgody): strona główna `https://novaai.pl`, polityka prywatności `https://novaai.pl/privacy`,
+  warunki `https://novaai.pl/terms` (strony serwuje aplikacja; podlinkowane z ekranu logowania; kontakt z
+  `NOVA_CONTACT_EMAIL` w `.env` serwera), domena autoryzowana `novaai.pl`. Bez logo — logo wymusza weryfikację
+  aplikacji w stanie produkcyjnym.
 - **Przed wdrożeniem:** Audience → „Publish app” (w trybie Testing Google unieważnia połączenie po 7 dniach);
   użytek osobisty (< 100 osób) bez weryfikacji — z ekranem „aplikacja niezweryfikowana”. Na serwerze te same
   `GOOGLE_CLIENT_ID/SECRET`.
@@ -58,7 +62,8 @@ aplikacja w `/opt/novaai/app`, API tylko na `127.0.0.1:4000`. Decyzje: D-038.
    kod, tworzy bazę i `.env` (losowe hasła i klucz szyfrowania — nigdzie nie wypisywane), buduje, migruje,
    uruchamia i sprawdza aplikację.
 3. Klucze usług — skopiuj wartości z lokalnego `.env`: `sudo nano /opt/novaai/app/.env` →
-   `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (zapis: Ctrl+O, Enter,
+   `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` oraz
+   `NOVA_CONTACT_EMAIL` (adres kontaktowy na stronie polityki prywatności) (zapis: Ctrl+O, Enter,
    Ctrl+X), potem `sudo systemctl restart novaai`. **Zapisz linię `NOVA_SECRET_KEY=` w menedżerze haseł** — bez
    niej kopia bazy nie odtworzy połączonych kont ani kluczy dodanych w aplikacji.
 4. Twoje konto (właściciel domu) i klucz dostępu:

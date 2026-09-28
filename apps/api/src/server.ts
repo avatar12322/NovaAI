@@ -25,6 +25,7 @@ import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
 import { healthRoutes } from './modules/health';
+import { legalRoutes } from './modules/legal';
 import { memoryRoutes } from './modules/memories';
 import { taskRoutes } from './modules/tasks';
 
@@ -202,6 +203,9 @@ export async function buildServer(
     },
     { prefix: '/api' },
   );
+
+  // Publiczne strony prawne (bez logowania): /privacy, /terms.
+  await app.register(legalRoutes(deps));
 
   // Produkcja: frontend z tego samego originu co API (ciasteczka SameSite=Strict, origin WebAuthn).
   if (deps.config.webDist) {

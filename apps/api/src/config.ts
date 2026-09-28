@@ -35,6 +35,11 @@ const EnvSchema = z.object({
     .default(24 * 14),
   NOVA_SECRET_KEYS_OLD: z.string().optional().default(''),
   NOVA_PUBLIC_URL: z.string().optional().default(''),
+  // Kontakt administratora na stronach /privacy i /terms (wymagane przez Google przy publikacji aplikacji OAuth).
+  NOVA_CONTACT_EMAIL: z
+    .union([z.literal(''), z.email()])
+    .optional()
+    .default(''),
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
   // Klucze administracyjne do odczytu raportów kosztów (Usługi i koszty). Puste => adapter „niepodłączony”.
@@ -102,6 +107,8 @@ export type AppConfig = {
   secretKeysOld: string;
   /** Publiczny adres aplikacji (redirect OAuth). Domyślnie NOVA_WEB_ORIGIN. */
   publicUrl: string;
+  /** Adres kontaktowy administratora (polityka prywatności, warunki) lub ''. */
+  contactEmail: string;
   google: { clientId: string; clientSecret: string };
   microsoft: { clientId: string; clientSecret: string; tenant: string };
   slack: { clientId: string; clientSecret: string };
@@ -161,6 +168,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     secureCookies: e.NOVA_ENV === 'production',
     secretKeysOld: e.NOVA_SECRET_KEYS_OLD,
     publicUrl: (e.NOVA_PUBLIC_URL || e.NOVA_WEB_ORIGIN).replace(/\/$/, ''),
+    contactEmail: e.NOVA_CONTACT_EMAIL,
     google: { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET },
     microsoft: {
       clientId: e.MICROSOFT_CLIENT_ID,
