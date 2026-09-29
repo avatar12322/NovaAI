@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, ErrorNote, Spinner } from '../components/ui';
 import { api, errorText, type PushDevice } from '../lib/api';
+import { DigestSettings } from './DigestSettings';
 import {
   currentSubscription,
   disablePush,
@@ -129,6 +130,7 @@ export function PushPanel() {
           Włączone także na: {others.map((d) => d.label || 'urządzenie').join(', ')}.
         </p>
       )}
+      <DigestSettings />
     </section>
   );
 }

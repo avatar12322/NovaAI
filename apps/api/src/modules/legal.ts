@@ -8,7 +8,7 @@ import type { AppDeps } from '../deps';
  * z tym, co aplikacja naprawdę robi — przy zmianie integracji (np. włączeniu Microsoft/Slack) zaktualizuj
  * treść i UPDATED.
  */
-const UPDATED = '27 września 2026';
+const UPDATED = '29 września 2026';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -106,6 +106,11 @@ użytkownika w usługach Google API</a>, w tym z wymaganiami dotyczącymi ograni
     asystent potrzebuje aktualnych informacji (do wyszukiwarki trafia samo zapytanie).</li>
   <li><strong>ElevenLabs</strong> — odczyt odpowiedzi na głos oraz rozpoznawanie mowy, gdy przeglądarka
     nie rozpoznaje jej sama (nagranie wypowiedzi jest wtedy wysyłane do ElevenLabs).</li>
+  <li><strong>Usługi powiadomień push</strong> (Apple, Google, Mozilla, Microsoft — zależnie od urządzenia) —
+    dostarczają powiadomienia na urządzenia, na których je włączysz; treść jest szyfrowana dla urządzenia
+    i usługa jej nie widzi.</li>
+  <li><strong>Open-Meteo</strong> — prognoza pogody w przeglądzie dnia; trafiają tam tylko współrzędne miasta
+    ustawionego przez właściciela domu.</li>
   <li><strong>OVH</strong> — serwer i kopie zapasowe (centrum danych w Polsce).</li>
 </ul>
 

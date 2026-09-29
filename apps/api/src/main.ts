@@ -3,6 +3,7 @@ import { loadDotEnv, parseConfig } from './config';
 import { createDb } from './db/pool';
 import { startMaintenance } from './maintenance';
 import { startPushDispatcher } from './push/service';
+import { startDigestScheduler } from './digest/service';
 import { buildServer } from './server';
 import { VERSION } from './version';
 
@@ -15,10 +16,12 @@ async function main(): Promise<void> {
 
   const stopMaintenance = startMaintenance(db);
   const stopPush = config.queueEnabled ? startPushDispatcher(deps.push) : () => undefined;
+  const stopDigests = config.queueEnabled ? startDigestScheduler(deps) : () => undefined;
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
     stopMaintenance();
     stopPush();
+    stopDigests();
     await app.close();
     await runner.stop();
     await deps.events.stop();

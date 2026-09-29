@@ -757,6 +757,19 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   odrzucone adresy; e2e panelu (desktop, telefon, iPhone bez ekranu głównego). **Nie sprawdzone na
   prawdziwym iPhonie** — wymaga wdrożenia.
 
+### Przeglądy dnia o 7:00 i 22:00, pogoda (2026-09-29)
+
+- Automatycznie, jako powiadomienie (w aplikacji i push): rano (7:00) — co dziś, wieczorem (22:00) — co jutro:
+  zajęcia i wydarzenia z salą, przypomnienia (własne i wspólne), odnowienia usług, pogoda. Raz dziennie na
+  osobę (także po restarcie serwera); spóźnienie ponad 90 min — pominięty. Tylko osoby, które się logowały.
+- Ustawienia → Powiadomienia → Przegląd dnia: włączenie i godzina osobno rano i wieczorem, „Podgląd”.
+  Właściciel ustawia miasto prognozy (wyszukiwanie Open-Meteo); pogoda także w przeglądzie na „Dom”.
+- Pogoda: Open-Meteo (bez klucza, darmowe niekomercyjnie, CC BY 4.0 — źródło w Ustawieniach), bufor 30 min.
+  Polityka prywatności uzupełniona o usługi push i Open-Meteo. Migracja 0022.
+- Testy: API (wieczór/rano, treść z salą, prywatność przypomnień, raz dziennie, godziny, okno 90 min, bufor
+  pogody, miasto tylko właściciel), e2e ustawień przeglądu. Maile nie trafiają do przeglądu — asystent czyta
+  pocztę tylko na polecenie (polityka prywatności).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

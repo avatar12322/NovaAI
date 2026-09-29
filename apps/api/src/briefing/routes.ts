@@ -5,7 +5,9 @@ import type { AuthContext } from '../auth/session';
 import { roomAndNotes } from '../calendar/ics';
 import { withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
+import { weatherFor } from '../digest/service';
 import { forbidden } from '../lib/errors';
+import { weatherText } from '../weather/openmeteo';
 
 /**
  * Poranny przegląd: przypomnienia i wydarzenia na dziś, zgody, zadania, wiadomości, odnowienia usług i koszt
@@ -35,6 +37,7 @@ const firstName = (displayName: string) => displayName.replace(/\s*\(.*\)\s*$/, 
 
 export function briefingSummary(b: Omit<Briefing, 'summary'>): string {
   const parts: string[] = [`${b.greeting}. Dziś ${b.dateLabel}.`];
+  if (b.weather) parts.push(`Pogoda: ${b.weather}.`);
   if (b.events.length)
     parts.push(
       `W kalendarzu: ${b.events.map((e) => `${time(e.startsAt)} ${e.title}${e.location ? ` (${e.location})` : ''}`).join(', ')}.`,
@@ -131,7 +134,10 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
     );
     return { day: day.rows[0]!, reminders, events, counts: counts.rows[0]!, renewals };
   });
-  const budget = await deps.gateway.budget.status(hh);
+  const [budget, weather] = await Promise.all([
+    deps.gateway.budget.status(hh),
+    weatherFor(deps, hh, data.day.date),
+  ]);
   const b: Omit<Briefing, 'summary'> = {
     greeting: `${data.day.hour >= 18 || data.day.hour < 4 ? 'Dobry wieczór' : 'Dzień dobry'}, ${firstName(auth.displayName)}`,
     date: data.day.date,
@@ -169,6 +175,7 @@ export async function buildBriefing(deps: AppDeps, auth: AuthContext): Promise<B
       currency: budget.currency,
       state: budget.state,
     },
+    weather: weather ? weatherText(weather) : null,
   };
   return { ...b, summary: briefingSummary(b) };
 }

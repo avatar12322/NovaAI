@@ -758,3 +758,18 @@ Biblioteka `web-push` 3.6.7 (MPL-2.0) — tylko do przygotowania żądania (szyf
 - Bezpieczeństwo: serwer wysyła żądania tylko do hostów usług push (ochrona przed SSRF); klucz prywatny
   VAPID zaszyfrowany; treść szyfrowana dla urządzenia; audyt bez adresu subskrypcji (tylko host).
 - Subskrypcja należy do osoby zalogowanej na urządzeniu; wylogowanie ją usuwa.
+
+## D-042 Przeglądy dnia wysyłane automatycznie; pogoda z Open-Meteo
+
+Decyzja właściciela (2026-09-29): wieczorem o 22:00 — co będzie jutro, rano o 7:00 — co jest dziś; rodzaje
+powiadomień wybiera asystent. Dokumentacja Open-Meteo sprawdzona 2026-09-29: `/v1/forecast` (daily:
+weather_code, temperatury, szansa opadów, timezone), wyszukiwarka `/v1/search`; darmowe tylko do użytku
+niekomercyjnego, < 10 000 zapytań dziennie, licencja CC BY 4.0 (podajemy źródło).
+
+- Przegląd = zwykłe powiadomienie (`kind = briefing`) → push przez D-041; tag `briefing` — wieczorny
+  zastępuje poranny w centrum powiadomień. Harmonogram w procesie API co minutę (czas polski), `digest_runs`
+  pilnuje „raz dziennie”. Bez modelu i bez kosztów.
+- Treść tylko z danych, które osoba i tak widzi (RLS): kalendarz lokalny i plan zajęć, przypomnienia,
+  odnowienia usług. Bez poczty — Gmail czytany jest wyłącznie na polecenie (zgodnie z polityką prywatności).
+- Pogoda per dom (miasto ustawia właściciel); do Open-Meteo trafiają tylko współrzędne miasta.
+- Kolejne punkty (lista zakupów, raty, terminy) dopisują swoje pozycje do tego samego przeglądu.

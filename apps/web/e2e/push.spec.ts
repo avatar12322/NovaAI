@@ -33,3 +33,29 @@ test('iPhone w Safari (bez ekranu głównego): instrukcja dodania aplikacji', as
   ).toHaveCount(0);
   await ctx.close();
 });
+
+test('przegląd dnia: godziny, podgląd „jutro”, miasto pogody tylko u właściciela', async ({
+  page,
+}) => {
+  await loginAs(page, 'Beta (test)');
+  await page.goto('/#/settings');
+  const digest = page.getByRole('group', { name: 'Przegląd dnia' });
+  await expect(digest.getByLabel('Godzina porannego przeglądu')).toHaveValue('07:00');
+  await expect(digest.getByLabel('Godzina wieczornego przeglądu')).toHaveValue('22:00');
+  await digest.getByRole('button', { name: 'Podgląd' }).last().click();
+  await expect(digest.getByRole('status', { name: 'Podgląd przeglądu' })).toContainText('Jutro:');
+  await digest.getByRole('checkbox', { name: 'Wieczorem — co jutro' }).uncheck();
+  await expect(digest.getByLabel('Godzina wieczornego przeglądu')).toBeDisabled();
+  await page.reload();
+  await expect(
+    page.getByRole('group', { name: 'Przegląd dnia' }).getByRole('checkbox', {
+      name: 'Wieczorem — co jutro',
+    }),
+  ).not.toBeChecked();
+  await expect(page.getByRole('form', { name: 'Miasto prognozy pogody' })).toHaveCount(0);
+  // Przywrócenie ustawienia (baza e2e wspólna dla projektów).
+  await page
+    .getByRole('group', { name: 'Przegląd dnia' })
+    .getByRole('checkbox', { name: 'Wieczorem — co jutro' })
+    .check();
+});

@@ -72,7 +72,10 @@ export function BriefingPanel() {
         <AgentOrb state={speaking ? 'speaking' : 'idle'} size={36} />
         <div className="briefing-title">
           <h2>{b.greeting}</h2>
-          <p className="muted small">{capitalize(b.dateLabel)}</p>
+          <p className="muted small">
+            {capitalize(b.dateLabel)}
+            {b.weather && ` · ${b.weather}`}
+          </p>
         </div>
         <SpeakButton text={b.summary} label="Przeczytaj przegląd" source={{ briefing: true }} />
       </header>

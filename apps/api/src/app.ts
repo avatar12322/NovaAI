@@ -29,6 +29,7 @@ import { DEVICE_TOOLS } from './devices/tools';
 import { emitEvent, EventHub } from './events';
 import { LiveHub } from './live';
 import { PushService, vapidSubject, type PushTransport } from './push/service';
+import { OpenMeteo } from './weather/openmeteo';
 import { ElevenLabsStt, ElevenLabsTts } from './voice/elevenlabs';
 import { ModelAgentRuntime } from './model/agent-runtime';
 import { AutoAgentRuntime } from './model/auto-runtime';
@@ -60,6 +61,8 @@ export interface AppOptions {
   ttsBase?: string;
   /** Transport do usługi push (testy: lokalna atrapa). */
   pushTransport?: PushTransport;
+  /** Adresy Open-Meteo: prognoza i wyszukiwanie miejscowości (testy: lokalna atrapa). */
+  weatherBases?: { forecast: string; geocoding: string };
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -181,6 +184,9 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
       vapidSubject(config.publicUrl, config.contactEmail),
       opts.pushTransport,
     ),
+    weather: opts.weatherBases
+      ? new OpenMeteo(opts.weatherBases.forecast, opts.weatherBases.geocoding)
+      : new OpenMeteo(),
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',
   };

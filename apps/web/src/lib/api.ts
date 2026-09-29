@@ -248,6 +248,16 @@ export interface VoiceStatus {
   } | null;
 }
 
+export interface DigestSettings {
+  morning: boolean;
+  morningAt: string;
+  evening: boolean;
+  eveningAt: string;
+  weatherPlace: string | null;
+  canSetWeather: boolean;
+  attribution: string;
+}
+
 export interface PushDevice {
   id: string;
   endpoint: string;
@@ -268,6 +278,14 @@ export const api = {
   pushUnsubscribe: (endpoint: string) =>
     post<{ removed: number }>('/push/unsubscribe', { endpoint }),
   pushTest: () => post<{ delivered: number }>('/push/test'),
+  digestSettings: () => get<DigestSettings>('/digest/settings'),
+  saveDigestSettings: (
+    s: Pick<DigestSettings, 'morning' | 'morningAt' | 'evening' | 'eveningAt'>,
+  ) => request<DigestSettings>('PUT', '/digest/settings', s),
+  digestPreview: (kind: 'morning' | 'evening') =>
+    get<{ title: string; body: string }>(`/digest/preview?kind=${kind}`),
+  setWeatherPlace: (place: string) =>
+    request<{ weatherPlace: string | null }>('PUT', '/household/weather', { place }),
   me: () => get<MeResponse>('/me'),
   devUsers: () => get<{ users: DevUser[]; notice: string }>('/auth/dev-users'),
   devLogin: (user: string) => post<{ ok: true }>('/auth/dev-login', { user }),

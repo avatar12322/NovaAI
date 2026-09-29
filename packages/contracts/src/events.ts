@@ -74,6 +74,8 @@ export interface Briefing {
   unread: number;
   renewals: Array<{ serviceId: string; name: string; renewsOn: string; daysLeft: number }>;
   budget: { spent: number; hardLimit: number | null; currency: string; state: string };
+  /** Pogoda na dziś (miasto domu, Open-Meteo), np. „9–14°C, deszcz”; null — brak miasta lub danych. */
+  weather?: string | null;
   /** Krótki tekst do odczytania na głos. */
   summary: string;
 }
