@@ -13,6 +13,7 @@ export type Route =
   | { view: 'services'; id: string | null }
   | { view: 'models' }
   | { view: 'expenses' }
+  | { view: 'shopping' }
   | { view: 'home' }
   | { view: 'settings' }
   | { view: 'enroll'; token: string };
@@ -46,6 +47,8 @@ export function parseRoute(hash: string): Route {
       return { view: 'models' };
     case 'expenses':
       return { view: 'expenses' };
+    case 'shopping':
+      return { view: 'shopping' };
     case 'home':
       return { view: 'home' };
     case 'settings':

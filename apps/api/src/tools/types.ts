@@ -51,6 +51,11 @@ export interface ToolDef<P extends Record<string, unknown> = Record<string, unkn
    * niezaufane treści (fragmenty dokumentów, wyniki narzędzi) — mogły one podsunąć modelowi akcję.
    */
   readOnly?: boolean;
+  /**
+   * Narzędzia, które model może zaproponować w turze uzupełniającej po wyniku tego narzędzia
+   * (np. przepis → lista zakupów). Zawsze ze zgodą użytkownika; bez kolejnej tury.
+   */
+  followUpTools?: readonly string[];
   params: z.ZodType<P>;
   requiresApproval(p: P, ctx: ToolContext): boolean;
   /** Rozwiązanie i zamrożenie parametrów przed zgodą (np. wskazanie odbiorcy). */

@@ -226,7 +226,6 @@ export const agentTurnKind: TaskKindDef = {
         .finally(stream.flush);
       await x.progress(80);
 
-      // Propozycje narzędzi => kroki; broker odrzuca niedozwolone (bez efektów).
       // Niezaufany kontekst (fragmenty dokumentów, wyniki narzędzi w historii) mógł podsunąć modelowi akcję:
       // wtedy każde narzędzie ze skutkami wymaga zgody człowieka, nawet jeśli zwykle jej nie wymaga.
       // Zdjęcie (np. zrzut ekranu) też może zawierać tekst „poleceń” — akcje z niego wymagają zgody.
@@ -234,53 +233,53 @@ export const agentTurnKind: TaskKindDef = {
         (ctx.input.documents?.length ?? 0) > 0 ||
         (ctx.input.userImages?.length ?? 0) > 0 ||
         ctx.input.history.some((m) => m.role === 'tool');
-      const newSteps: StepSpec[] = [];
-      const denied: Array<{ tool: string; reason: string }> = [];
-      for (const [i, call] of result.toolCalls.slice(0, 5).entries()) {
-        try {
-          const planned = await x.deps.broker.plan(x.toolContext, call);
-          const forced =
-            untrusted && !planned.requiresApproval && !x.deps.broker.def(planned.tool)?.readOnly;
-          newSteps.push({
-            key: `tool_${i + 1}`,
-            title: forced
-              ? `${planned.preview.summary} (zgoda: w kontekście były treści z dokumentów lub narzędzi)`.slice(
-                  0,
-                  300,
-                )
-              : planned.preview.summary,
-            kind: 'tool',
-            tool: planned.tool,
-            params: planned.params,
-            dependsOn: ['reply'],
-            requiresApproval: planned.requiresApproval || forced,
-          });
-        } catch (err) {
-          if (!(err instanceof ToolDenied)) throw err;
-          denied.push({ tool: String(call.tool).slice(0, 60), reason: err.reason });
-        }
-      }
-
-      const message = await postAssistantMessage(x, ctx, result, {
-        proposedTools: newSteps.map((s) => ({ tool: s.tool, approval: s.requiresApproval })),
-        deniedTools: denied,
-        sources: messageSources(ctx.input.documents ?? [], result.reply),
-        ...(result.webSources?.length ? { webSources: result.webSources } : {}),
+      const { steps: toolSteps, denied } = await planCalls(x, result.toolCalls, {
+        untrusted,
+        after: 'reply',
+        prefix: 'tool',
       });
       // Jedna tura uzupełniająca: po narzędziach bez zgody model odpowiada na podstawie ich wyników.
       // Narzędzia wymagające zgody mogą czekać godzinami — wtedy wynik trafia do rozmowy bez komentarza.
-      if (!result.demo && newSteps.length && newSteps.every((s) => !s.requiresApproval)) {
-        newSteps.push({
-          key: 'followup',
-          title: 'Odpowiedź na podstawie wyników',
-          kind: 'model',
-          dependsOn: newSteps.map((s) => s.key),
-        });
-      }
-      await x.appendSteps(newSteps);
+      const followUp =
+        !result.demo && toolSteps.length > 0 && toolSteps.every((s) => !s.requiresApproval);
+      // Po wynikach model może jeszcze zaproponować wskazane narzędzia (np. przepis → lista zakupów).
+      const offer = followUp
+        ? [
+            ...new Set(toolSteps.flatMap((s) => x.deps.broker.def(s.tool!)?.followUpTools ?? [])),
+          ].filter((t) => capabilities.includes(t))
+        : [];
+      const interim = !result.reply.trim();
+      const message = await postAssistantMessage(
+        x,
+        ctx,
+        { ...result, reply: interim ? interimText(toolSteps, followUp) : result.reply },
+        {
+          proposedTools: toolSteps.map((s) => ({ tool: s.tool, approval: s.requiresApproval })),
+          deniedTools: denied,
+          sources: messageSources(ctx.input.documents ?? [], result.reply),
+          ...(result.webSources?.length ? { webSources: result.webSources } : {}),
+          // Interfejs ukrywa wyniki narzędzi tej tury (i pustą zapowiedź) — odpowiedź przyjdzie osobno.
+          ...(followUp ? { followUpExpected: true } : {}),
+          ...(interim ? { interim: true } : {}),
+        },
+      );
+      await x.appendSteps(
+        followUp
+          ? [
+              ...toolSteps,
+              {
+                key: 'followup',
+                title: 'Odpowiedź na podstawie wyników',
+                kind: 'model',
+                params: { offer },
+                dependsOn: toolSteps.map((s) => s.key),
+              },
+            ]
+          : toolSteps,
+      );
       return {
         messageId: message.id,
-        proposedTools: newSteps.filter((s) => s.kind === 'tool').length,
+        proposedTools: toolSteps.length,
         deniedTools: denied,
         usage: result.usage,
       };
@@ -307,13 +306,23 @@ export const agentTurnKind: TaskKindDef = {
           try {
             return {
               ...m,
-              content: `${m.content}\n${await def.live(x.toolContext, m.live.params)}`,
+              content: `${m.content}
+${await def.live(x.toolContext, m.live.params)}`,
             };
           } catch {
-            return { ...m, content: `${m.content}\n(treść chwilowo niedostępna)` };
+            return {
+              ...m,
+              content: `${m.content}
+(treść chwilowo niedostępna)`,
+            };
           }
         }),
       );
+      const offered = Array.isArray(x.step.params.offer)
+        ? x.step.params.offer.filter(
+            (t): t is string => typeof t === 'string' && !x.deps.broker.def(t)?.readOnly,
+          )
+        : [];
       const stream = turnStream(x, 'followup');
       const result = await x.deps.runtime
         .runTurn(
@@ -327,14 +336,77 @@ export const agentTurnKind: TaskKindDef = {
             spoken,
           },
           ctx.userContext,
-          [],
+          offered,
         )
         .finally(stream.flush);
-      const message = await postAssistantMessage(x, ctx, result, { followUp: true });
-      return { messageId: message.id, usage: result.usage };
+      // Propozycje po wynikach narzędzi: tylko udostępnione, zawsze za zgodą, bez kolejnej tury.
+      const { steps, denied } = await planCalls(
+        x,
+        result.toolCalls.filter((c) => offered.includes(c.tool)),
+        { untrusted: true, after: 'followup', prefix: 'next' },
+      );
+      const message = await postAssistantMessage(
+        x,
+        ctx,
+        { ...result, reply: result.reply.trim() ? result.reply : interimText(steps, false) },
+        {
+          followUp: true,
+          ...(steps.length
+            ? { proposedTools: steps.map((s) => ({ tool: s.tool, approval: true })) }
+            : {}),
+          ...(denied.length ? { deniedTools: denied } : {}),
+        },
+      );
+      await x.appendSteps(steps);
+      return { messageId: message.id, usage: result.usage, proposedTools: steps.length };
     },
   },
 };
+
+/**
+ * Propozycje narzędzi => kroki; broker odrzuca niedozwolone (bez efektów). `untrusted` — narzędzia ze
+ * skutkami wymagają zgody, nawet jeśli zwykle jej nie wymagają.
+ */
+async function planCalls(
+  x: StepExecution,
+  calls: AgentTurnResult['toolCalls'],
+  opts: { untrusted: boolean; after: string; prefix: string },
+): Promise<{ steps: StepSpec[]; denied: Array<{ tool: string; reason: string }> }> {
+  const steps: StepSpec[] = [];
+  const denied: Array<{ tool: string; reason: string }> = [];
+  for (const [i, call] of calls.slice(0, 5).entries()) {
+    try {
+      const planned = await x.deps.broker.plan(x.toolContext, call);
+      const forced =
+        opts.untrusted && !planned.requiresApproval && !x.deps.broker.def(planned.tool)?.readOnly;
+      steps.push({
+        key: `${opts.prefix}_${i + 1}`,
+        title: forced
+          ? `${planned.preview.summary} (zgoda: w kontekście były treści z dokumentów lub narzędzi)`.slice(
+              0,
+              300,
+            )
+          : planned.preview.summary,
+        kind: 'tool',
+        tool: planned.tool,
+        params: planned.params,
+        dependsOn: [opts.after],
+        requiresApproval: planned.requiresApproval || forced,
+      });
+    } catch (err) {
+      if (!(err instanceof ToolDenied)) throw err;
+      denied.push({ tool: String(call.tool).slice(0, 60), reason: err.reason });
+    }
+  }
+  return { steps, denied };
+}
+
+/** Tekst odpowiedzi, gdy model zaproponował same narzędzia — bez nazw narzędzi i szczegółów technicznych. */
+function interimText(steps: StepSpec[], followUp: boolean): string {
+  if (steps.some((s) => s.requiresApproval)) return 'Potrzebuję Twojej zgody:';
+  if (followUp) return 'Chwileczkę…';
+  return 'Nie udało mi się tego zrobić.';
+}
 
 /**
  * Jawnie oznaczone zadanie demonstracyjne: pokazuje postęp, kroki równoległe i zgodę na wysyłkę.

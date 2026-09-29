@@ -34,6 +34,7 @@ const PATHS: Record<string, string> = {
   voice: 'M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4',
   camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 11a3 3 0 100 6 3 3 0 000-6z',
   receipt: 'M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21zM9 8h6M9 12h6M9 16h4',
+  cart: 'M3 4h2l2.2 10.5h10.6L20 7H6M9 19.5h.01M17 19.5h.01',
 };
 
 export function Icon({

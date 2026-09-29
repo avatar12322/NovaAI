@@ -2165,7 +2165,25 @@ kbd {
   white-space: pre-line;
 }
 
-/* Lista zakupów (Dom) */
+/* Ekran „Zakupy”: w sklepie — duże pola do odhaczania całym wierszem. */
+.shopping-page .shopping-item {
+  min-height: 52px;
+  font-size: var(--fs-md, 1.0625rem);
+}
+.shopping-page .shopping-item .check {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+.shopping-page .shopping-item input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+/* Lista zakupów */
 .shopping {
   display: flex;
   flex-direction: column;

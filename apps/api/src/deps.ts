@@ -8,6 +8,7 @@ import type { EventHub } from './events';
 import type { LiveHub } from './live';
 import type { PushService } from './push/service';
 import type { OpenMeteo } from './weather/openmeteo';
+import type { RecipeSource } from './recipes/aniagotuje';
 import type { ElevenLabsStt, ElevenLabsTts } from './voice/elevenlabs';
 import type { ModelGateway } from './model/gateway';
 import type { CostAdapterRegistry } from './services/adapters';
@@ -40,6 +41,8 @@ export interface AppDeps {
   push: PushService;
   /** Prognoza pogody (Open-Meteo) do przeglądów dnia. */
   weather: OpenMeteo;
+  /** Przepisy z aniagotuje.pl (składniki do listy zakupów). */
+  recipes: RecipeSource;
   /** Budzenie kolejki po utworzeniu zadania (no-op, gdy kolejka wyłączona). */
   kickQueue: () => void;
   /** Stan pętli kolejki w tym procesie (do healthchecka). */

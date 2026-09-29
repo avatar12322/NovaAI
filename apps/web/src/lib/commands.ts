@@ -79,10 +79,17 @@ export const COMMANDS: Command[] = [
     run: { route: { view: 'documents', space: 'private' } },
   },
   {
+    id: 'shopping',
+    label: 'Zakupy — lista',
+    icon: 'cart',
+    keywords: 'zakupy lista zakupów sklep kupić przepis składniki',
+    run: { route: { view: 'shopping' } },
+  },
+  {
     id: 'expenses',
     label: 'Wydatki i raty',
     icon: 'receipt',
-    keywords: 'wydatki raty płatności paragon budżet domowy zakupy',
+    keywords: 'wydatki raty płatności paragon budżet domowy',
     run: { route: { view: 'expenses' } },
   },
   {

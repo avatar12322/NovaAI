@@ -24,7 +24,7 @@ export function normalizeItem(text: string): string {
 
 const key = (text: string) => normalizeItem(text).toLocaleLowerCase('pl-PL');
 
-async function changed(c: pg.PoolClient, householdId: string, userId: string): Promise<void> {
+async function notifyChanged(c: pg.PoolClient, householdId: string, userId: string): Promise<void> {
   await emitEvent(c, {
     householdId,
     ownerUserId: userId,
@@ -92,7 +92,7 @@ export async function addItems(
        SELECT $1, nova_uid(), t FROM unnest($2::text[]) WITH ORDINALITY AS x(t, n) ORDER BY n`,
       [householdId, added],
     );
-    await changed(c, householdId, userId);
+    await notifyChanged(c, householdId, userId);
   }
   return { added, skipped };
 }
@@ -140,9 +140,52 @@ export async function checkByName(
         WHERE id = ANY($1::uuid[]) AND household_id = $2`,
       [ids, householdId],
     );
-    await changed(c, householdId, userId);
+    await notifyChanged(c, householdId, userId);
   }
   return { checked, notFound };
+}
+
+/**
+ * Zmiana treści pozycji do kupienia po nazwie (np. suma ilości z kilku przepisów: „jajka 3 szt.” →
+ * „jajka 5 szt.”): dokładna nazwa albo jedyna pasująca. Nieznalezione zwracane — dodaje je wywołujący.
+ */
+export async function renameByName(
+  c: pg.PoolClient,
+  householdId: string,
+  userId: string,
+  changes: ReadonlyArray<{ from: string; to: string }>,
+): Promise<{ changed: string[]; notFound: Array<{ from: string; to: string }> }> {
+  const open = await c.query<{ id: string; text: string }>(
+    `SELECT id, text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL
+      ORDER BY created_at`,
+    [householdId],
+  );
+  const remaining = [...open.rows];
+  const changed: string[] = [];
+  const notFound: Array<{ from: string; to: string }> = [];
+  for (const ch of changes) {
+    const k = key(ch.from);
+    const to = normalizeItem(ch.to);
+    if (!k || !to) continue;
+    let i = remaining.findIndex((x) => key(x.text) === k);
+    if (i < 0) {
+      const partial = remaining.flatMap((x, idx) => (key(x.text).includes(k) ? [idx] : []));
+      i = partial.length === 1 ? partial[0]! : -1;
+    }
+    if (i < 0) {
+      notFound.push({ from: normalizeItem(ch.from), to });
+      continue;
+    }
+    const [item] = remaining.splice(i, 1);
+    await c.query('UPDATE shopping_items SET text = $3 WHERE id = $1 AND household_id = $2', [
+      item!.id,
+      householdId,
+      to,
+    ]);
+    changed.push(`${item!.text} → ${to}`);
+  }
+  if (changed.length) await notifyChanged(c, householdId, userId);
+  return { changed, notFound };
 }
 
 export async function updateItem(
@@ -169,7 +212,7 @@ export async function updateItem(
     `UPDATE shopping_items SET ${sets.join(', ')} WHERE id = $1 AND household_id = $2`,
     args,
   );
-  if (r.rowCount) await changed(c, householdId, userId);
+  if (r.rowCount) await notifyChanged(c, householdId, userId);
   return (r.rowCount ?? 0) > 0;
 }
 
@@ -183,7 +226,7 @@ export async function removeItem(
     id,
     householdId,
   ]);
-  if (r.rowCount) await changed(c, householdId, userId);
+  if (r.rowCount) await notifyChanged(c, householdId, userId);
   return (r.rowCount ?? 0) > 0;
 }
 
@@ -196,7 +239,7 @@ export async function clearChecked(
     'DELETE FROM shopping_items WHERE household_id = $1 AND checked_at IS NOT NULL',
     [householdId],
   );
-  if (r.rowCount) await changed(c, householdId, userId);
+  if (r.rowCount) await notifyChanged(c, householdId, userId);
   return r.rowCount ?? 0;
 }
 

@@ -97,7 +97,6 @@ export function Shell({
       icon: 'tasks',
       to: { view: 'tasks', id: null },
       match: (r) => r.view === 'tasks',
-      mobile: isOwner,
       ownerOnly: true,
     },
     {
@@ -116,6 +115,13 @@ export function Shell({
       badge: unread,
     },
     {
+      label: 'Zakupy',
+      icon: 'cart',
+      to: { view: 'shopping' },
+      match: (r) => r.view === 'shopping',
+      mobile: true,
+    },
+    {
       label: 'Wydatki',
       icon: 'receipt',
       to: { view: 'expenses' },
@@ -127,7 +133,8 @@ export function Shell({
       icon: 'memory',
       to: { view: 'memory', space: 'private' },
       match: (r) => r.view === 'memory',
-      mobile: true,
+      // Dolny pasek mieści 5 pozycji: właściciel — Pamięć (z niej Dokumenty), domownik — Dokumenty (fiszki).
+      mobile: isOwner,
     },
     {
       label: 'Dokumenty',

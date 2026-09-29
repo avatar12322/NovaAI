@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { withUserTx } from '../db/pool';
 import type { ToolDef } from '../tools/types';
-import { addItems, checkByName, listItems } from './service';
+import { addItems, checkByName, listItems, renameByName } from './service';
 
 /**
  * Lista zakupów przez asystenta — w czacie prywatnym i w NovaAI (lista jest wspólna dla domu z natury).
@@ -9,32 +9,72 @@ import { addItems, checkByName, listItems } from './service';
  */
 const Names = z.array(z.string().trim().min(1).max(200)).min(1).max(30);
 
-export const shoppingAddTool: ToolDef<{ items: string[] }> = {
+type AddParams = { items: string[]; update: Array<{ from: string; to: string }> };
+
+export const shoppingAddTool: ToolDef<AddParams> = {
   name: 'shopping.add',
   capability: 'shopping.add',
-  title: 'Dodaj pozycje do wspólnej listy zakupów domu (każda pozycja osobno, np. „mleko 2 l”)',
+  title:
+    'Dodaj do wspólnej listy zakupów domu: items — nowe pozycje (jedna pozycja na produkt, z ilością, np. „mleko 1 l”, „jajka 5 szt.”); update — zmiana pozycji już będących na LIŚCIE ZAKUPÓW, gdy ten sam produkt dochodzi jeszcze raz: from — obecna treść, to — nowa z sumą ilości (np. „jajka 3 szt.” → „jajka 5 szt.”). Bez wody, soli i pieprzu',
   contexts: ['private_agent', 'household_agent'],
-  params: z.object({ items: Names }),
+  params: z
+    .object({
+      items: z.array(z.string().trim().min(1).max(200)).max(40).default([]),
+      update: z
+        .array(
+          z.object({
+            from: z.string().trim().min(1).max(200),
+            to: z.string().trim().min(1).max(200),
+          }),
+        )
+        .max(40)
+        .default([]),
+    })
+    .refine(
+      (p) => p.items.length + p.update.length > 0,
+      'items albo update',
+    ) as unknown as z.ZodType<AddParams>,
   requiresApproval: () => false,
   async preview(_ctx, p) {
+    const all = [...p.items, ...p.update.map((u) => u.to)].join(', ');
     return {
-      summary: `Lista zakupów: ${p.items.join(', ').slice(0, 120)}`,
+      summary: `Lista zakupów: ${all.length > 120 ? `${all.slice(0, 119)}…` : all}`,
       target: 'wspólna lista zakupów',
       scope: 'dodanie pozycji',
+      // W karcie zgody: cała lista — co dojdzie i co się zmieni.
+      diff:
+        p.items.length + p.update.length > 1
+          ? [...p.items.map((i) => `+ ${i}`), ...p.update.map((u) => `~ ${u.from} → ${u.to}`)].join(
+              '\n',
+            )
+          : null,
     };
   },
   async authorize() {
     return { allow: true, reason: 'household_list' };
   },
   async execute(ctx, p) {
-    const r = await withUserTx(ctx.deps.db, { userId: ctx.principal.userId, scope: 'user' }, (c) =>
-      addItems(c, ctx.householdId, ctx.principal.userId, p.items),
+    const r = await withUserTx(
+      ctx.deps.db,
+      { userId: ctx.principal.userId, scope: 'user' },
+      async (c) => {
+        const renamed = await renameByName(c, ctx.householdId, ctx.principal.userId, p.update);
+        const added = await addItems(c, ctx.householdId, ctx.principal.userId, [
+          ...p.items,
+          ...renamed.notFound.map((x) => x.to),
+        ]);
+        return { ...added, changed: renamed.changed };
+      },
     );
     const parts = [
       r.added.length ? `Dodano do listy zakupów: ${r.added.join(', ')}` : 'Nic nowego na liście',
     ];
+    if (r.changed.length) parts.push(`zmieniono: ${r.changed.join(', ')}`);
     if (r.skipped.length) parts.push(`już było: ${r.skipped.join(', ')}`);
-    return { summary: parts.join('; '), output: { added: r.added, skipped: r.skipped } };
+    return {
+      summary: parts.join('; '),
+      output: { added: r.added, changed: r.changed, skipped: r.skipped },
+    };
   },
 };
 

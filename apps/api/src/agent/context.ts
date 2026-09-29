@@ -63,10 +63,8 @@ export async function buildTurnContext(
     context: contextKind,
   };
 
-  const { history, memories, documents, catalog, dropped, latestImages } = await withUserTx(
-    db,
-    { userId: auth.userId, scope },
-    async (c) => {
+  const { history, memories, documents, catalog, dropped, latestImages, shopping } =
+    await withUserTx(db, { userId: auth.userId, scope }, async (c) => {
       const conv = await c.query<{
         owner_user_id: string;
         household_id: string;
@@ -164,7 +162,14 @@ export async function buildTurnContext(
           parts: d.chunkCount,
           visibility: d.visibility,
         }));
+      // Wspólna lista zakupów (do kupienia) — model sumuje ilości zamiast dublować pozycje.
+      const shopping = await c.query<{ text: string }>(
+        `SELECT text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL
+          ORDER BY created_at LIMIT 80`,
+        [agent.household_id],
+      );
       return {
+        shopping: shopping.rows.map((x) => x.text),
         catalog,
         // Zdjęcia najnowszej wiadomości użytkownika (bieżąca tura) — przez RLS, tylko z tej rozmowy.
         latestImages: await imagesOf(c, conversationId, msgs.rows[0]),
@@ -193,8 +198,7 @@ export async function buildTurnContext(
         documents,
         dropped: droppedCount,
       };
-    },
-  );
+    });
 
   if (dropped > 0) {
     // RLS i polityka aplikacji nie powinny się różnić — rozbieżność to sygnał błędu konfiguracji.
@@ -231,6 +235,7 @@ export async function buildTurnContext(
       memories,
       documents,
       catalog,
+      shopping,
     },
     userContext: {
       userId: auth.userId,

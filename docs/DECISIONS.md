@@ -814,3 +814,23 @@ i czyta na głos jego wynik; akcja „Pobierz zawartość URL” wysyła POST z 
   kontekstu („a jutro?”). NovaAI (wspólny) nie jest dostępny przez skrót.
 - Odpowiedź synchroniczna: endpoint tworzy zwykłą turę w kolejce i czeka na jej wynik (odpytywanie bazy,
   do 25 s). Akcje ze zgodą nie są zatwierdzane głosem — zgoda zostaje w aplikacji.
+
+## D-046 Lista zakupów z przepisów: serwer czyta składniki, model sumuje, zgoda na listę
+
+Decyzje właściciela (2026-09-30): główne źródło przepisów — aniagotuje.pl; jedna wspólna lista domu; ten sam
+produkt z kilku przepisów jako jedna pozycja z sumą ilości (lista do zatwierdzenia); bez wody, soli i pieprzu;
+osobny ekran „Zakupy”. Strona sprawdzona 2026-09-30: wyszukiwarka `/szukaj?s=`, przepisy `/przepis/<slug>`
+z mikrodanymi schema.org Recipe (`recipeIngredient` jako tekst albo `<meta content>`, `recipeYield`),
+`robots.txt`: `Allow: /`.
+
+- Składniki czyta serwer (bez wyszukiwania w internecie przez model i bez całej strony w kontekście —
+  ok. 300 tokenów zamiast kilkunastu tysięcy). Tylko stały adres serwisu, bez przekierowań, limit czasu i
+  rozmiaru — link podany przez model/użytkownika spoza aniagotuje.pl odrzucany przy planowaniu.
+- Sumowanie ilości (odmiana, jednostki) robi model: w turze uzupełniającej widzi składniki i aktualną listę.
+  To wymaga narzędzi w turze uzupełniającej — tylko wskazanych przez użyte narzędzie (`followUpTools`), zawsze za
+  zgodą (wynik narzędzia to niezaufane dane) i bez kolejnej tury (nadal najwyżej dwie tury modelu).
+- Lista zakupów w kontekście każdej tury z narzędziami listy (dane domowników, oznaczone jako dane) — sumowanie
+  działa także przy zwykłym „dodaj jajka” w innej rozmowie.
+- W czacie użytkownik nie widzi mechaniki: wyniki narzędzi są danymi dla modelu; gdy przychodzi odpowiedź
+  uzupełniająca, interfejs je ukrywa. Wyniki akcji bez odpowiedzi (np. zatwierdzonych później) — krótko, bez
+  identyfikatorów.

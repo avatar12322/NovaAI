@@ -418,7 +418,7 @@ function ConversationPane({
             </p>
           </EmptyState>
         )}
-        {messages?.map((m) => (
+        {visibleMessages(messages ?? []).map((m) => (
           <MessageBubble
             key={m.id}
             m={m}
@@ -592,6 +592,7 @@ const TOOL_PL: Record<string, string> = {
   'shopping.add': 'Lista zakupów',
   'shopping.list': 'Lista zakupów',
   'shopping.check': 'Lista zakupów',
+  'recipe.find': 'Przepis',
   'expense.add': 'Wydatek',
   'expense.summary': 'Podsumowanie wydatków',
   'payment.add': 'Stała płatność',
@@ -620,20 +621,44 @@ const TOOL_PL: Record<string, string> = {
   'device.git.diff': 'git diff',
 };
 
+const isSlackLive = (m: Message) =>
+  String(m.meta.tool ?? '').startsWith('slack.') &&
+  !!m.meta.live &&
+  typeof m.meta.live === 'object';
+
+/**
+ * Bez „kuchni” asystenta: gdy tura kończy się odpowiedzią na podstawie wyników narzędzi, same wyniki
+ * (i pusta zapowiedź modelu) są ukryte — odpowiedź mówi, co zrobiono. Widać wyniki akcji zatwierdzonych
+ * później (bez odpowiedzi uzupełniającej) i treść Slacka do pobrania na żywo.
+ */
+function visibleMessages(messages: Message[]): Message[] {
+  const answered = new Set(
+    messages
+      .filter((m) => m.role === 'assistant' && m.meta.followUpExpected === true)
+      .map((m) => m.meta.taskId),
+  );
+  return messages.filter(
+    (m) =>
+      !answered.has(m.meta.taskId) ||
+      (m.role === 'tool' ? isSlackLive(m) : m.meta.interim !== true),
+  );
+}
+
+/** Wynik narzędzia dla człowieka: bez identyfikatorów technicznych. */
+const withoutIds = (text: string) =>
+  text.replace(/\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]\s?/gi, '');
+
 function ToolResult({ m, fresh }: { m: Message; fresh: boolean }) {
   const tool = typeof m.meta.tool === 'string' ? m.meta.tool : '';
-  const live =
-    tool.startsWith('slack.') && m.meta.live && typeof m.meta.live === 'object'
-      ? (m.meta.live as Record<string, unknown>)
-      : null;
+  const live = isSlackLive(m) ? (m.meta.live as Record<string, unknown>) : null;
   return (
     <article className={`msg msg-tool${fresh ? ' msg-enter' : ''}`} aria-label="Wynik akcji">
       <header className="msg-meta">
         <Icon name="check" size={14} />
-        <span>Wynik akcji: {TOOL_PL[tool] ?? tool}</span>
+        <span>{TOOL_PL[tool] ?? 'Gotowe'}</span>
         <time dateTime={m.createdAt}>{timeOfDay(m.createdAt)}</time>
       </header>
-      <div className="msg-body">{m.content}</div>
+      <div className="msg-body">{withoutIds(m.content)}</div>
       {live && <SlackLive query={live} />}
     </article>
   );

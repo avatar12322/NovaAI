@@ -11,6 +11,7 @@ import { ApprovalsView } from './views/Approvals';
 import { ChatView } from './views/Chat';
 import { DocumentsView, DocumentView } from './views/Documents';
 import { ExpensesView } from './views/Expenses';
+import { ShoppingView } from './views/Shopping';
 import { HomeView } from './views/Home';
 import { LoginView } from './views/Login';
 import { MemoryView } from './views/Memory';
@@ -89,6 +90,7 @@ export function App() {
           {route.view === 'services' && <ServicesView id={route.id} />}
           {route.view === 'models' && <ModelsView />}
           {route.view === 'expenses' && <ExpensesView me={me} />}
+          {route.view === 'shopping' && <ShoppingView me={me} />}
           {route.view === 'home' && <HomeView me={me} />}
           {route.view === 'settings' && <SettingsView me={me} onLogout={logout} />}
         </ErrorBoundary>

@@ -9,8 +9,10 @@ test('domownik: prosty widok bez modeli, usług, zadań i panelu aktywności', a
   await loginAs(page, 'Beta (test)');
   const nav = page.getByRole('navigation', { name: navName() });
   await expect(nav).toContainText('Czat');
-  await expect(nav).toContainText('Pamięć');
+  await expect(nav).toContainText('Zakupy');
   await expect(nav).toContainText('Dokumenty');
+  // Na telefonie dolny pasek mieści 5 pozycji — Pamięć jest w menu na komputerze i w palecie poleceń.
+  if (test.info().project.name !== 'phone') await expect(nav).toContainText('Pamięć');
   for (const hidden of ['Modele AI', 'Usługi i koszty', 'Zadania'])
     await expect(nav.getByRole('link', { name: hidden })).toHaveCount(0);
   await expect(page.getByRole('complementary', { name: 'Aktywność' })).toHaveCount(0);
@@ -41,7 +43,8 @@ test('właściciel: pełne menu i ustawienia administracyjne', async ({ page }) 
     await expect(nav).toContainText('Modele AI');
     await expect(nav).toContainText('Usługi i koszty');
   }
-  await expect(nav).toContainText('Zadania');
+  // Zadania (techniczne) tylko w menu na komputerze; na telefonie — Zakupy.
+  await expect(nav).toContainText(test.info().project.name === 'phone' ? 'Zakupy' : 'Zadania');
   await expect(page.getByRole('complementary', { name: 'Aktywność' })).toHaveCount(0);
   await page.goto('/#/settings');
   await expect(page.getByRole('heading', { name: 'Stan usług' })).toBeVisible();

@@ -4,6 +4,24 @@ import { ErrorNote, Spinner } from '../components/ui';
 import { api, errorText, type ShoppingItem } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 
+/** Ekran „Zakupy”: jedna wspólna lista domu, do odhaczania w sklepie (duże pola jak w notatkach). */
+export function ShoppingView({ me }: { me: MeResponse }) {
+  return (
+    <section className="page shopping-page" aria-label="Zakupy">
+      <header className="section-head">
+        <div>
+          <h1>Zakupy</h1>
+          <p className="muted small">
+            Napisz asystentowi, co chcesz ugotować — składniki z przepisu (aniagotuje.pl) trafią
+            tutaj po Twoim zatwierdzeniu, z sumą ilości.
+          </p>
+        </div>
+      </header>
+      <ShoppingPanel me={me} />
+    </section>
+  );
+}
+
 /**
  * Wspólna lista zakupów domu: dodawanie (kilka pozycji po przecinku), odhaczanie w sklepie, usuwanie.
  * Zmiany domownika widać od razu (zdarzenie `shopping.changed`). Asystent też dopisuje i odhacza pozycje.
@@ -112,7 +130,7 @@ export function ShoppingPanel({ me }: { me: MeResponse }) {
       {!items && !error && <Spinner />}
       {items && !items.length && (
         <p className="small muted">
-          Lista jest pusta. Możesz też napisać asystentowi: „dodaj mleko do zakupów”.
+          Lista jest pusta. Możesz też napisać asystentowi: „dodaj mleko” albo „chcę zrobić leczo”.
         </p>
       )}
       {open.length > 0 && (

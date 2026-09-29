@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loginAs, logout, shot } from './helpers';
 
-/** Wspólna lista zakupów w „Dom”: Alfa dodaje, Beta odhacza i usuwa kupione. */
+/** Ekran „Zakupy” (wspólna lista domu): Alfa dodaje, Beta odhacza i usuwa kupione. */
 test('lista zakupów: dodawanie po przecinku, odhaczanie przez domownika, usuwanie kupionych', async ({
   page,
 }) => {
@@ -9,7 +9,7 @@ test('lista zakupów: dodawanie po przecinku, odhaczanie przez domownika, usuwan
   const milk = `mleko ${tag}`;
   const eggs = `jajka ${tag}`;
   await loginAs(page, 'Alfa (test)');
-  await page.goto('/#/home');
+  await page.goto('/#/shopping');
   const panel = page.getByRole('region', { name: 'Lista zakupów' });
   await panel.getByLabel('Co dodać do listy zakupów').fill(`${milk}, ${eggs}`);
   await panel.getByRole('button', { name: 'Dodaj', exact: true }).click();
@@ -21,7 +21,7 @@ test('lista zakupów: dodawanie po przecinku, odhaczanie przez domownika, usuwan
   await logout(page);
 
   await loginAs(page, 'Beta (test)');
-  await page.goto('/#/home');
+  await page.goto('/#/shopping');
   const betaPanel = page.getByRole('region', { name: 'Lista zakupów' });
   await expect(betaPanel.getByRole('list', { name: 'Do kupienia' })).toContainText('Alfa (test)');
   await betaPanel.getByRole('checkbox', { name: milk }).check();

@@ -896,6 +896,30 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: API i przez model 27/27 (najbliższy termin, faktyczna kwota, treść wyniku i opisu narzędzia, pierwszy
   termin). e2e `expenses.spec.ts` zaktualizowany (okno z kwotą) — nieuruchomiony (brak Chromium lokalnie).
 
+### Zakupy z przepisów (aniagotuje.pl); czat bez szczegółów technicznych (2026-09-30)
+
+- Osobny ekran „Zakupy” (menu, dolny pasek na telefonie, paleta poleceń): jedna wspólna lista domu, duże pola
+  do odhaczania w sklepie. Na telefonie w dolnym pasku: Czat, Dom, Zakupy, Wydatki oraz Pamięć (właściciel)
+  albo Dokumenty (domownik); Zadania i pozostałe — w palecie poleceń i menu na komputerze.
+- „Chcę zrobić leczo”: nowe narzędzie `recipe.find` — serwer wyszukuje przepis na aniagotuje.pl (albo bierze
+  podany link) i czyta składniki z oznaczeń schema.org Recipe; woda, sól i pieprz pominięte. W turze
+  uzupełniającej model proponuje listę: jedna pozycja na produkt, ilości zsumowane z tym, co już jest na liście
+  (`shopping.add` z `update`: „jajka 3 szt.” → „jajka 5 szt.”). Zawsze karta zgody z całą listą (+ nowe,
+  ~ zmienione). Model zna aktualną listę zakupów (kontekst), więc sumuje także przy „dodaj jajka” w innej
+  rozmowie. Tura uzupełniająca dostaje narzędzia tylko wskazane przez użyte narzędzie (`followUpTools`), zawsze
+  za zgodą i bez kolejnej tury.
+- Czat bez „kuchni”: zamiast „Proponuję: shopping.list, payment.list.” — gdy przychodzi odpowiedź na podstawie
+  wyników, same wyniki narzędzi i pusta zapowiedź są ukryte; widoczne wyniki (np. akcje zatwierdzone później)
+  bez nagłówka „Wynik akcji:” i bez identyfikatorów. Model ma zasadę: bez nazw narzędzi, identyfikatorów
+  i opisów działania systemu.
+- Testy: API `recipes.test.ts` 3/3 (parsowanie jak na prawdziwej stronie — tekst i rozbicie `<meta>`, encje,
+  wyniki wyszukiwania, tylko linki aniagotuje.pl; przepływ: lista w kontekście → przepis z atrapy serwisu →
+  tura uzupełniająca tylko z listą zakupów → zgoda z całą listą → suma ilości na jednej liście; bez przepisu
+  tura uzupełniająca bez narzędzi; zły link odrzucony bez połączenia). Cały zestaw API 353 zaliczonych
+  (1 niezaliczony — symlinki na Windowsie bez uprawnień, jak wcześniej). e2e `shopping.spec.ts`
+  i `roles.spec.ts` zaktualizowane — nieuruchomione (brak Chromium lokalnie). **Nie sprawdzone
+  z prawdziwym modelem** — jakość sumowania ilości zależy od modelu.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

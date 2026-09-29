@@ -120,6 +120,8 @@ użytkownika w usługach Google API</a>, w tym z wymaganiami dotyczącymi ograni
     ustawionego przez właściciela domu.</li>
   <li><strong>Apple (Siri i Skróty)</strong> — tylko przy włączonym Skrócie Siri: pytanie rozpoznaje Siri na
     Twoim iPhonie (zgodnie z ustawieniami telefonu), a do NovaAI trafia jego tekst.</li>
+  <li><strong>aniagotuje.pl</strong> — przepisy: gdy napiszesz, co chcesz ugotować, serwer wyszukuje przepis
+    w tym serwisie i pobiera jego składniki; trafia tam tylko nazwa dania.</li>
   <li><strong>OVH</strong> — serwer i kopie zapasowe (centrum danych w Polsce).</li>
 </ul>
 
