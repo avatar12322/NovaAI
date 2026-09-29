@@ -28,10 +28,17 @@ test('wydatki wspólne i osobiste, rata oznaczona jako zapłacona', async ({ pag
   await pay.getByLabel('Dzień miesiąca').fill('31');
   await pay.getByRole('button', { name: 'Dodaj płatność' }).click();
   const item = page.locator('.payment-item').filter({ hasText: `Rata ${tag}` });
+  // Kwota raty bywa różna — „Zapłacone” pyta o faktyczną (podpowiedź: zapisana).
+  page.once('dialog', (d) => {
+    expect(d.defaultValue()).toBe('450,00');
+    void d.accept('462,30');
+  });
   await item.getByRole('button', { name: 'Zapłacone' }).click();
   await expect(item).toContainText('zapłacone');
+  await expect(item).toContainText('najbliższa:');
   await page.getByRole('tab', { name: 'Moje' }).click();
-  await expect(page.locator('.expense-list')).toContainText(`Rata ${tag}`);
+  const paidRow = page.locator('.expense-item').filter({ hasText: `Rata ${tag}` });
+  await expect(paidRow).toContainText('462,30');
   await page.getByRole('heading', { name: 'Wydatki' }).scrollIntoViewIfNeeded();
   await shot(page, '43-expenses');
   // Sprzątanie: zakończenie płatności (baza e2e wspólna dla projektów).

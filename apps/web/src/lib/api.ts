@@ -291,6 +291,8 @@ export interface RecurringPayment {
   dueDate: string | null;
   paid: boolean;
   remaining: number | null;
+  /** Najbliższy niezapłacony termin (ten albo następny miesiąc); null — wszystkie raty minęły. */
+  nextDueDate: string | null;
 }
 
 export interface Deadline {
@@ -381,7 +383,8 @@ export const api = {
     lastMonth: string | null;
     space: Space;
   }) => post<{ id: string }>('/payments', p),
-  paymentPaid: (id: string) => post<{ paid: true; already: boolean }>(`/payments/${id}/paid`),
+  paymentPaid: (id: string, amount?: number) =>
+    post<{ paid: true; already: boolean }>(`/payments/${id}/paid`, { amount }),
   endPayment: (id: string) => request<void>('DELETE', `/payments/${id}`),
   deadlines: () => get<{ items: Deadline[] }>('/deadlines'),
   addDeadline: (d: { title: string; subject: string; kind: Deadline['kind']; due: string }) =>

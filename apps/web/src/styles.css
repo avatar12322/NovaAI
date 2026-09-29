@@ -2294,6 +2294,13 @@ kbd {
   flex: 1 1 9rem;
   min-width: 0;
 }
+/* Nazwa i wybór „osobista (tylko ja)” bez ucinania tekstu. */
+.expense-fields > .field-wide {
+  flex: 2 1 14rem;
+}
+.expense-fields > select {
+  flex-basis: 12rem;
+}
 .expense-fields label {
   display: flex;
   flex-direction: column;

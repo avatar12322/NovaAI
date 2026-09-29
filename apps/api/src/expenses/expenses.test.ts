@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { seedDev } from '../db/seed';
 import { buildDigest, warsawClock } from '../digest/service';
 import { createTestApp, login, truncateAll, type Client, type TestApp } from '../test/helpers';
-import { dueDateIn, monthEnd, nextMonth } from './service';
+import { dueDateIn, dueOnOrAfter, monthEnd, nextMonth } from './service';
 
 /** Wydatki wspólne i prywatne, stałe płatności i raty („zapłacone” raz w miesiącu), przegląd dnia. */
 let t: TestApp;
@@ -80,6 +80,7 @@ describe('wydatki', () => {
     const phone = list.find((p: { name: string }) => p.name === 'Rata za telefon');
     expect(phone).toMatchObject({
       dueDate: dueDateIn(month, 31),
+      nextDueDate: dueDateIn(month, 31),
       paid: false,
       remaining: 3,
       visibility: 'private',
@@ -90,10 +91,11 @@ describe('wydatki', () => {
     ]);
     expect((await beta.post(`/api/payments/${rata.body.id}/paid`)).status).toBe(404);
 
-    const paid = await alfa.post(`/api/payments/${rata.body.id}/paid`);
+    // Kwota raty bywa różna — zapisuje się faktyczna.
+    const paid = await alfa.post(`/api/payments/${rata.body.id}/paid`, { amount: 131.5 });
     expect(paid.body).toMatchObject({ paid: true, already: false });
     expect(paid.body.expense).toMatchObject({
-      amount: 120,
+      amount: 131.5,
       category: 'raty',
       visibility: 'private',
     });
@@ -101,7 +103,11 @@ describe('wydatki', () => {
     const after = (await alfa.get('/api/payments')).body.items.find(
       (p: { id: string }) => p.id === rata.body.id,
     );
-    expect(after).toMatchObject({ paid: true, remaining: 2 });
+    expect(after).toMatchObject({
+      paid: true,
+      remaining: 2,
+      nextDueDate: dueDateIn(nextMonth(month), 31),
+    });
 
     // Wspólny czynsz opłacony przez Alfę — wydatek wspólny widoczny dla Bety.
     await alfa.post(`/api/payments/${rent.body.id}/paid`);
@@ -136,7 +142,27 @@ describe('wydatki', () => {
     expect((await digest()).body).not.toContain('Kredyt');
   });
 
-  it('daty: ostatni dzień miesiąca', () => {
+  it('rata dodana po tegorocznym terminie: w tym miesiącu bez „Zapłacone”, najbliższa za miesiąc', async () => {
+    const day = Number(today.slice(8, 10)) - 1;
+    if (day < 1) return; // 1. dzień miesiąca — nie ma dnia, który już minął
+    await alfa.post('/api/payments', {
+      name: 'iPhone',
+      amount: 150,
+      dayOfMonth: day,
+      space: 'private',
+    });
+    expect((await alfa.get('/api/payments')).body.items[0]).toMatchObject({
+      dueDate: null,
+      paid: false,
+      nextDueDate: dueDateIn(nextMonth(month), day),
+    });
+  });
+
+  it('daty: ostatni dzień miesiąca, pierwszy termin', () => {
+    expect(dueOnOrAfter('2026-09-29', 15)).toBe('2026-10-15');
+    expect(dueOnOrAfter('2026-09-29', 31)).toBe('2026-09-30');
+    expect(dueOnOrAfter('2026-09-15', 15)).toBe('2026-09-15');
+    expect(dueOnOrAfter('2026-12-20', 5)).toBe('2027-01-05');
     expect(dueDateIn('2027-02', 31)).toBe('2027-02-28');
     expect(dueDateIn('2028-02', 30)).toBe('2028-02-29');
     expect(monthEnd('2026-12')).toBe('2026-12-31');

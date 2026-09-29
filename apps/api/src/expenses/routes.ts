@@ -52,7 +52,7 @@ const ListQuery = z.object({
   month: Month.optional(),
   space: z.enum(['all', 'private', 'shared']).default('all'),
 });
-const PaidBody = z.object({ month: Month.optional() });
+const PaidBody = z.object({ month: Month.optional(), amount: Amount.optional() });
 
 export const expenseRoutes =
   (deps: AppDeps): FastifyPluginAsync =>
@@ -142,8 +142,9 @@ export const expenseRoutes =
     app.post<{ Params: { id: string } }>('/payments/:id/paid', async (req) => {
       const m = member(req);
       if (!isUuid(req.params.id)) throw notFound('Płatność');
-      const month = parse(PaidBody, req.body ?? {}).month ?? today().slice(0, 7);
-      const r = await asUser(m.userId, (c) => markPaid(c, req.params.id, month));
+      const b = parse(PaidBody, req.body ?? {});
+      const month = b.month ?? today().slice(0, 7);
+      const r = await asUser(m.userId, (c) => markPaid(c, req.params.id, month, b.amount));
       if (!r) throw notFound('Płatność');
       return { paid: true, already: r.already, expense: r.expense };
     });

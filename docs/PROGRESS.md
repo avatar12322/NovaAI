@@ -884,6 +884,18 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   (brak Chromium Playwrighta na tym komputerze). **Nie sprawdzone na prawdziwym iPhonie** — wymaga wdrożenia
   pod publicznym adresem.
 
+### Poprawka: raty — najbliższy termin, faktyczna kwota, bez zbędnych przypomnień (2026-09-29)
+
+- Zgłoszenie: rata dodana 29.09 na 15. dnia miała plakietkę „nie w tym miesiącu”; asystent dołożył jednorazowe
+  przypomnienie i twierdził, że przypomnienia się nie powtarzają; przy zmiennej kwocie nie było jak wpisać
+  faktycznej.
+- Przyczyna: opis `payment.add` i jego wynik nie mówiły, że przegląd dnia przypomina co miesiąc (wieczorem dzień
+  przed, rano w dniu terminu). Teraz mówią to wprost (bez `reminder.create`), a wynik podaje pierwszy termin.
+- „Wydatki” → płatność pokazuje „najbliższa: 15 paź” (API: `nextDueDate`); „Zapłacone” pyta o kwotę (podpowiedź:
+  zapisana). `payment.paid` i `POST /payments/:id/paid` przyjmują faktyczną kwotę. Pola formularza bez ucinania.
+- Testy: API i przez model 27/27 (najbliższy termin, faktyczna kwota, treść wyniku i opisu narzędzia, pierwszy
+  termin). e2e `expenses.spec.ts` zaktualizowany (okno z kwotą) — nieuruchomiony (brak Chromium lokalnie).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

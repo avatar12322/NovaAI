@@ -7,6 +7,7 @@ import {
   addPayment,
   CATEGORIES,
   CATEGORY_KEYS,
+  dueOnOrAfter,
   formatMoney,
   listExpenses,
   listPayments,
@@ -26,6 +27,12 @@ const today = () => warsawClock(new Date()).date;
 const asUser = <T>(ctx: ToolContext, fn: Parameters<typeof withUserTx<T>>[2]) =>
   withUserTx(ctx.deps.db, { userId: ctx.principal.userId, scope: 'user' }, fn);
 const allow = async () => ({ allow: true, reason: 'own_or_household' });
+const dayLabel = (date: string) =>
+  new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+    new Date(`${date}T12:00:00Z`),
+  );
+const REMINDER_NOTE =
+  'Przypomnienie co miesiąc w przeglądzie dnia: wieczorem dzień przed terminem i rano w dniu terminu, dopóki nie zostanie oznaczona jako zapłacona';
 
 type AddParams = {
   amount: number;
@@ -154,7 +161,7 @@ export const paymentListTool: ToolDef<Record<string, never>> = {
       output: {
         lines: items.map(
           (p) =>
-            `[${p.id}] ${p.name}: ${formatMoney(p.amount, p.currency)}, ${p.dueDate ? `termin ${p.dueDate}` : 'w tym miesiącu bez terminu'}, ${p.paid ? 'zapłacone' : 'niezapłacone'}${p.remaining !== null ? `, pozostało ${p.remaining}` : ''}${p.visibility === 'shared' ? ' (wspólna)' : ''}`,
+            `[${p.id}] ${p.name}: ${formatMoney(p.amount, p.currency)}, ${p.dayOfMonth}. dnia miesiąca, ${p.paid ? 'w tym miesiącu zapłacone' : p.dueDate ? `w tym miesiącu niezapłacone (termin ${p.dueDate})` : 'w tym miesiącu bez terminu'}, ${p.nextDueDate ? `najbliższy termin ${p.nextDueDate}` : 'wszystkie raty minęły'}${p.remaining !== null ? `, pozostało ${p.remaining}` : ''}${p.visibility === 'shared' ? ' (wspólna)' : ''}`,
         ),
       },
     };
@@ -173,8 +180,7 @@ type PaymentParams = {
 export const paymentAddTool: ToolDef<PaymentParams> = {
   name: 'payment.add',
   capability: 'expense.add',
-  title:
-    'Dodaj stałą płatność albo ratę: nazwa, kwota, dzień miesiąca; lastMonth RRRR-MM — ostatnia rata (brak = bez końca). Przypomnienie w przeglądzie dnia.',
+  title: `Dodaj stałą płatność albo ratę: nazwa, kwota, dzień miesiąca; lastMonth RRRR-MM — ostatnia rata (brak = bez końca). ${REMINDER_NOTE} — nie dodawaj do niej reminder.create. Gdy kwota bywa różna, zapisz orientacyjną; faktyczną podaje się przy payment.paid.`,
   contexts: ['private_agent', 'household_agent'],
   params: z.object({
     name: z.string().trim().min(1).max(120),
@@ -216,25 +222,33 @@ export const paymentAddTool: ToolDef<PaymentParams> = {
       }),
     );
     return {
-      summary: `Dodano płatność: ${p.name} — ${formatMoney(p.amount, p.currency)}, ${p.dayOfMonth}. dnia miesiąca${p.lastMonth ? `, do ${p.lastMonth}` : ''}`,
+      summary: `Dodano płatność: ${p.name} — ${formatMoney(p.amount, p.currency)}, ${p.dayOfMonth}. dnia miesiąca${p.lastMonth ? `, do ${p.lastMonth}` : ''}; pierwszy termin: ${dayLabel(dueOnOrAfter(now, p.dayOfMonth))}. ${REMINDER_NOTE}.`,
       output: { paymentId: id },
     };
   },
 };
 
-export const paymentPaidTool: ToolDef<{ paymentId: string }> = {
+export const paymentPaidTool: ToolDef<{ paymentId: string; amount?: number }> = {
   name: 'payment.paid',
   capability: 'expense.add',
-  title: 'Oznacz stałą płatność/ratę jako zapłaconą w tym miesiącu (identyfikator z payment.list)',
+  title:
+    'Oznacz stałą płatność/ratę jako zapłaconą w tym miesiącu (identyfikator z payment.list). amount — faktyczna kwota, gdy inna niż zapisana (np. „zapłaciłem ratę 162 zł”).',
   contexts: ['private_agent', 'household_agent'],
-  params: z.object({ paymentId: z.uuid() }),
+  params: z.object({
+    paymentId: z.uuid(),
+    amount: z.number().positive().max(9_999_999.99).optional(),
+  }),
   requiresApproval: () => false,
   async preview(_ctx, p) {
-    return { summary: 'Zapłacona płatność', target: 'płatności', scope: p.paymentId };
+    return {
+      summary: p.amount ? `Zapłacona płatność (kwota ${p.amount})` : 'Zapłacona płatność',
+      target: 'płatności',
+      scope: p.paymentId,
+    };
   },
   authorize: allow,
   async execute(ctx, p) {
-    const r = await asUser(ctx, (c) => markPaid(c, p.paymentId, today().slice(0, 7)));
+    const r = await asUser(ctx, (c) => markPaid(c, p.paymentId, today().slice(0, 7), p.amount));
     if (!r) throw new ToolDenied('payment_not_found');
     return {
       summary: r.already

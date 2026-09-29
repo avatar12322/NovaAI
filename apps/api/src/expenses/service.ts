@@ -51,6 +51,8 @@ export interface Payment {
   paid: boolean;
   /** Pozostałe płatności łącznie z bieżącym miesiącem (null — bez końca). */
   remaining: number | null;
+  /** Najbliższy niezapłacony termin: w tym miesiącu albo w kolejnym (null — wszystkie raty minęły). */
+  nextDueDate: string | null;
 }
 
 /** Miesiąc „RRRR-MM” → pierwszy i następny dzień miesiąca. */
@@ -68,6 +70,12 @@ export function dueDateIn(month: string, dayOfMonth: number): string {
 export function nextMonth(month: string): string {
   const [y, m] = month.split('-').map(Number);
   return m === 12 ? `${y! + 1}-01` : `${y}-${String(m! + 1).padStart(2, '0')}`;
+}
+
+/** Pierwszy termin płatności w dniu `from` albo później (np. pierwsza rata płatności dodanej dziś). */
+export function dueOnOrAfter(from: string, dayOfMonth: number): string {
+  const d = dueDateIn(from.slice(0, 7), dayOfMonth);
+  return d >= from ? d : dueDateIn(nextMonth(from.slice(0, 7)), dayOfMonth);
 }
 
 /** Ostatni dzień miesiąca „RRRR-MM” (ostatnia rata w tym miesiącu). */
@@ -237,6 +245,7 @@ export async function listPayments(
       return d >= p.starts_on && (!p.ends_on || d <= p.ends_on);
     };
     const due = dueDateIn(month, p.day_of_month);
+    const next = [month, nextMonth(month)].find((m) => inRange(m) && !(m === month && p.paid));
     return {
       id: p.id,
       name: p.name,
@@ -251,6 +260,7 @@ export async function listPayments(
       dueDate: inRange(month) ? due : null,
       paid: p.paid,
       remaining: p.ends_on ? remainingFrom(month, p.ends_on.slice(0, 7), inRange, p.paid) : null,
+      nextDueDate: next ? dueDateIn(next, p.day_of_month) : null,
     };
   });
 }
@@ -298,12 +308,14 @@ export async function endPayment(c: pg.PoolClient, id: string): Promise<boolean>
 
 /**
  * „Zapłacone” w danym miesiącu: wydatek z kwotą i kategorią płatności (widoczność jak płatność), raz na miesiąc.
+ * `amount` — faktyczna kwota, gdy inna niż zapisana (np. rata o zmiennej wysokości).
  * Zwraca null, gdy płatność niewidoczna/nieaktywna; `already` — gdy miesiąc był już oznaczony.
  */
 export async function markPaid(
   c: pg.PoolClient,
   paymentId: string,
   month: string,
+  amount?: number,
 ): Promise<{ expense: Expense | null; already: boolean } | null> {
   const p = await c.query<{
     household_id: string;
@@ -330,7 +342,7 @@ export async function markPaid(
     [
       pay.household_id,
       pay.visibility,
-      pay.amount,
+      amount !== undefined ? amount.toFixed(2) : pay.amount,
       pay.currency,
       pay.category,
       pay.name,

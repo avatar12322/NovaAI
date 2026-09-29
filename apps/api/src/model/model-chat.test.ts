@@ -547,15 +547,23 @@ describe('wydatki i raty z czatu', () => {
         input: { name: 'Rata za laptop', amount: 250, dayOfMonth: 31 },
       },
     ];
-    expect(await toolMessage(alfa, 'dodaj ratę 250 zł ostatniego dnia miesiąca')).toMatch(
-      /^Dodano płatność: Rata za laptop — 250,00\s?zł, 31\. dnia miesiąca/,
+    // Wynik mówi, kiedy pierwsza rata i że przypomnienia są co miesiąc — model nie dokłada przypomnień.
+    const added = await toolMessage(alfa, 'dodaj ratę 250 zł ostatniego dnia miesiąca');
+    expect(added).toMatch(/^Dodano płatność: Rata za laptop — 250,00\s?zł, 31\. dnia miesiąca/);
+    expect(added).toContain('pierwszy termin:');
+    expect(added).toContain('Przypomnienie co miesiąc w przeglądzie dnia');
+    expect(t.deps.broker.def('payment.add')?.title).toContain(
+      'nie dodawaj do niej reminder.create',
     );
     const id = (await alfa.get('/api/payments')).body.items[0].id as string;
     toolCalls = [{ name: 'payment.list', input: {} }];
-    expect(await toolMessage(alfa, 'jakie mam raty?')).toContain(`[${id}] Rata za laptop`);
-    toolCalls = [{ name: 'payment.paid', input: { paymentId: id } }];
-    expect(await toolMessage(alfa, 'zapłaciłem ratę za laptop')).toMatch(
-      /^Zapłacone: Rata za laptop — 250,00/,
+    const list = await toolMessage(alfa, 'jakie mam raty?');
+    expect(list).toContain(`[${id}] Rata za laptop`);
+    expect(list).toContain('najbliższy termin');
+    // Kwota raty bywa różna: „zapłaciłem 262,40” zapisuje faktyczną.
+    toolCalls = [{ name: 'payment.paid', input: { paymentId: id, amount: 262.4 } }];
+    expect(await toolMessage(alfa, 'zapłaciłem ratę za laptop 262,40')).toMatch(
+      /^Zapłacone: Rata za laptop — 262,40/,
     );
   });
 });

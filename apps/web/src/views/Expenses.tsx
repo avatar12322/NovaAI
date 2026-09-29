@@ -301,6 +301,17 @@ function Payments({
   const value = parseAmount(amount);
   const run = (p: Promise<unknown>) =>
     p.then(onChange).catch((err: unknown) => onError(errorText(err)));
+  // Kwota raty bywa różna — przy „Zapłacone” podpowiadamy zapisaną, do poprawienia.
+  const pay = (p: RecurringPayment) => {
+    const typed = window.prompt(
+      `Ile zapłacono — ${p.name}?`,
+      p.amount.toFixed(2).replace('.', ','),
+    );
+    if (typed === null) return;
+    const paid = parseAmount(typed);
+    if (!(paid > 0)) return onError('Podaj kwotę, np. 150,00');
+    void run(api.paymentPaid(p.id, paid));
+  };
   const add = (e: FormEvent) => {
     e.preventDefault();
     void run(
@@ -339,6 +350,7 @@ function Payments({
                 <span className="mono">{formatMoney(p.amount, p.currency)}</span>
                 <div className="small muted">
                   {p.dayOfMonth}. dnia miesiąca
+                  {p.nextDueDate ? ` · najbliższa: ${dayLabel(p.nextDueDate)}` : ' · spłacona'}
                   {p.remaining !== null && ` · zostało: ${p.remaining}`}
                   {p.visibility === 'shared' ? ' · wspólna' : ' · osobista'}
                 </div>
@@ -346,16 +358,12 @@ function Payments({
               <div className="row">
                 {p.paid ? (
                   <Badge tone="ok">zapłacone</Badge>
-                ) : p.dueDate ? (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => void run(api.paymentPaid(p.id))}
-                  >
-                    Zapłacone
-                  </button>
                 ) : (
-                  <Badge>nie w tym miesiącu</Badge>
+                  p.dueDate && (
+                    <button type="button" className="btn btn-sm" onClick={() => pay(p)}>
+                      Zapłacone
+                    </button>
+                  )
                 )}
                 {p.isMine && (
                   <button
@@ -380,6 +388,7 @@ function Payments({
       )}
       <form className="expense-fields" onSubmit={add} aria-label="Dodaj płatność">
         <input
+          className="field-wide"
           placeholder="Nazwa, np. Rata za telefon"
           aria-label="Nazwa płatności"
           value={name}
