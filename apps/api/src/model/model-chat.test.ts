@@ -91,8 +91,13 @@ describe('rozmowa przez model', () => {
     expect(call.tools.map((x) => x.name).sort()).toEqual([
       'calendar.agenda',
       'calendar.freebusy',
+      'expense.add',
+      'expense.summary',
       'household.notify',
       'memory.create',
+      'payment.add',
+      'payment.list',
+      'payment.paid',
       'reminder.cancel',
       'reminder.create',
       'reminder.list',
@@ -117,7 +122,12 @@ describe('rozmowa przez model', () => {
     expect(call.system).toContain('WSPÓLNE: zakupy');
     expect(call.tools.map((x) => x.name).sort()).toEqual([
       'calendar.freebusy',
+      'expense.add',
+      'expense.summary',
       'memory.create',
+      'payment.add',
+      'payment.list',
+      'payment.paid',
       'reminder.cancel',
       'reminder.create',
       'reminder.list',
@@ -459,5 +469,57 @@ describe('zdjęcia w czacie', () => {
     const pending = (await beta.get('/api/approvals?status=pending')).body.items;
     expect(pending.map((a: { tool: string }) => a.tool)).toEqual(['shopping.add']);
     expect((await beta.get('/api/shopping')).body.items).toEqual([]);
+  });
+});
+
+describe('wydatki i raty z czatu', () => {
+  async function toolMessage(c: Client, content: string, space: 'private' | 'shared' = 'private') {
+    const conv = (await c.post('/api/conversations', { space })).body;
+    await c.post(`/api/conversations/${conv.id}/messages`, { content });
+    await t.drain();
+    const msgs = (await c.get(`/api/conversations/${conv.id}/messages`)).body.items as Array<{
+      role: string;
+      content: string;
+    }>;
+    return msgs.find((m) => m.role === 'tool')?.content ?? '';
+  }
+
+  it('wydatek wspólny i osobisty, podsumowanie; NovaAI zapisuje zawsze jako wspólny', async () => {
+    toolCalls = [
+      {
+        name: 'expense.add',
+        input: { amount: 45.2, category: 'jedzenie', description: 'Biedronka', shared: true },
+      },
+    ];
+    expect(await toolMessage(alfa, 'dodaj 45,20 za zakupy do wspólnych')).toMatch(
+      /^Zapisano wydatek wspólny: 45,20\s?zł — Biedronka/,
+    );
+    toolCalls = [
+      { name: 'expense.add', input: { amount: 30, category: 'rozrywka', description: 'Kino' } },
+    ];
+    expect(await toolMessage(beta, 'kino 30 zł', 'shared')).toMatch(/^Zapisano wydatek wspólny/);
+    toolCalls = [{ name: 'expense.summary', input: { space: 'shared' } }];
+    const sum = await toolMessage(alfa, 'ile wydaliśmy razem?');
+    expect(sum).toContain('Suma: 75,20');
+    expect(sum).toContain('Jedzenie i zakupy: 45,20');
+  });
+
+  it('rata: dodanie, lista z terminem, „zapłaciłem”', async () => {
+    toolCalls = [
+      {
+        name: 'payment.add',
+        input: { name: 'Rata za laptop', amount: 250, dayOfMonth: 31 },
+      },
+    ];
+    expect(await toolMessage(alfa, 'dodaj ratę 250 zł ostatniego dnia miesiąca')).toMatch(
+      /^Dodano płatność: Rata za laptop — 250,00\s?zł, 31\. dnia miesiąca/,
+    );
+    const id = (await alfa.get('/api/payments')).body.items[0].id as string;
+    toolCalls = [{ name: 'payment.list', input: {} }];
+    expect(await toolMessage(alfa, 'jakie mam raty?')).toContain(`[${id}] Rata za laptop`);
+    toolCalls = [{ name: 'payment.paid', input: { paymentId: id } }];
+    expect(await toolMessage(alfa, 'zapłaciłem ratę za laptop')).toMatch(
+      /^Zapłacone: Rata za laptop — 250,00/,
+    );
   });
 });

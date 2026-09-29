@@ -2,6 +2,7 @@ import { roomAndNotes } from '../calendar/ics';
 import { withSystemTx, withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
 import { emitEvent } from '../events';
+import { formatMoney, paymentsDueOn } from '../expenses/service';
 import { shortList } from '../shopping/service';
 import { weatherText, type DayWeather } from '../weather/openmeteo';
 
@@ -128,7 +129,9 @@ export async function buildDigest(
         ORDER BY created_at`,
       [user.householdId],
     );
-    return { date: date.rows[0]!.date, events, reminders, renewals, shopping };
+    const targetDate = date.rows[0]!.date;
+    const payments = await paymentsDueOn(c, user.householdId, targetDate);
+    return { date: targetDate, events, reminders, renewals, shopping, payments };
   });
 
   const lines: string[] = [];
@@ -141,6 +144,10 @@ export async function buildDigest(
       `Przypomnienie ${time(r.due_at)}: ${r.text}${r.visibility === 'shared' ? ' (wspólne)' : ''}`,
     );
   for (const s of data.renewals.rows) lines.push(`Odnowienie usługi: ${s.name}`);
+  for (const p of data.payments)
+    lines.push(
+      `Płatność: ${p.name} — ${formatMoney(p.amount, p.currency)}${p.visibility === 'shared' ? ' (wspólna)' : ''}`,
+    );
   if (data.shopping.rows.length)
     lines.push(`Lista zakupów: ${shortList(data.shopping.rows.map((x) => x.text))}`);
   if (!lines.length)

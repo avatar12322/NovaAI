@@ -79,6 +79,13 @@ export const COMMANDS: Command[] = [
     run: { route: { view: 'documents', space: 'private' } },
   },
   {
+    id: 'expenses',
+    label: 'Wydatki i raty',
+    icon: 'receipt',
+    keywords: 'wydatki raty płatności paragon budżet domowy zakupy',
+    run: { route: { view: 'expenses' } },
+  },
+  {
     id: 'services',
     ownerOnly: true,
     label: 'Usługi i koszty',

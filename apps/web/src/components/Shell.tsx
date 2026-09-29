@@ -116,6 +116,13 @@ export function Shell({
       badge: unread,
     },
     {
+      label: 'Wydatki',
+      icon: 'receipt',
+      to: { view: 'expenses' },
+      match: (r) => r.view === 'expenses',
+      mobile: true,
+    },
+    {
       label: 'Pamięć',
       icon: 'memory',
       to: { view: 'memory', space: 'private' },

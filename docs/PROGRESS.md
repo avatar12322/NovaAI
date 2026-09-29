@@ -806,6 +806,22 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: kontrakt żądań (Anthropic, OpenAI), przepływ przez czat (uprawnienia, raz na wiadomość, tylko bieżąca
   tura, NovaAI — widzi domownik, zgoda dla akcji), e2e (wybór pliku, miniatura, zdjęcie w wiadomości).
 
+### Wydatki wspólne i osobiste, raty, paragony (2026-09-29)
+
+- Nowy widok „Wydatki” (menu i dolny pasek, dla obu osób): miesiąc (‹ ›), Wszystkie / Wspólne / Moje, suma
+  i kategorie, dodawanie (kwota „45,20”, kategoria, opis, data, wspólny/osobisty), lista (kto dodał; usuwa
+  autor). „Stałe płatności i raty”: nazwa, kwota, dzień miesiąca, ostatnia rata (opcjonalnie), wspólna/osobista;
+  „Zapłacone” zapisuje wydatek raz w miesiącu; „zostało N”; „Zakończ”.
+- Przegląd dnia przypomina o niezapłaconej płatności (wieczorem dzień wcześniej, rano w dniu terminu).
+- Asystent: `expense.add` (paragon ze zdjęcia → kwota, sklep, data; w turze ze zdjęciem — zgoda z kwotą do
+  sprawdzenia), `expense.summary` („ile wydaliśmy w tym miesiącu?”), `payment.add` („rata 450 zł 10-go do
+  grudnia 2027”), `payment.list`, `payment.paid` („zapłaciłem ratę za telefon”). W NovaAI — tylko wspólne.
+- Dane: `expenses`, `recurring_payments` z RLS (prywatne — autor, wspólne — dom; zmienia autor), migracja 0025.
+  Polityka prywatności: nowe rodzaje danych. Dolny pasek na telefonie mieści 5 pozycji.
+- Testy: API (widoczność, sumy, kategorie, walidacja, raty: termin, ile zostało, raz w miesiącu, wspólny czynsz
+  opłacony przez domownika, zakończenie przez autora, przegląd dnia), przez model (wydatek, podsumowanie,
+  rata), e2e (wspólny wydatek Bety u Alfy, rata „Zapłacone”).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

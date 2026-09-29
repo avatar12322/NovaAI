@@ -64,8 +64,9 @@ komercyjna ani publiczna: konta powstają wyłącznie z zaproszenia właściciel
 <ul>
   <li><strong>Konto:</strong> imię, adres e-mail (identyfikator konta) i klucze dostępu (passkey) — serwer
     przechowuje tylko ich część publiczną; aplikacja nie używa haseł.</li>
-  <li><strong>Treści w aplikacji:</strong> rozmowy z asystentem, pamięć, dokumenty, przypomnienia, zadania,
-    kalendarz lokalny i wgrany plan zajęć.</li>
+  <li><strong>Treści w aplikacji:</strong> rozmowy z asystentem (także wysłane w nich zdjęcia), pamięć,
+    dokumenty, przypomnienia, zadania, kalendarz lokalny i wgrany plan zajęć, lista zakupów, wydatki,
+    stałe płatności i raty.</li>
   <li><strong>Połączone konto Google</strong> — opisane niżej.</li>
   <li><strong>Dane techniczne:</strong> ciasteczko sesji (niezbędne do logowania) i dziennik zdarzeń
     bezpieczeństwa (np. logowanie, zatwierdzenia) bez treści wiadomości. Aplikacja nie używa narzędzi

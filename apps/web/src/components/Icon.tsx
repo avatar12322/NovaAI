@@ -33,6 +33,7 @@ const PATHS: Record<string, string> = {
   key: 'M8 15a4 4 0 110-8 4 4 0 010 8zM11.5 11H21M18 11v3M15 11v2',
   voice: 'M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4',
   camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 11a3 3 0 100 6 3 3 0 000-6z',
+  receipt: 'M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21zM9 8h6M9 12h6M9 16h4',
 };
 
 export function Icon({

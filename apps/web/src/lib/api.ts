@@ -248,6 +248,43 @@ export interface VoiceStatus {
   } | null;
 }
 
+export interface Expense {
+  id: string;
+  amount: number;
+  currency: string;
+  category: string;
+  description: string;
+  spentOn: string;
+  visibility: Space;
+  isMine: boolean;
+  ownerUserId: string;
+  source: string;
+  paymentId: string | null;
+}
+
+export interface ExpenseMonth {
+  month: string;
+  items: Expense[];
+  totals: Array<{ currency: string; total: number }>;
+  byCategory: Array<{ category: string; currency: string; total: number }>;
+}
+
+export interface RecurringPayment {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  category: string;
+  dayOfMonth: number;
+  startsOn: string;
+  endsOn: string | null;
+  visibility: Space;
+  isMine: boolean;
+  dueDate: string | null;
+  paid: boolean;
+  remaining: number | null;
+}
+
 export interface ShoppingItem {
   id: string;
   text: string;
@@ -287,6 +324,28 @@ export const api = {
   pushUnsubscribe: (endpoint: string) =>
     post<{ removed: number }>('/push/unsubscribe', { endpoint }),
   pushTest: () => post<{ delivered: number }>('/push/test'),
+  expenseCategories: () =>
+    get<{ categories: Array<{ key: string; label: string }> }>('/expenses/categories'),
+  expenses: (month: string, space: 'all' | Space) =>
+    get<ExpenseMonth>(`/expenses${qs({ month, space })}`),
+  addExpense: (e: {
+    amount: number;
+    category: string;
+    description: string;
+    spentOn: string;
+    space: Space;
+  }) => post<{ expense: Expense }>('/expenses', e),
+  deleteExpense: (id: string) => request<void>('DELETE', `/expenses/${id}`),
+  payments: () => get<{ month: string; items: RecurringPayment[] }>('/payments'),
+  addPayment: (p: {
+    name: string;
+    amount: number;
+    dayOfMonth: number;
+    lastMonth: string | null;
+    space: Space;
+  }) => post<{ id: string }>('/payments', p),
+  paymentPaid: (id: string) => post<{ paid: true; already: boolean }>(`/payments/${id}/paid`),
+  endPayment: (id: string) => request<void>('DELETE', `/payments/${id}`),
   shopping: () => get<{ items: ShoppingItem[] }>('/shopping'),
   shoppingAdd: (items: string[]) =>
     post<{ added: string[]; skipped: string[] }>('/shopping', { items }),

@@ -395,6 +395,8 @@ function formatToolResult(tool: string, out: Record<string, unknown>): string {
       .join('\n');
   } else if (typeof out.reminderId === 'string') {
     body = '';
+  } else if (Array.isArray(out.lines)) {
+    body = (out.lines as string[]).join('\n');
   } else if (Array.isArray(out.shopping)) {
     body = (out.shopping as string[]).map((x) => `- ${x}`).join('\n');
   } else if (Array.isArray(out.reminders)) {
