@@ -781,6 +781,18 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: przez model (FakeProvider): czas lokalny → właściwy UTC, lista z identyfikatorami, anulowanie tylko
   własnych; dotychczasowe testy przypomnień.
 
+### Wspólna lista zakupów (2026-09-29)
+
+- „Dom” → Lista zakupów: dodawanie (kilka pozycji po przecinku), odhaczanie w sklepie (od razu na ekranie),
+  usuwanie, „Usuń kupione”; kto dodał — widać przy pozycji. Zmiany domownika pojawiają się na żywo
+  (zdarzenie `shopping.changed`). Kupione znikają z listy po dobie.
+- Asystent (czat prywatny i NovaAI, także głosem): `shopping.add` („dodaj mleko i jajka”), `shopping.list`
+  („co mamy kupić?”), `shopping.check` („kupiłem mleko” — dokładna nazwa albo jedyna pasująca pozycja).
+  Bez powtórzeń wśród niekupionych. Lista w przeglądzie dnia („Lista zakupów: mleko, jajka (+2)”).
+- Dane: `shopping_items` z RLS — tylko członkowie domu (migracja 0023).
+- Testy: API (wspólna lista, powtórzenia, odhaczanie przez domownika, zdarzenia, izolacja innego domu,
+  przegląd dnia), przez model (dodaj/pokaż/odhacz), e2e (Alfa dodaje, Beta odhacza i usuwa; telefon).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

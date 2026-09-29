@@ -23,6 +23,7 @@ import { reminderFireKind } from './reminders/service';
 import { documentIndexKind } from './documents/service';
 import { DOCUMENT_TOOLS } from './documents/tools';
 import { reminderCancelTool, reminderCreateTool, reminderListTool } from './reminders/tool';
+import { SHOPPING_TOOLS } from './shopping/tools';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
@@ -85,6 +86,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   for (const t of DOCUMENT_TOOLS) broker.register(t);
   broker.register(calendarAgendaTool as unknown as ToolDef);
   broker.register(reminderCreateTool).register(reminderListTool).register(reminderCancelTool);
+  for (const t of SHOPPING_TOOLS) broker.register(t as unknown as ToolDef);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(
     db,

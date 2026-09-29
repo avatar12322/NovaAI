@@ -248,6 +248,15 @@ export interface VoiceStatus {
   } | null;
 }
 
+export interface ShoppingItem {
+  id: string;
+  text: string;
+  addedBy: string;
+  checked: boolean;
+  createdAt: string;
+  checkedAt: string | null;
+}
+
 export interface DigestSettings {
   morning: boolean;
   morningAt: string;
@@ -278,6 +287,13 @@ export const api = {
   pushUnsubscribe: (endpoint: string) =>
     post<{ removed: number }>('/push/unsubscribe', { endpoint }),
   pushTest: () => post<{ delivered: number }>('/push/test'),
+  shopping: () => get<{ items: ShoppingItem[] }>('/shopping'),
+  shoppingAdd: (items: string[]) =>
+    post<{ added: string[]; skipped: string[] }>('/shopping', { items }),
+  shoppingSet: (id: string, patch: { checked?: boolean; text?: string }) =>
+    request<{ ok: true }>('PATCH', `/shopping/${id}`, patch),
+  shoppingRemove: (id: string) => request<void>('DELETE', `/shopping/${id}`),
+  shoppingClearChecked: () => post<{ removed: number }>('/shopping/clear-checked'),
   digestSettings: () => get<DigestSettings>('/digest/settings'),
   saveDigestSettings: (
     s: Pick<DigestSettings, 'morning' | 'morningAt' | 'evening' | 'eveningAt'>,

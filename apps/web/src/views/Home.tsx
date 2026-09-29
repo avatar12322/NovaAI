@@ -7,6 +7,7 @@ import { useEventEffect } from '../lib/events';
 import { TASK_STATUS_PL, timeAgo } from '../lib/format';
 import { href } from '../lib/router';
 import { RemindersPanel } from './Reminders';
+import { ShoppingPanel } from './Shopping';
 
 /** Dom: domownicy, wiadomości od domowników, wspólne zadania. */
 export function HomeView({ me }: { me: MeResponse }) {
@@ -44,6 +45,7 @@ export function HomeView({ me }: { me: MeResponse }) {
         </a>
       </header>
       <BriefingPanel />
+      <ShoppingPanel me={me} />
       <RemindersPanel />
       {/* Błąd dotyczy wiadomości i zadań — pokazujemy go przy nich, nie nad całą stroną. */}
       {error && <ErrorNote error={error} onRetry={load} />}

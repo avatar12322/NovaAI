@@ -2,6 +2,7 @@ import { roomAndNotes } from '../calendar/ics';
 import { withSystemTx, withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
 import { emitEvent } from '../events';
+import { shortList } from '../shopping/service';
 import { weatherText, type DayWeather } from '../weather/openmeteo';
 
 /**
@@ -122,7 +123,12 @@ export async function buildDigest(
         ORDER BY name LIMIT ${MAX_ITEMS}`,
       [now, user.householdId],
     );
-    return { date: date.rows[0]!.date, events, reminders, renewals };
+    const shopping = await c.query<{ text: string }>(
+      `SELECT text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL
+        ORDER BY created_at`,
+      [user.householdId],
+    );
+    return { date: date.rows[0]!.date, events, reminders, renewals, shopping };
   });
 
   const lines: string[] = [];
@@ -135,6 +141,8 @@ export async function buildDigest(
       `Przypomnienie ${time(r.due_at)}: ${r.text}${r.visibility === 'shared' ? ' (wspólne)' : ''}`,
     );
   for (const s of data.renewals.rows) lines.push(`Odnowienie usługi: ${s.name}`);
+  if (data.shopping.rows.length)
+    lines.push(`Lista zakupów: ${shortList(data.shopping.rows.map((x) => x.text))}`);
   if (!lines.length)
     lines.push(kind === 'morning' ? 'Nic w planie na dziś.' : 'Nic w planie na jutro.');
   const w = await weatherFor(deps, user.householdId, data.date);

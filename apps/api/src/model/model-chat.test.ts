@@ -96,6 +96,9 @@ describe('rozmowa przez model', () => {
       'reminder.cancel',
       'reminder.create',
       'reminder.list',
+      'shopping.add',
+      'shopping.check',
+      'shopping.list',
     ]);
   });
 
@@ -118,6 +121,9 @@ describe('rozmowa przez model', () => {
       'reminder.cancel',
       'reminder.create',
       'reminder.list',
+      'shopping.add',
+      'shopping.check',
+      'shopping.list',
     ]);
     expect(call.messages[call.messages.length - 1]!.content).toBe('[Alfa (test)] co planujemy?');
   });
@@ -354,5 +360,37 @@ describe('przypomnienia z czatu (także głosem — ta sama tura)', () => {
       (await t.db.owner.query('SELECT status FROM reminders WHERE id = $1', [row.id])).rows[0]
         .status,
     ).toBe('cancelled');
+  });
+});
+
+describe('lista zakupów z czatu', () => {
+  async function toolMessage(c: Client, content: string, space: 'private' | 'shared' = 'private') {
+    const conv = (await c.post('/api/conversations', { space })).body;
+    await c.post(`/api/conversations/${conv.id}/messages`, { content });
+    await t.drain();
+    const msgs = (await c.get(`/api/conversations/${conv.id}/messages`)).body.items as Array<{
+      role: string;
+      content: string;
+    }>;
+    return msgs.find((m) => m.role === 'tool')?.content ?? '';
+  }
+
+  it('dodaj, pokaż, „kupiłem mleko” — także z NovaAI (lista wspólna)', async () => {
+    toolCalls = [{ name: 'shopping.add', input: { items: ['mleko 2 l', 'jajka'] } }];
+    expect(await toolMessage(alfa, 'dodaj mleko i jajka do zakupów')).toBe(
+      'Dodano do listy zakupów: mleko 2 l, jajka',
+    );
+    toolCalls = [{ name: 'shopping.add', input: { items: ['jajka', 'chleb'] } }];
+    expect(await toolMessage(beta, 'dopisz jajka i chleb', 'shared')).toBe(
+      'Dodano do listy zakupów: chleb; już było: jajka',
+    );
+    toolCalls = [{ name: 'shopping.list', input: {} }];
+    expect(await toolMessage(beta, 'co mamy kupić?')).toBe(
+      'Do kupienia (3)\n- mleko 2 l\n- jajka\n- chleb',
+    );
+    toolCalls = [{ name: 'shopping.check', input: { items: ['mleko', 'masło'] } }];
+    expect(await toolMessage(alfa, 'kupiłem mleko i masło')).toBe(
+      'Odhaczono: mleko 2 l; nie ma na liście: masło',
+    );
   });
 });

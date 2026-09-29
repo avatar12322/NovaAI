@@ -2122,3 +2122,38 @@ kbd {
 .digest-preview .pre {
   white-space: pre-line;
 }
+
+/* Lista zakupów (Dom) */
+.shopping {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.shopping-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.shopping-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+}
+.shopping-item .check {
+  flex: 1;
+  min-width: 0;
+}
+.shopping-item.done span {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.shopping-item .icon-btn {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  color: var(--text-muted);
+}

@@ -17,4 +17,5 @@ export const EVENT_TYPES = [
   'budget.changed',
   'device.status',
   'document.updated',
+  'shopping.changed',
 ] as const;
