@@ -326,8 +326,21 @@ export interface ShoppingItem {
   text: string;
   addedBy: string;
   checked: boolean;
+  /** „Pewnie masz — sprawdź”: kupić tylko, jeśli w domu tego nie ma. */
+  maybe: boolean;
   createdAt: string;
   checkedAt: string | null;
+}
+
+/** Spiżarnia domu: szacunek, co jest w domu (bez ilości). */
+export interface PantryItem {
+  id: string;
+  name: string;
+  place: 'lodowka' | 'zamrazarka' | 'szafka';
+  status: 'masz' | 'konczy_sie' | 'raczej_nie';
+  ageDays: number;
+  shelfDays: number;
+  stockedAt: string;
 }
 
 export interface DigestSettings {
@@ -400,8 +413,13 @@ export const api = {
   shopping: () => get<{ items: ShoppingItem[] }>('/shopping'),
   shoppingAdd: (items: string[]) =>
     post<{ added: string[]; skipped: string[] }>('/shopping', { items }),
-  shoppingSet: (id: string, patch: { checked?: boolean; text?: string }) =>
+  shoppingSet: (id: string, patch: { checked?: boolean; text?: string; maybe?: boolean }) =>
     request<{ ok: true }>('PATCH', `/shopping/${id}`, patch),
+  shoppingHave: (id: string) => post<{ ok: true }>(`/shopping/${id}/have`),
+  pantry: () => get<{ items: PantryItem[] }>('/pantry'),
+  pantryAdd: (items: string[]) => post<{ added: string[] }>('/pantry', { items }),
+  pantrySet: (id: string, action: 'have' | 'gone') => post<{ ok: true }>(`/pantry/${id}/${action}`),
+  pantryRemove: (id: string) => request<void>('DELETE', `/pantry/${id}`),
   shoppingRemove: (id: string) => request<void>('DELETE', `/shopping/${id}`),
   shoppingClearChecked: () => post<{ removed: number }>('/shopping/clear-checked'),
   digestSettings: () => get<DigestSettings>('/digest/settings'),

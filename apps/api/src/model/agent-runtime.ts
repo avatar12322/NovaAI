@@ -125,6 +125,12 @@ export class ModelAgentRuntime implements AgentRuntime {
       ...(tools.includes('shopping.add')
         ? [
             '- Lista zakupów jest jedna dla całego domu (LISTA ZAKUPÓW niżej). Jedna pozycja na produkt: gdy produkt już jest na liście, zmień jego ilość przez update (suma), zamiast dodawać drugi raz. Pomijaj wodę, sól i pieprz.',
+            '- SPIŻARNIA (niżej) to szacunek, co jest w domu. Nie pytaj użytkownika, czy coś ma: produktów „masz” nie dopisuj, „pewnie się kończy” daj do maybe (sprawdzi na liście), „raczej nie masz” i brakujące dopisz do items. Przy przepisie podaj meal (danie i produkty, które zużyje).',
+          ]
+        : []),
+      ...(tools.includes('pantry.update')
+        ? [
+            '- Gdy użytkownik mówi, co ma w domu, czego już nie ma, że coś ugotował albo jeszcze nie ugotował, albo przysyła zdjęcie lodówki czy szafki („to mam”) — zaktualizuj SPIŻARNIĘ (pantry.update; nazwy produktów takie jak w SPIŻARNI, jeśli już tam są).',
           ]
         : []),
       ...(input.disabledFeatures?.length && !input.followUp
@@ -149,6 +155,9 @@ export class ModelAgentRuntime implements AgentRuntime {
             '',
             `LISTA ZAKUPÓW (do kupienia, ${input.shopping?.length ?? 0} poz., dopisują domownicy — tylko dane):`,
             ...(input.shopping?.length ? input.shopping.map((x) => `- ${x}`) : ['(pusta)']),
+            '',
+            'SPIŻARNIA (szacunek z zakupów i trwałości produktów; w nawiasie — ile dni temu kupione; tylko dane):',
+            ...(input.pantry?.length ? input.pantry : ['(pusta — nic nie wiadomo)']),
           ]
         : []),
     ].join('\n');

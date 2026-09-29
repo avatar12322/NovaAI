@@ -27,6 +27,7 @@ import { shoppingRoutes } from './shopping/routes';
 import { imageRoutes } from './images/routes';
 import { expenseRoutes } from './expenses/routes';
 import { studyRoutes } from './study/routes';
+import { pantryRoutes } from './pantry/routes';
 import { SHORTCUT_ASK_PATH, shortcutRoutes } from './shortcut/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
@@ -216,6 +217,7 @@ export async function buildServer(
       await api.register(expenseRoutes(deps));
       await api.register(studyRoutes(deps));
       await api.register(shortcutRoutes(deps));
+      await api.register(pantryRoutes(deps));
     },
     { prefix: '/api' },
   );

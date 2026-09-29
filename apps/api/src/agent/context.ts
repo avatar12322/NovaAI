@@ -1,3 +1,4 @@
+import { listPantry, pantryLines } from '../pantry/service';
 import { decide, scopeFor, type ContextKind } from '@nova/permissions';
 import type pg from 'pg';
 import { writeAudit } from '../audit';
@@ -63,7 +64,7 @@ export async function buildTurnContext(
     context: contextKind,
   };
 
-  const { history, memories, documents, catalog, dropped, latestImages, shopping } =
+  const { history, memories, documents, catalog, dropped, latestImages, shopping, pantry } =
     await withUserTx(db, { userId: auth.userId, scope }, async (c) => {
       const conv = await c.query<{
         owner_user_id: string;
@@ -163,13 +164,17 @@ export async function buildTurnContext(
           visibility: d.visibility,
         }));
       // Wspólna lista zakupów (do kupienia) — model sumuje ilości zamiast dublować pozycje.
-      const shopping = await c.query<{ text: string }>(
-        `SELECT text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL
+      const shopping = await c.query<{ text: string; maybe: boolean }>(
+        `SELECT text, maybe FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL
           ORDER BY created_at LIMIT 80`,
         [agent.household_id],
       );
       return {
-        shopping: shopping.rows.map((x) => x.text),
+        shopping: shopping.rows.map((x) =>
+          x.maybe ? `${x.text} (pewnie masz — do sprawdzenia)` : x.text,
+        ),
+        // Spiżarnia (szacunek, co jest w domu) — model nie musi pytać, czy coś jest w lodówce.
+        pantry: pantryLines(await listPantry(c, agent.household_id, auth.userId)),
         catalog,
         // Zdjęcia najnowszej wiadomości użytkownika (bieżąca tura) — przez RLS, tylko z tej rozmowy.
         latestImages: await imagesOf(c, conversationId, msgs.rows[0]),
@@ -236,6 +241,7 @@ export async function buildTurnContext(
       documents,
       catalog,
       shopping,
+      pantry,
     },
     userContext: {
       userId: auth.userId,

@@ -1,7 +1,7 @@
 import type { MeResponse } from '@nova/contracts';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ErrorNote, Spinner } from '../components/ui';
-import { api, errorText, type ShoppingItem } from '../lib/api';
+import { Badge, ErrorNote, Spinner } from '../components/ui';
+import { api, errorText, type PantryItem, type ShoppingItem } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 
 /** Ekran „Zakupy”: jedna wspólna lista domu, do odhaczania w sklepie (duże pola jak w notatkach). */
@@ -13,11 +13,12 @@ export function ShoppingView({ me }: { me: MeResponse }) {
           <h1>Zakupy</h1>
           <p className="muted small">
             Napisz asystentowi, co chcesz ugotować — składniki z przepisu (aniagotuje.pl) trafią
-            tutaj po Twoim zatwierdzeniu, z sumą ilości.
+            tutaj po Twoim zatwierdzeniu, z sumą ilości i bez tego, co masz w domu.
           </p>
         </div>
       </header>
       <ShoppingPanel me={me} />
+      <PantryPanel />
     </section>
   );
 }
@@ -45,8 +46,23 @@ export function ShoppingPanel({ me }: { me: MeResponse }) {
   useEventEffect((e) => e.type === 'shopping.changed', load);
 
   const names = new Map(me.household?.members.map((m) => [m.id, m.displayName]) ?? []);
-  const open = items?.filter((i) => !i.checked) ?? [];
+  const open = items?.filter((i) => !i.checked && !i.maybe) ?? [];
+  const unsure = items?.filter((i) => !i.checked && i.maybe) ?? [];
   const done = items?.filter((i) => i.checked) ?? [];
+  // „Pewnie masz”: Kup — na listę do kupienia, Mam — znika z listy (spiżarnia wie, że jest).
+  const decide = (item: ShoppingItem, have: boolean) => {
+    setItems((cur) =>
+      have
+        ? (cur?.filter((x) => x.id !== item.id) ?? null)
+        : (cur?.map((x) => (x.id === item.id ? { ...x, maybe: false } : x)) ?? null),
+    );
+    (have ? api.shoppingHave(item.id) : api.shoppingSet(item.id, { maybe: false })).catch(
+      (err: unknown) => {
+        setError(errorText(err));
+        load();
+      },
+    );
+  };
 
   const add = (e: FormEvent) => {
     e.preventDefault();
@@ -138,6 +154,34 @@ export function ShoppingPanel({ me }: { me: MeResponse }) {
           {open.map(row)}
         </ul>
       )}
+      {unsure.length > 0 && (
+        <>
+          <h3 className="small muted shopping-subhead">Pewnie masz w domu — sprawdź</h3>
+          <ul className="shopping-list" aria-label="Pewnie masz">
+            {unsure.map((i) => (
+              <li key={i.id} className="shopping-item maybe">
+                <span className="check">{i.text}</span>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  aria-label={`Kup: ${i.text}`}
+                  onClick={() => decide(i, false)}
+                >
+                  Kup
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  aria-label={`Mam: ${i.text}`}
+                  onClick={() => decide(i, true)}
+                >
+                  Mam
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {done.length > 0 && (
         <>
           <ul className="shopping-list" aria-label="Kupione">
@@ -157,6 +201,132 @@ export function ShoppingPanel({ me }: { me: MeResponse }) {
           </button>
         </>
       )}
+    </section>
+  );
+}
+
+const PLACES: Array<[PantryItem['place'], string]> = [
+  ['lodowka', 'Lodówka'],
+  ['zamrazarka', 'Zamrażarka'],
+  ['szafka', 'Szafka'],
+];
+
+/**
+ * Spiżarnia: co jest w domu — szacunek z zakupów (odhaczone trafiają tu same) i typowej trwałości,
+ * poprawiany jednym dotknięciem. Asystent korzysta z niej przy przepisach, zamiast pytać.
+ */
+export function PantryPanel() {
+  const [items, setItems] = useState<PantryItem[] | null>(null);
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api
+      .pantry()
+      .then((r) => {
+        setItems(r.items);
+        setError(null);
+      })
+      .catch((e: unknown) => setError(errorText(e)));
+  }, []);
+  useEffect(load, [load]);
+  useEventEffect((e) => e.type === 'pantry.changed', load);
+
+  const run = (p: Promise<unknown>) =>
+    p.then(load).catch((err: unknown) => {
+      setError(errorText(err));
+      load();
+    });
+  const add = (e: FormEvent) => {
+    e.preventDefault();
+    const list = text
+      .split(/[,;\n]/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (!list.length) return;
+    void run(api.pantryAdd(list).then(() => setText('')));
+  };
+
+  return (
+    <section className="panel pantry" aria-labelledby="pantry-title">
+      <h2 id="pantry-title" className="h-sub">
+        Spiżarnia
+      </h2>
+      <p className="small muted">
+        Co jest w domu — z zakupów i tego, jak szybko rzeczy schodzą. Możesz też wysłać asystentowi
+        zdjęcie lodówki albo napisać „mam jajka, masło…”.
+      </p>
+      {error && <ErrorNote error={error} onRetry={load} />}
+      <form className="row" onSubmit={add} aria-label="Dodaj do spiżarni">
+        <input
+          className="grow"
+          placeholder="Jest w domu, np. jajka, masło, ryż"
+          value={text}
+          maxLength={400}
+          onChange={(e) => setText(e.target.value)}
+          aria-label="Co jest w domu"
+        />
+        <button type="submit" className="btn btn-sm" disabled={!text.trim()}>
+          Dodaj
+        </button>
+      </form>
+      {!items && !error && <Spinner />}
+      {items && !items.length && (
+        <p className="small muted">
+          Pusto — zacznij od zdjęcia lodówki w czacie albo dopisz, co masz. Rzeczy odhaczone na
+          liście zakupów trafią tu same.
+        </p>
+      )}
+      {PLACES.map(([place, label]) => {
+        const here = items?.filter((i) => i.place === place) ?? [];
+        if (!here.length) return null;
+        return (
+          <div key={place}>
+            <h3 className="small muted shopping-subhead">{label}</h3>
+            <ul className="shopping-list" aria-label={label}>
+              {here.map((i) => (
+                <li key={i.id} className="shopping-item pantry-item">
+                  <span className="check">
+                    {i.name}{' '}
+                    {i.status === 'konczy_sie' && <Badge tone="warn">pewnie się kończy</Badge>}
+                    {i.status === 'raczej_nie' && <Badge tone="danger">raczej nie ma</Badge>}
+                  </span>
+                  {i.status !== 'masz' && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      aria-label={`Jest: ${i.name}`}
+                      onClick={() => void run(api.pantrySet(i.id, 'have'))}
+                    >
+                      Jest
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    aria-label={`Skończyło się — na listę: ${i.name}`}
+                    onClick={() =>
+                      void run(
+                        Promise.all([api.pantrySet(i.id, 'gone'), api.shoppingAdd([i.name])]),
+                      )
+                    }
+                  >
+                    Na listę
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={`Nie ma: ${i.name}`}
+                    onClick={() => void run(api.pantrySet(i.id, 'gone'))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </section>
   );
 }

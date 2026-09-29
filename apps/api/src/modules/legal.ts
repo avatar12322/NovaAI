@@ -65,8 +65,8 @@ komercyjna ani publiczna: konta powstają wyłącznie z zaproszenia właściciel
   <li><strong>Konto:</strong> imię, adres e-mail (identyfikator konta) i klucze dostępu (passkey) — serwer
     przechowuje tylko ich część publiczną; aplikacja nie używa haseł.</li>
   <li><strong>Treści w aplikacji:</strong> rozmowy z asystentem (także wysłane w nich zdjęcia), pamięć,
-    dokumenty, przypomnienia, zadania, kalendarz lokalny i wgrany plan zajęć, lista zakupów, wydatki,
-    stałe płatności i raty, terminy i fiszki do nauki.</li>
+    dokumenty, przypomnienia, zadania, kalendarz lokalny i wgrany plan zajęć, lista zakupów, spiżarnia
+    (co jest w domu) i zaplanowane dania, wydatki, stałe płatności i raty, terminy i fiszki do nauki.</li>
   <li><strong>Połączone konto Google</strong> — opisane niżej.</li>
   <li><strong>Skrót Siri</strong> (jeśli go włączysz): osobisty klucz skrótu — serwer przechowuje tylko jego
     skrót kryptograficzny; pytania i odpowiedzi trafiają do Twojej prywatnej rozmowy „Siri”. Klucz można

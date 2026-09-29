@@ -6,13 +6,19 @@ import { withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
 import { forbidden, notFound } from '../lib/errors';
 import { parse } from '../lib/validate';
-import { addItems, clearChecked, listItems, removeItem, updateItem } from './service';
+import { addItems, clearChecked, haveItem, listItems, removeItem, updateItem } from './service';
 
 /** Wspólna lista zakupów: każdy domownik widzi, dodaje, odhacza i usuwa pozycje. */
 const Add = z.object({ items: z.array(z.string().max(200)).min(1).max(50) });
 const Patch = z
-  .object({ checked: z.boolean().optional(), text: z.string().trim().min(1).max(200).optional() })
-  .refine((p) => p.checked !== undefined || p.text !== undefined, { message: 'brak zmian' });
+  .object({
+    checked: z.boolean().optional(),
+    text: z.string().trim().min(1).max(200).optional(),
+    maybe: z.boolean().optional(),
+  })
+  .refine((p) => p.checked !== undefined || p.text !== undefined || p.maybe !== undefined, {
+    message: 'brak zmian',
+  });
 
 export const shoppingRoutes =
   (deps: AppDeps): FastifyPluginAsync =>
@@ -56,6 +62,15 @@ export const shoppingRoutes =
       );
       if (!ok) throw notFound('Pozycja');
       return reply.status(204).send();
+    });
+
+    // „Mam” przy pozycji „pewnie masz”: usunięcie z listy i zapis w spiżarni.
+    app.post<{ Params: { id: string } }>('/shopping/:id/have', async (req) => {
+      if (!isUuid(req.params.id)) throw notFound('Pozycja');
+      const m = member(req);
+      if (!(await asUser(m.userId, (c) => haveItem(c, m.householdId, m.userId, req.params.id))))
+        throw notFound('Pozycja');
+      return { ok: true };
     });
 
     app.post('/shopping/clear-checked', async (req) => {

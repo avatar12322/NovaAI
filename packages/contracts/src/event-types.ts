@@ -18,4 +18,5 @@ export const EVENT_TYPES = [
   'device.status',
   'document.updated',
   'shopping.changed',
+  'pantry.changed',
 ] as const;

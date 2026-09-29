@@ -4,6 +4,7 @@ import type { AppDeps } from '../deps';
 import { emitEvent } from '../events';
 import { formatMoney, paymentsDueOn } from '../expenses/service';
 import { shortList } from '../shopping/service';
+import { listPantry, nameKey } from '../pantry/service';
 import { deadlinesOn, dueCount, KIND_PL } from '../study/service';
 import { weatherText, type DayWeather } from '../weather/openmeteo';
 
@@ -132,10 +133,18 @@ export async function buildDigest(
       [now, user.householdId],
     );
     const shopping = await c.query<{ text: string }>(
-      `SELECT text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL
+      `SELECT text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL AND NOT maybe
         ORDER BY created_at`,
       [user.householdId],
     );
+    // Wieczorem: co pewnie się skończyło (a nie ma tego na liście zakupów).
+    const onList = new Set(shopping.rows.map((x) => nameKey(x.text)));
+    const gone =
+      kind === 'evening'
+        ? (await listPantry(c, user.householdId, user.userId, now))
+            .filter((p) => p.status === 'raczej_nie' && !onList.has(nameKey(p.name)))
+            .map((p) => p.name)
+        : [];
     const targetDate = date.rows[0]!.date;
     const payments = await paymentsDueOn(c, user.householdId, targetDate);
     const deadlines = await deadlinesOn(c, targetDate);
@@ -148,6 +157,7 @@ export async function buildDigest(
       reminders,
       renewals,
       shopping,
+      gone,
       payments,
       deadlines,
       soon,
@@ -179,6 +189,8 @@ export async function buildDigest(
     );
   if (data.shopping.rows.length)
     lines.push(`Lista zakupów: ${shortList(data.shopping.rows.map((x) => x.text))}`);
+  if (data.gone.length)
+    lines.push(`Pewnie skończyło się: ${shortList(data.gone)} (sprawdź w „Zakupy”)`);
   if (data.cards) lines.push(`Fiszki do powtórki: ${data.cards}`);
   if (!lines.length)
     lines.push(kind === 'morning' ? 'Nic w planie na dziś.' : 'Nic w planie na jutro.');

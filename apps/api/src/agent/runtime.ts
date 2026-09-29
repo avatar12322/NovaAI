@@ -84,6 +84,8 @@ export interface AgentTurnInput {
   disabledFeatures?: string[];
   /** Wspólna lista zakupów domu — pozycje do kupienia (dane od domowników). */
   shopping?: string[];
+  /** Spiżarnia domu po stanie („masz”, „pewnie się kończy”, „raczej nie masz”) — szacunek, dane. */
+  pantry?: string[];
   /** Pytanie ze Skrótu Siri: odpowiedź zostanie przeczytana na głos. */
   spoken?: boolean;
 }

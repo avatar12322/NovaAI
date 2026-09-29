@@ -1,9 +1,11 @@
 import type pg from 'pg';
 import { emitEvent } from '../events';
+import { productName, stock, unstockSince } from '../pantry/service';
 
 /**
  * Wspólna lista zakupów domu. Wszystkie operacje w transakcji użytkownika (RLS: tylko członkowie domu).
  * Pozycje odhaczone są widoczne jeszcze przez dobę (do „Usuń kupione”), potem znikają z listy.
+ * Kupione trafiają do spiżarni. `maybe` — „pewnie masz, sprawdź” (asystent nie jest pewien, czy jest w domu).
  */
 export const MAX_OPEN_ITEMS = 200;
 const MAX_TEXT = 200;
@@ -13,6 +15,8 @@ export interface ShoppingItem {
   text: string;
   addedBy: string;
   checked: boolean;
+  /** „Pewnie masz — sprawdź”: do kupienia tylko, jeśli w domu tego nie ma. */
+  maybe: boolean;
   createdAt: string;
   checkedAt: string | null;
 }
@@ -40,11 +44,12 @@ export async function listItems(c: pg.PoolClient, householdId: string): Promise<
     text: string;
     added_by: string;
     checked_at: string | null;
+    maybe: boolean;
     created_at: string;
   }>(
-    `SELECT id, text, added_by, checked_at, created_at FROM shopping_items
+    `SELECT id, text, added_by, checked_at, maybe, created_at FROM shopping_items
       WHERE household_id = $1 AND (checked_at IS NULL OR checked_at > now() - interval '1 day')
-      ORDER BY checked_at IS NOT NULL, CASE WHEN checked_at IS NULL THEN created_at END,
+      ORDER BY checked_at IS NOT NULL, maybe, CASE WHEN checked_at IS NULL THEN created_at END,
                checked_at DESC`,
     [householdId],
   );
@@ -53,28 +58,43 @@ export async function listItems(c: pg.PoolClient, householdId: string): Promise<
     text: x.text,
     addedBy: x.added_by,
     checked: x.checked_at !== null,
+    maybe: x.maybe,
     createdAt: x.created_at,
     checkedAt: x.checked_at,
   }));
 }
 
-/** Dodanie pozycji: bez powtórzeń wśród niekupionych (wielkość liter bez znaczenia). */
+/**
+ * Dodanie pozycji: bez powtórzeń wśród niekupionych (wielkość liter bez znaczenia). Pozycja „pewnie masz”
+ * dodana jako pewna (inny przepis jej potrzebuje) przechodzi do „do kupienia”.
+ */
 export async function addItems(
   c: pg.PoolClient,
   householdId: string,
   userId: string,
   texts: readonly string[],
+  maybe = false,
 ): Promise<{ added: string[]; skipped: string[] }> {
-  const open = await c.query<{ text: string }>(
-    `SELECT text FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL`,
+  const open = await c.query<{ id: string; text: string; maybe: boolean }>(
+    `SELECT id, text, maybe FROM shopping_items WHERE household_id = $1 AND checked_at IS NULL`,
     [householdId],
   );
   const seen = new Set(open.rows.map((x) => key(x.text)));
+  const unsure = new Map(open.rows.filter((x) => x.maybe).map((x) => [key(x.text), x.id]));
   const added: string[] = [];
+  const inserted: string[] = [];
   const skipped: string[] = [];
   for (const raw of texts) {
     const text = normalizeItem(raw);
     if (!text) continue;
+    if (!maybe && unsure.has(key(text))) {
+      await c.query('UPDATE shopping_items SET maybe = false WHERE id = $1', [
+        unsure.get(key(text)),
+      ]);
+      unsure.delete(key(text));
+      added.push(text);
+      continue;
+    }
     if (seen.has(key(text))) {
       skipped.push(text);
       continue;
@@ -85,15 +105,16 @@ export async function addItems(
     }
     seen.add(key(text));
     added.push(text);
+    inserted.push(text);
   }
-  if (added.length) {
+  if (inserted.length) {
     await c.query(
-      `INSERT INTO shopping_items (household_id, added_by, text)
-       SELECT $1, nova_uid(), t FROM unnest($2::text[]) WITH ORDINALITY AS x(t, n) ORDER BY n`,
-      [householdId, added],
+      `INSERT INTO shopping_items (household_id, added_by, text, maybe)
+       SELECT $1, nova_uid(), t, $3 FROM unnest($2::text[]) WITH ORDINALITY AS x(t, n) ORDER BY n`,
+      [householdId, inserted, maybe],
     );
-    await notifyChanged(c, householdId, userId);
   }
+  if (added.length) await notifyChanged(c, householdId, userId);
   return { added, skipped };
 }
 
@@ -141,6 +162,7 @@ export async function checkByName(
       [ids, householdId],
     );
     await notifyChanged(c, householdId, userId);
+    await stock(c, householdId, userId, checked.map(productName), { learn: true });
   }
   return { checked, notFound };
 }
@@ -188,13 +210,20 @@ export async function renameByName(
   return { changed, notFound };
 }
 
+/** Zmiana pozycji z ekranu: odhaczenie (kupione → spiżarnia; cofnięcie — z powrotem), treść, „pewnie masz”. */
 export async function updateItem(
   c: pg.PoolClient,
   householdId: string,
   userId: string,
   id: string,
-  patch: { checked?: boolean; text?: string },
+  patch: { checked?: boolean; text?: string; maybe?: boolean },
 ): Promise<boolean> {
+  const before = await c.query<{ text: string; checked_at: string | null }>(
+    'SELECT text, checked_at FROM shopping_items WHERE id = $1 AND household_id = $2',
+    [id, householdId],
+  );
+  const item = before.rows[0];
+  if (!item) return false;
   const sets: string[] = [];
   const args: unknown[] = [id, householdId];
   if (patch.checked !== undefined)
@@ -207,13 +236,40 @@ export async function updateItem(
     args.push(normalizeItem(patch.text));
     sets.push(`text = $${args.length}`);
   }
+  if (patch.maybe !== undefined) {
+    args.push(patch.maybe);
+    sets.push(`maybe = $${args.length}`);
+  }
   if (!sets.length) return true;
   const r = await c.query(
     `UPDATE shopping_items SET ${sets.join(', ')} WHERE id = $1 AND household_id = $2`,
     args,
   );
-  if (r.rowCount) await notifyChanged(c, householdId, userId);
-  return (r.rowCount ?? 0) > 0;
+  if (!r.rowCount) return false;
+  await notifyChanged(c, householdId, userId);
+  const name = productName(patch.text ?? item.text);
+  if (patch.checked === true && !item.checked_at)
+    await stock(c, householdId, userId, [name], { learn: true });
+  if (patch.checked === false && item.checked_at)
+    await unstockSince(c, householdId, userId, name, item.checked_at);
+  return true;
+}
+
+/** „Mam” przy pozycji „pewnie masz”: znika z listy, a spiżarnia wie, że jest w domu. */
+export async function haveItem(
+  c: pg.PoolClient,
+  householdId: string,
+  userId: string,
+  id: string,
+): Promise<boolean> {
+  const r = await c.query<{ text: string }>(
+    'DELETE FROM shopping_items WHERE id = $1 AND household_id = $2 AND checked_at IS NULL RETURNING text',
+    [id, householdId],
+  );
+  if (!r.rows[0]) return false;
+  await notifyChanged(c, householdId, userId);
+  await stock(c, householdId, userId, [productName(r.rows[0].text)], { learn: false });
+  return true;
 }
 
 export async function removeItem(

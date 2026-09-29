@@ -834,3 +834,20 @@ z mikrodanymi schema.org Recipe (`recipeIngredient` jako tekst albo `<meta conte
 - W czacie użytkownik nie widzi mechaniki: wyniki narzędzi są danymi dla modelu; gdy przychodzi odpowiedź
   uzupełniająca, interfejs je ukrywa. Wyniki akcji bez odpowiedzi (np. zatwierdzonych później) — krótko, bez
   identyfikatorów.
+
+## D-047 Spiżarnia jako szacunek, nie inwentarz
+
+Decyzje właściciela (2026-09-30): cały dom; bez ilości; „oznacza i proponuje”; danie uznane za ugotowane
+samo po kilku dniach, z korektą w rozmowie.
+
+- Stan to funkcja daty zakupu i trwałości (`statusOf`: < 70% — masz, < 100% — kończy się, dalej — raczej nie),
+  liczona przy odczycie — bez zadań w tle i bez „znikania” danych. Zużyte pozycje zostają z datą (`used_up_at`)
+  do uczenia trwałości.
+- Trwałość startuje z tabeli typowych wartości (słowa kluczowe), potem średnia z faktycznym czasem do kolejnego
+  zakupu lub „skończyło się” — łapie też to, co zjadają domownicy, bez liczenia porcji.
+- Odmiana nazw: klucz z obciętymi końcowymi samogłoskami (serwer, deterministycznie); dokładne dopasowanie
+  robi model, który widzi spiżarnię i używa istniejących nazw.
+- Niepewne produkty nie pytają w rozmowie — trafiają na listę jako „pewnie masz — sprawdź” (Kup / Mam),
+  a zgoda na listę z przepisu pokazuje je osobno.
+- Danie (`meals`) zapisuje model przy liście z przepisu (`meal.uses` — tylko to, co danie zużyje w całości);
+  rozliczenie po 3 dniach przy odczycie spiżarni (kontekst, ekran, przegląd).

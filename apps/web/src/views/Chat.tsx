@@ -593,6 +593,7 @@ const TOOL_PL: Record<string, string> = {
   'shopping.list': 'Lista zakupów',
   'shopping.check': 'Lista zakupów',
   'recipe.find': 'Przepis',
+  'pantry.update': 'Spiżarnia',
   'expense.add': 'Wydatek',
   'expense.summary': 'Podsumowanie wydatków',
   'payment.add': 'Stała płatność',

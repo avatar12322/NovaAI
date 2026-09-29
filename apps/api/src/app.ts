@@ -28,6 +28,7 @@ import { EXPENSE_TOOLS } from './expenses/tools';
 import { STUDY_TOOLS } from './study/tools';
 import { RecipeSource } from './recipes/aniagotuje';
 import { recipeFindTool } from './recipes/tools';
+import { pantryUpdateTool } from './pantry/tools';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
@@ -99,6 +100,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   for (const t of EXPENSE_TOOLS) broker.register(t as unknown as ToolDef);
   for (const t of STUDY_TOOLS) broker.register(t as unknown as ToolDef);
   broker.register(recipeFindTool);
+  broker.register(pantryUpdateTool);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(
     db,

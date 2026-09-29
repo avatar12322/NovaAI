@@ -920,6 +920,29 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   i `roles.spec.ts` zaktualizowane — nieuruchomione (brak Chromium lokalnie). **Nie sprawdzone
   z prawdziwym modelem** — jakość sumowania ilości zależy od modelu.
 
+### Spiżarnia: asystent wie, co jest w domu (2026-09-30)
+
+- Decyzje właściciela: cały dom (lodówka, zamrażarka, szafka); bez ilości — „masz / pewnie się kończy /
+  raczej nie masz”; gdy coś pewnie się skończyło — oznaczenie i propozycja (bez usuwania po cichu); danie z
+  przepisu uznane za ugotowane po 3 dniach, chyba że użytkownik powie inaczej.
+- „Zakupy” → Spiżarnia: pogrupowana (Lodówka, Zamrażarka, Szafka), oznaczenia stanu, „Jest”, „Na listę”
+  (skończyło się + dopisanie do zakupów), „×”, dodawanie. Na start: zdjęcie lodówki w czacie („to mam”) —
+  karta zgody z rozpoznaną listą — albo „mam jajka, masło…”.
+- Odhaczenie na liście zakupów dodaje produkt do spiżarni (cofnięcie odhaczenia — usuwa dodany wtedy wpis).
+  Stan z daty zakupu i trwałości: startowa typowa dla produktu (pieczywo 3 dni, mięso 3, nabiał 6, jajka 21,
+  mąka i przyprawy 180, mrożonki 90, reszta 7), potem średnia z tym, ile rzecz faktycznie wytrzymała do
+  kolejnego zakupu albo „skończyło się”.
+- Asystent ma SPIŻARNIĘ w kontekście i nie pyta, czy coś jest w lodówce: „masz” pomija, „pewnie się kończy”
+  daje na listę jako „Pewnie masz — sprawdź” (przyciski „Kup” / „Mam”), resztę dopisuje. Przy przepisie
+  zapisuje danie (`meal`): jego składniki schodzą ze spiżarni po 3 dniach albo po „zrobiłem leczo”
+  (`pantry.update`: have, gone, cooked, notCooked). Wieczorny przegląd: „Pewnie skończyło się: …”.
+- Dane: `pantry_items`, `meals`, `shopping_items.maybe` (migracja 0028), RLS — członkowie domu.
+- Testy: API `pantry.test.ts` 6/6 (nazwy i odmiana, trwałość, stan w czasie, izolacja domów, odhaczenie →
+  spiżarnia i cofnięcie, uczenie trwałości, „pewnie masz” — Mam/Kup i przeniesienie przez inny przepis, danie
+  po 3 dniach, przegląd wieczorny, asystent: kontekst i „zrobiłem leczo, mleko się skończyło”). e2e ekranu —
+  brak (Chromium niedostępny lokalnie). **Nie sprawdzone z prawdziwym modelem** (rozpoznawanie ze zdjęcia,
+  trafność maybe/uses).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
