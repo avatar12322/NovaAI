@@ -28,6 +28,7 @@ import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
 import { emitEvent, EventHub } from './events';
 import { LiveHub } from './live';
+import { PushService, vapidSubject, type PushTransport } from './push/service';
 import { ElevenLabsStt, ElevenLabsTts } from './voice/elevenlabs';
 import { ModelAgentRuntime } from './model/agent-runtime';
 import { AutoAgentRuntime } from './model/auto-runtime';
@@ -57,6 +58,8 @@ export interface AppOptions {
   costAdapterBases?: { anthropic?: string; openai?: string };
   /** Adres API ElevenLabs (testy kontraktowe na lokalnym mocku). */
   ttsBase?: string;
+  /** Transport do usługi push (testy: lokalna atrapa). */
+  pushTransport?: PushTransport;
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -172,6 +175,12 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
             baseUrl: opts.ttsBase,
           })
         : null,
+    push: new PushService(
+      db,
+      vault,
+      vapidSubject(config.publicUrl, config.contactEmail),
+      opts.pushTransport,
+    ),
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',
   };

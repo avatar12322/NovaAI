@@ -743,3 +743,18 @@ pozostałe osoby mają prosty widok — rozmowy, pamięć, dokumenty, dom i pods
   dotyczą tylko jego danych, a są jedynie ukryte w menu.
 - Panel „Aktywność” usunięty: zdarzenia techniczne (kroki zadań, statusy) nie pomagały na co dzień; stan
   zadań i zgód jest w ich widokach, a nowe wiadomości — w „Dom”.
+
+## D-041 Powiadomienia push przez Web Push
+
+Dokumentacja sprawdzona 2026-09-29 (WebKit: „Web Push for Web Apps on iOS and iPadOS”): iOS/iPadOS 16.4+,
+tylko aplikacja dodana do ekranu głównego (manifest `display: standalone`), zgoda na prośbę po dotknięciu
+przycisku, każdy push musi pokazać powiadomienie, standardowy Web Push z VAPID, bez konta Apple Developer.
+Biblioteka `web-push` 3.6.7 (MPL-2.0) — tylko do przygotowania żądania (szyfrowanie, VAPID); wysyłka własnym
+`fetch` (atrapa w testach). Nadawca VAPID: adres aplikacji (https) — usługi push nie przyjmują http.
+
+- Źródło: tabela `notifications` (jedno miejsce dla wszystkich rodzajów powiadomień); znacznik
+  `push_handled_at` — każde powiadomienie obsłużone raz, przed wysyłką (bez powtórek po błędzie sieci).
+  Push jest „najlepszą próbą” — powiadomienie zostaje w aplikacji.
+- Bezpieczeństwo: serwer wysyła żądania tylko do hostów usług push (ochrona przed SSRF); klucz prywatny
+  VAPID zaszyfrowany; treść szyfrowana dla urządzenia; audyt bez adresu subskrypcji (tylko host).
+- Subskrypcja należy do osoby zalogowanej na urządzeniu; wylogowanie ją usuwa.

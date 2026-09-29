@@ -5,6 +5,7 @@ import { Shell } from './components/Shell';
 import { ErrorNote, Spinner } from './components/ui';
 import { api, ApiError } from './lib/api';
 import { EventsProvider } from './lib/events';
+import { disablePush } from './lib/push';
 import { useRoute } from './lib/router';
 import { ApprovalsView } from './views/Approvals';
 import { ChatView } from './views/Chat';
@@ -42,6 +43,11 @@ export function App() {
   useEffect(load, [load]);
 
   const logout = async () => {
+    // Powiadomienia tego urządzenia nie mogą trafiać do następnej osoby, która się na nim zaloguje.
+    await Promise.race([
+      disablePush().catch(() => undefined),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]);
     await api.logout().catch(() => undefined);
     setState({ kind: 'anon' });
   };

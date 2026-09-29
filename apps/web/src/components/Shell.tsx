@@ -2,6 +2,7 @@ import type { MeResponse } from '@nova/contracts';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useEventEffect, useEvents } from '../lib/events';
+import { setAppBadge } from '../lib/push';
 import { href, type Route } from '../lib/router';
 import { CommandPalette } from './CommandPalette';
 import { Icon } from './Icon';
@@ -58,6 +59,10 @@ export function Shell({
       .catch(() => undefined);
   };
   useEffect(refreshCounts, []);
+  // Liczba nieprzeczytanych także na ikonie aplikacji (ekran główny telefonu, pasek zadań).
+  useEffect(() => {
+    setAppBadge(unread);
+  }, [unread]);
   useEventEffect(
     (e) => e.type.startsWith('approval.') || e.type === 'notification.created',
     refreshCounts,

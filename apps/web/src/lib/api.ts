@@ -248,8 +248,26 @@ export interface VoiceStatus {
   } | null;
 }
 
+export interface PushDevice {
+  id: string;
+  endpoint: string;
+  label: string;
+  createdAt: string;
+  lastOkAt: string | null;
+}
+
 export const api = {
   health: () => get<HealthResponse>('/health'),
+  pushConfig: () => get<{ available: boolean; publicKey: string | null }>('/push/config'),
+  pushDevices: () => get<{ items: PushDevice[] }>('/push/subscriptions'),
+  pushSubscribe: (sub: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+    label: string;
+  }) => post<{ subscribed: true }>('/push/subscriptions', sub),
+  pushUnsubscribe: (endpoint: string) =>
+    post<{ removed: number }>('/push/unsubscribe', { endpoint }),
+  pushTest: () => post<{ delivered: number }>('/push/test'),
   me: () => get<MeResponse>('/me'),
   devUsers: () => get<{ users: DevUser[]; notice: string }>('/auth/dev-users'),
   devLogin: (user: string) => post<{ ok: true }>('/auth/dev-login', { user }),

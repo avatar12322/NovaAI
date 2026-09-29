@@ -1,4 +1,4 @@
-/* NovaAI service worker: powłoka aplikacji offline. Nigdy nie buforuje /api (dane prywatne). */
+/* NovaAI service worker: powłoka aplikacji offline i powiadomienia push. Nigdy nie buforuje /api (dane prywatne). */
 const CACHE = 'nova-shell-v1';
 
 self.addEventListener('install', (event) => {
@@ -40,4 +40,45 @@ self.addEventListener('fetch', (event) => {
       ),
     );
   }
+});
+
+/*
+ * Push: serwer wysyła zaszyfrowaną treść {title, body, url, tag}. Każdy push musi pokazać powiadomienie
+ * (Safari na iPhonie nie pozwala na „ciche” push).
+ */
+self.addEventListener('push', (event) => {
+  let data;
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const url = typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/';
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'NovaAI', {
+      body: data.body || '',
+      tag: data.tag || undefined,
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      data: { url },
+    }),
+  );
+});
+
+// Dotknięcie powiadomienia: otwarte okno aplikacji przechodzi do wskazanego widoku, inaczej nowe okno.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const w of wins) {
+        if (new URL(w.url).origin !== self.location.origin) continue;
+        await w.focus();
+        if ('navigate' in w) await w.navigate(target).catch(() => undefined);
+        return;
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
 });

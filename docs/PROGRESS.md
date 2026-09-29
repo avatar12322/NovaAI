@@ -742,6 +742,21 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   w Ustawieniach (tekst i „Otwórz” w jednym wierszu).
 - Testy: e2e ról (desktop + telefon), paleta poleceń domownika, 403 przy zmianie budżetu przez domownika.
 
+### Powiadomienia push (Web Push, iPhone) (2026-09-29)
+
+- Ustawienia → Powiadomienia: „Włącz powiadomienia na tym urządzeniu” (zgoda → subskrypcja z kluczem serwera),
+  „Wyślij próbne”, „Wyłącz”; lista pozostałych urządzeń. iPhone w Safari bez ekranu głównego — instrukcja
+  „Udostępnij → Do ekranu początkowego”. Wylogowanie wyłącza push na tym urządzeniu. Licznik nieprzeczytanych
+  na ikonie aplikacji (Badging API).
+- Serwer: każde nowe powiadomienie w aplikacji (przypomnienia, wiadomości od domowników, odnowienia usług…)
+  trafia raz jako push na urządzenia tej osoby (co 4 s, najwyżej 30 min wstecz). Treść szyfrowana dla
+  urządzenia (RFC 8291), podpis VAPID (klucz tworzony przy pierwszym użyciu, prywatny zaszyfrowany
+  `NOVA_SECRET_KEY`, rotacja w `rotate-keys`). Tylko znane usługi push (Apple, Google, Mozilla, Microsoft) —
+  bez dowolnych adresów. Wygasłe subskrypcje (404/410) usuwane. Migracja 0021.
+- Testy: API z atrapą usługi push — treść odszyfrowana w teście kluczem „urządzenia”, wysyłka raz, 410,
+  odrzucone adresy; e2e panelu (desktop, telefon, iPhone bez ekranu głównego). **Nie sprawdzone na
+  prawdziwym iPhonie** — wymaga wdrożenia.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

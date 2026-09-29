@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { loadDotEnv, parseConfig } from './config';
 import { createDb } from './db/pool';
 import { startMaintenance } from './maintenance';
+import { startPushDispatcher } from './push/service';
 import { buildServer } from './server';
 import { VERSION } from './version';
 
@@ -13,9 +14,11 @@ async function main(): Promise<void> {
   const app = await buildServer(deps, { logger: true, deviceServerPublicKey });
 
   const stopMaintenance = startMaintenance(db);
+  const stopPush = config.queueEnabled ? startPushDispatcher(deps.push) : () => undefined;
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
     stopMaintenance();
+    stopPush();
     await app.close();
     await runner.stop();
     await deps.events.stop();

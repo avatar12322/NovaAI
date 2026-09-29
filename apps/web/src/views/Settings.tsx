@@ -9,6 +9,7 @@ import { formatMoney } from '../lib/format';
 import { DevicesPanel } from './Devices';
 import { HouseholdPanel } from './Household';
 import { PasskeysPanel } from './Passkeys';
+import { PushPanel } from './PushPanel';
 import { CalendarPanel, IntegrationsPanel } from './Integrations';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -43,6 +44,7 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
       <header className="section-head">
         <h1>Ustawienia</h1>
       </header>
+      <PushPanel />
       {isOwner && (
         <>
           <ServiceStatus />
