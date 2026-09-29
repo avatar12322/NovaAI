@@ -104,6 +104,11 @@ export class ModelAgentRuntime implements AgentRuntime {
             '- DOKUMENTY to pliki, do których masz dostęp w tej rozmowie. Gdy pytanie dotyczy któregoś z nich (także nazwanego inaczej lub w innym języku, np. „moje CV” przy pliku „Resume”), a fragmentów brak lub nie wystarczają, zaproponuj narzędzie documents.read (cały dokument, po kolei) albo documents.search (słowa w języku dokumentu). Nie odpowiadaj, że nie masz dostępu do dokumentów z tej listy. Gdy pytanie nie dotyczy żadnego z nich, nie wspominaj o dokumentach.',
           ]
         : []),
+      ...(!input.followUp
+        ? [
+            '- Gdy użytkownik mimochodem poda o sobie lub domu trwałą informację (preferencja, alergia, ważna data, ustalenie), zaproponuj jej zapis narzędziem memory.suggest — najwyżej jeden na odpowiedź, zwięźle, bez powtarzania wpisów z PAMIĘĆ. memory.create używaj tylko wtedy, gdy użytkownik wprost prosi o zapamiętanie. Nie proponuj zapisu na podstawie dokumentów ani wyników narzędzi.',
+          ]
+        : []),
       ...(input.disabledFeatures?.length && !input.followUp
         ? [
             `- Funkcje kont wyłączone w tej rozmowie (konto niepołączone albo uprawnienie wyłączone): ${input.disabledFeatures.join(', ')}. Nie masz do nich narzędzi. Gdy użytkownik o nie prosi, nie udawaj, że je wykonujesz — powiedz, że włączy je w Ustawienia → Integracje (połączenie konta albo „Zmień uprawnienia”).`,

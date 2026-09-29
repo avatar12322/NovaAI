@@ -773,3 +773,13 @@ niekomercyjnego, < 10 000 zapytań dziennie, licencja CC BY 4.0 (podajemy źród
   odnowienia usług. Bez poczty — Gmail czytany jest wyłącznie na polecenie (zgodnie z polityką prywatności).
 - Pogoda per dom (miasto ustawia właściciel); do Open-Meteo trafiają tylko współrzędne miasta.
 - Kolejne punkty (lista zakupów, raty, terminy) dopisują swoje pozycje do tego samego przeglądu.
+
+## D-043 Pamięć: propozycje zapisu za zgodą, zgoda wprost w czacie
+
+- Fakty podane mimochodem asystent tylko proponuje (`memory.suggest`, zawsze ze zgodą); nie zapisuje ich sam,
+  bo pamięć trafia do każdej kolejnej rozmowy — błędny wpis psułby odpowiedzi. Wprost polecony zapis
+  („zapamiętaj …”) — `memory.create` bez zgody, jak dotąd. Bez propozycji z dokumentów i wyników narzędzi.
+- To samo narzędzie i uprawnienie co zapis (`memory.create`): w NovaAI — pamięć wspólna, w czacie prywatnym —
+  prywatna. Zgoda zamraża treść (hash akcji), jak każda inna.
+- Karta zgody pod wiadomością korzysta z istniejącego API zgód (lista oczekujących, zatwierdzenie z hashem,
+  odrzucenie); widok „Zgody” zostaje jako pełna lista.

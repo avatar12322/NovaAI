@@ -837,6 +837,17 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   Leitner, dopisanie do talii, prywatność, usunięcie), przez model (termin, fiszki), e2e (termin w „Dom”,
   nauka z talii).
 
+### Propozycje do zapamiętania; zgoda w czacie (2026-09-29)
+
+- Gdy w rozmowie padnie mimochodem trwała informacja („nie jem glutenu”, „Asia ma urodziny 12 maja”), asystent
+  proponuje zapis narzędziem `memory.suggest` — najwyżej jedna propozycja na odpowiedź; zapis dopiero po zgodzie.
+  `memory.create` bez zgody — tylko gdy użytkownik wprost prosi o zapamiętanie.
+- Zgody z tej tury można zatwierdzić lub odrzucić wprost pod wiadomością asystenta (treść, cel, „Zatwierdź” /
+  „Odrzuć”); dotyczy wszystkich akcji wymagających zgody (także wydatek z paragonu, wiadomość do domownika).
+  Domownik w rozmowie wspólnej nie widzi cudzych zgód.
+- Testy: przez model (propozycja → zgoda → zapis; odrzucona → brak zapisu; brak wpisu u domownika), e2e
+  (karta zgody w czacie; odpowiedzi serwera podstawione w przeglądarce — e2e działa w trybie demo).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -865,7 +876,7 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Microsoft Teams (wymaga zgody administratora organizacji — `ChannelMessage.Read.All`; czaty tylko konta służbowe),
   Google Drive; subskrypcje zmian Graph/Gmail, załączniki. Slack: powiadomienia o nowych wzmiankach w czasie
   rzeczywistym (wymagałyby zakresów `*:history`), wysyłka do rozmów bezpośrednich, pliki, Enterprise Grid.
-- Web Push (VAPID) — powiadomienia działają w otwartej aplikacji (SSE + lista); transkrypcja głosu po stronie serwera.
+- Transkrypcja głosu po stronie serwera. Web Push nie sprawdzony na prawdziwym iPhonie (tylko atrapa usługi push).
 - Zapis w kalendarzach Google i Outlook (jest odczyt: zajętość z grantem, wydarzenia Outlook dla agenta prywatnego,
   kalendarz lokalny).
 

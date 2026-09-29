@@ -43,7 +43,7 @@ import type { ModelProvider } from './model/types';
 import { agentTurnKind, demoWorkflowKind } from './queue/kinds';
 import { TaskRunner } from './queue/runner';
 import { ToolBroker } from './tools/broker';
-import { householdNotifyTool, memoryCreateTool } from './tools/builtin';
+import { householdNotifyTool, memoryCreateTool, memorySuggestTool } from './tools/builtin';
 
 export interface AppOptions {
   runtime?: AgentRuntime;
@@ -81,7 +81,10 @@ interface App {
 
 /** Składa zależności aplikacji: broker z narzędziami, runtime, hub zdarzeń, kolejkę. */
 export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App {
-  const broker = new ToolBroker().register(memoryCreateTool).register(householdNotifyTool);
+  const broker = new ToolBroker()
+    .register(memoryCreateTool)
+    .register(memorySuggestTool)
+    .register(householdNotifyTool);
   for (const t of DEVICE_TOOLS) broker.register(t);
   for (const t of CONNECTOR_TOOLS) broker.register(t);
   for (const t of SLACK_TOOLS) broker.register(t);

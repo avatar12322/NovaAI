@@ -99,6 +99,7 @@ describe('rozmowa przez model', () => {
       'flashcards.create',
       'household.notify',
       'memory.create',
+      'memory.suggest',
       'payment.add',
       'payment.list',
       'payment.paid',
@@ -129,6 +130,7 @@ describe('rozmowa przez model', () => {
       'expense.add',
       'expense.summary',
       'memory.create',
+      'memory.suggest',
       'payment.add',
       'payment.list',
       'payment.paid',
@@ -156,6 +158,36 @@ describe('rozmowa przez model', () => {
     toolCalls = [{ name: 'memory.create', input: { content: '' } }];
     const reply = await chat(alfa, 'private', 'zapisz pusty');
     expect(reply.meta.deniedTools).toEqual([{ tool: 'memory.create', reason: 'invalid_params' }]);
+  });
+
+  it('propozycja zapamiętania: zapis dopiero po zgodzie, odrzucona nie zapisuje niczego', async () => {
+    const memories = async () =>
+      (await alfa.get('/api/memories')).body.items.map((m: { content: string }) => m.content);
+    const suggest = async (content: string) => {
+      toolCalls = [{ name: 'memory.suggest', input: { content } }];
+      const reply = await chat(alfa, 'private', 'mimochodem');
+      expect(reply.meta.proposedTools).toEqual([{ tool: 'memory.suggest', approval: true }]);
+      const ap = (await alfa.get('/api/approvals?status=pending')).body.items.find(
+        (a: { taskId: string }) => a.taskId === reply.meta.taskId,
+      );
+      expect(ap.summary).toBe(`Zapamiętać: „${content}”?`);
+      expect(ap.target).toBe('pamięć prywatna');
+      return ap as { id: string; actionHash: string };
+    };
+    const yes = await suggest('Nie je mięsa');
+    expect(await memories()).toEqual([]);
+    toolCalls = [];
+    expect(
+      (await alfa.post(`/api/approvals/${yes.id}/approve`, { actionHash: yes.actionHash })).status,
+    ).toBe(200);
+    await t.drain();
+    expect(await memories()).toEqual(['Nie je mięsa']);
+
+    const no = await suggest('Lubi ananasa na pizzy');
+    expect((await alfa.post(`/api/approvals/${no.id}/reject`, {})).status).toBe(200);
+    await t.drain();
+    expect(await memories()).toEqual(['Nie je mięsa']);
+    expect((await beta.get('/api/memories')).body.items).toEqual([]);
   });
 
   it('twardy limit budżetu: brak wywołania modelu, jawny komunikat, reszta aplikacji działa', async () => {

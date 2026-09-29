@@ -1,4 +1,4 @@
-import type { Conversation, MeResponse, Message, MessageSource } from '@nova/contracts';
+import type { Approval, Conversation, MeResponse, Message, MessageSource } from '@nova/contracts';
 import { LIMITS } from '@nova/contracts/limits';
 import {
   useCallback,
@@ -227,6 +227,20 @@ function ConversationPane({
       );
   }, [id, markFresh]);
   useEffect(load, [load]);
+
+  // Zgody czekające na decyzję w tej rozmowie — do zatwierdzenia wprost pod wiadomością asystenta.
+  const [approvals, setApprovals] = useState<Approval[] | null>(null);
+  const needsApprovals = !!messages?.some((m) => hasApproval(m));
+  const loadApprovals = useCallback(() => {
+    if (!needsApprovals) return;
+    api
+      .approvals('pending')
+      .then((p) => setApprovals(p.items))
+      .catch(() => setApprovals(null));
+  }, [needsApprovals]);
+  useEffect(loadApprovals, [loadApprovals]);
+  useEventEffect((e) => e.type.startsWith('approval.'), loadApprovals);
+
   // Blok (bez zwracania wyniku): w nowszych przeglądarkach scrollIntoView zwraca Promise, a React traktuje
   // wartość zwróconą z efektu jako funkcję sprzątającą — to wywracało widok („destroy is not a function”).
   // Pierwsze wczytanie — od razu na dół; kolejne zmiany — płynnie (o ile system nie ogranicza ruchu).
@@ -409,6 +423,12 @@ function ConversationPane({
             key={m.id}
             m={m}
             me={me}
+            approvals={
+              approvals && hasApproval(m)
+                ? approvals.filter((a) => a.taskId === m.meta.taskId)
+                : null
+            }
+            onDecided={loadApprovals}
             fresh={
               fresh.has(m.id) &&
               !(m.role === 'assistant' && streamed.current.some((t) => sameText(t, m.content)))
@@ -565,7 +585,23 @@ function LiveBubble({ text, agentName }: { text: string; agentName: string }) {
 /** Etykiety wyników narzędzi w rozmowie (wiadomości `tool` — nie są wypowiedzią żadnej osoby). */
 const TOOL_PL: Record<string, string> = {
   'memory.create': 'Zapis w pamięci',
+  'memory.suggest': 'Zapis w pamięci',
   'reminder.create': 'Przypomnienie',
+  'reminder.list': 'Przypomnienia',
+  'reminder.cancel': 'Odwołane przypomnienie',
+  'shopping.add': 'Lista zakupów',
+  'shopping.list': 'Lista zakupów',
+  'shopping.check': 'Lista zakupów',
+  'expense.add': 'Wydatek',
+  'expense.summary': 'Podsumowanie wydatków',
+  'payment.add': 'Stała płatność',
+  'payment.list': 'Płatności i raty',
+  'payment.paid': 'Zapłacona płatność',
+  'deadline.add': 'Termin',
+  'deadline.list': 'Terminy',
+  'deadline.done': 'Termin zrobiony',
+  'flashcards.create': 'Fiszki',
+  'calendar.agenda': 'Plan dnia',
   'household.notify': 'Wiadomość do domownika',
   'calendar.freebusy': 'Zajętość w kalendarzach',
   'calendar.events': 'Wydarzenia z kalendarza',
@@ -663,6 +699,54 @@ function SlackLive({ query }: { query: Record<string, unknown> }) {
   );
 }
 
+/** Zgoda wprost w czacie: dokładnie to, co zostanie wykonane, i dwa przyciski. */
+function InlineApproval({ a, onDecided }: { a: Approval; onDecided: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const act = async (kind: 'approve' | 'reject') => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (kind === 'approve') await api.approve(a.id, a.actionHash);
+      else await api.reject(a.id);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Nie udało się zapisać decyzji');
+    } finally {
+      setBusy(false);
+      onDecided();
+    }
+  };
+  return (
+    <div className="msg-approval" role="group" aria-label={`Zgoda: ${a.summary}`}>
+      <p className="msg-approval-head">
+        <Icon name="shield" size={14} />
+        <strong>{a.summary}</strong>
+        <span className="muted small">{a.target}</span>
+      </p>
+      {a.diff && <pre className="msg-approval-diff">{a.diff}</pre>}
+      {error && <ErrorNote error={error} />}
+      <div className="row">
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={busy}
+          onClick={() => void act('approve')}
+        >
+          <Icon name="check" size={14} /> Zatwierdź
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={busy}
+          onClick={() => void act('reject')}
+        >
+          <Icon name="x" size={14} /> Odrzuć
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function deniedNotes(denied: Array<{ tool: string; reason: string }>): string[] {
   const notes = new Set<string>();
   let other = 0;
@@ -676,7 +760,26 @@ function deniedNotes(denied: Array<{ tool: string; reason: string }>): string[] 
   return [...notes];
 }
 
-function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: boolean }) {
+const hasApproval = (m: Message) =>
+  m.role === 'assistant' &&
+  ((m.meta.proposedTools as Array<{ approval: boolean }> | undefined) ?? []).some(
+    (p) => p.approval,
+  );
+
+function MessageBubble({
+  m,
+  me,
+  fresh,
+  approvals,
+  onDecided,
+}: {
+  m: Message;
+  me: MeResponse;
+  fresh: boolean;
+  /** Zgody tej tury czekające na decyzję użytkownika; null — jeszcze nie wczytane. */
+  approvals: Approval[] | null;
+  onDecided: () => void;
+}) {
   if (m.role === 'tool') return <ToolResult m={m} fresh={fresh} />;
   const mine = m.authorUserId === me.user.id;
   const proposed =
@@ -736,12 +839,15 @@ function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: bo
         <WebSources sources={(m.meta.webSources as WebSource[] | undefined) ?? []} />
       )}
       {m.role === 'assistant' && <SpeakButton text={m.content} source={{ messageId: m.id }} />}
-      {proposed.some((p) => p.approval) && (
-        <p className="msg-note">
-          <Icon name="shield" size={14} /> Akcja czeka na Twoją zgodę —{' '}
-          <a href={href({ view: 'approvals' })}>otwórz Zgody</a>
-        </p>
-      )}
+      {proposed.some((p) => p.approval) &&
+        (approvals ? (
+          approvals.map((a) => <InlineApproval key={a.id} a={a} onDecided={onDecided} />)
+        ) : (
+          <p className="msg-note">
+            <Icon name="shield" size={14} /> Akcja czeka na Twoją zgodę —{' '}
+            <a href={href({ view: 'approvals' })}>otwórz Zgody</a>
+          </p>
+        ))}
       {deniedNotes(denied).map((text) => (
         <p key={text} className="msg-note muted">
           {text}

@@ -83,6 +83,24 @@ export const memoryCreateTool: ToolDef<{
 };
 
 /**
+ * memory.suggest — propozycja zapisu faktu, który użytkownik podał mimochodem (preferencja, alergia,
+ * ważna data). Zapis następuje dopiero po zgodzie — wprost w czacie albo w Zgodach.
+ */
+export const memorySuggestTool: typeof memoryCreateTool = {
+  ...memoryCreateTool,
+  name: 'memory.suggest',
+  title: 'Zaproponuj zapis w pamięci',
+  requiresApproval: () => true,
+  async preview(ctx, p) {
+    return {
+      summary: `Zapamiętać: „${p.content.slice(0, 160)}”?`,
+      target: ctx.context === 'household_agent' ? 'pamięć wspólna' : 'pamięć prywatna',
+      scope: p.kind,
+    };
+  },
+};
+
+/**
  * household.notify — wiadomość do drugiego członka domu. ZAWSZE wymaga zgody nadawcy
  * na dokładną treść i odbiorcę (podgląd w Approval Center).
  */
