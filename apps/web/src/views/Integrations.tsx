@@ -53,7 +53,8 @@ const REASON_PL: Record<string, string> = {
 };
 
 /** Integracje: tylko rzeczywiście połączone i skonfigurowane usługi są oznaczone jako dostępne. */
-export function IntegrationsPanel() {
+/** `showUnavailable=false` (prosty widok domownika): tylko integracje skonfigurowane na serwerze. */
+export function IntegrationsPanel({ showUnavailable = true }: { showUnavailable?: boolean }) {
   const [items, setItems] = useState<ConnectionInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; tone: 'muted' | 'warn' } | null>(null);
@@ -129,14 +130,16 @@ export function IntegrationsPanel() {
       {error && <ErrorNote error={error} onRetry={load} />}
       {!items && !error && <Spinner />}
       <ul className="devices">
-        {items?.map((c) => (
-          <IntegrationCard
-            key={c.provider}
-            c={c}
-            onConnect={(caps) => void connect(c, caps)}
-            onDisconnect={() => void disconnect(c)}
-          />
-        ))}
+        {items
+          ?.filter((c) => showUnavailable || c.configured)
+          .map((c) => (
+            <IntegrationCard
+              key={c.provider}
+              c={c}
+              onConnect={(caps) => void connect(c, caps)}
+              onDisconnect={() => void disconnect(c)}
+            />
+          ))}
       </ul>
     </section>
   );

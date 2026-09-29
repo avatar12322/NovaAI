@@ -35,37 +35,44 @@ export function applyTheme(t: Theme): void {
 
 export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () => void }) {
   const [theme, setTheme] = useState<Theme>(readTheme);
+  // Domownik: prosty widok (wygląd, konto, własne połączenia i kalendarz); stan serwera, budżet, modele,
+  // usługi, urządzenia i domownicy — tylko właściciel domu.
+  const isOwner = me.household?.role === 'owner';
   return (
     <section className="page settings" aria-label="Ustawienia">
       <header className="section-head">
         <h1>Ustawienia</h1>
       </header>
-      <ServiceStatus />
-      <BudgetPanel />
-      <section className="panel row between">
-        <div>
-          <h2 className="h-sub">Modele AI i klucze API</h2>
-          <p className="small muted">
-            Klucze Anthropic, OpenAI, Google Gemini i innych dostawców, modele z cennikiem.
-          </p>
-        </div>
-        <a className="btn btn-sm" href={href({ view: 'models' })}>
-          Otwórz
-        </a>
-      </section>
-      <section className="panel row between">
-        <div>
-          <h2 className="h-sub">Usługi i koszty</h2>
-          <p className="small muted">
-            Dostawcy modeli, serwery, domeny i abonamenty: budżety, odnowienia i faktury.
-          </p>
-        </div>
-        <a className="btn btn-sm" href={href({ view: 'services', id: null })}>
-          Otwórz
-        </a>
-      </section>
-      <DevicesPanel />
-      <IntegrationsPanel />
+      {isOwner && (
+        <>
+          <ServiceStatus />
+          <BudgetPanel />
+          <section className="panel row between">
+            <div>
+              <h2 className="h-sub">Modele AI i klucze API</h2>
+              <p className="small muted">
+                Klucze Anthropic, OpenAI, Google Gemini i innych dostawców, modele z cennikiem.
+              </p>
+            </div>
+            <a className="btn btn-sm" href={href({ view: 'models' })}>
+              Otwórz
+            </a>
+          </section>
+          <section className="panel row between">
+            <div>
+              <h2 className="h-sub">Usługi i koszty</h2>
+              <p className="small muted">
+                Dostawcy modeli, serwery, domeny i abonamenty: budżety, odnowienia i faktury.
+              </p>
+            </div>
+            <a className="btn btn-sm" href={href({ view: 'services', id: null })}>
+              Otwórz
+            </a>
+          </section>
+          <DevicesPanel />
+        </>
+      )}
+      <IntegrationsPanel showUnavailable={isOwner} />
       <CalendarPanel />
       <section className="panel">
         <h2 className="h-sub">Wygląd</h2>
@@ -103,7 +110,7 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
         </button>
       </section>
       {/* Pod „Konto”: lista wczytuje się asynchronicznie i nie przesuwa przycisku „Wyloguj”. */}
-      <HouseholdPanel />
+      {isOwner && <HouseholdPanel />}
     </section>
   );
 }

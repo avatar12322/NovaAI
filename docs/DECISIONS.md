@@ -730,3 +730,16 @@ użytkownicy widzą ekran „aplikacja niezweryfikowana”; logo na ekranie zgod
 - Treść opisuje faktyczne działanie (dostęp tylko na polecenie, wysyłka po zatwierdzeniu, brak synchronizacji
   w tle, fragmenty wiadomości w rozmowie, przekazanie do Anthropic/ElevenLabs, odłączenie unieważnia token).
   Włączenie kolejnej integracji (Microsoft, Slack) wymaga aktualizacji treści i daty.
+
+## D-040 Prosty widok domownika, ustawienia administracyjne dla właściciela
+
+Decyzja właściciela (2026-09-29): właściciel domu zarządza modelami, usługami, kosztami i domownikami;
+pozostałe osoby mają prosty widok — rozmowy, pamięć, dokumenty, dom i podstawowe ustawienia.
+
+- Interfejs według `me.household.role`: menu, dolny pasek na telefonie, paleta poleceń i sekcje Ustawień.
+  Integracje nieskonfigurowane na serwerze domownik nie widzi (dla właściciela zostają jako podpowiedź).
+- Serwer pilnuje tego, co dotyczy całego domu: modele i klucze (już wcześniej), domownicy (D-037), limit
+  kosztów modeli (`requireOwner`). Prywatne usługi domownika i widok zadań nie są blokowane po stronie API —
+  dotyczą tylko jego danych, a są jedynie ukryte w menu.
+- Panel „Aktywność” usunięty: zdarzenia techniczne (kroki zadań, statusy) nie pomagały na co dzień; stan
+  zadań i zgód jest w ich widokach, a nowe wiadomości — w „Dom”.

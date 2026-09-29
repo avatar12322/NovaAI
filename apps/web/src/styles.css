@@ -465,7 +465,7 @@ label {
 
 .shell {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  grid-template-columns: 220px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100%;
 }
@@ -548,47 +548,6 @@ label {
   min-height: 0;
   overflow: auto;
   outline: none;
-}
-.activity {
-  grid-column: 3;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  padding: var(--space-4);
-  overflow: auto;
-}
-.activity-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-.activity-head h2 {
-  font-size: var(--fs-sm);
-  flex: 1;
-}
-.activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  font-size: var(--fs-sm);
-}
-.activity-item {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: var(--space-2);
-}
-.activity-time {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  padding-top: 2px;
-}
-.activity-title {
-  display: block;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
 }
 .page {
   padding: var(--space-5);
@@ -880,6 +839,10 @@ label {
   flex-direction: column;
   gap: var(--space-2);
 }
+/* Karty-skróty (tekst + „Otwórz”) w jednym wierszu, jak .row.between. */
+.settings .panel.row {
+  flex-direction: row;
+}
 .budget-line {
   display: flex;
   gap: var(--space-2);
@@ -1148,9 +1111,6 @@ mark {
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 200px minmax(0, 1fr);
-  }
-  .activity {
-    display: none;
   }
 }
 
@@ -1785,9 +1745,6 @@ label.check {
     transform: none;
   }
 }
-.activity-item {
-  animation: msg-in 0.3s ease-out both;
-}
 
 /* Płynniejsze kontrolki */
 .btn {
@@ -1819,7 +1776,6 @@ label.check {
 @media (prefers-reduced-motion: reduce) {
   .msg-enter,
   .ai-activity,
-  .activity-item,
   .page,
   .conversation,
   .split-detail,

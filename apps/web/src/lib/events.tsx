@@ -15,7 +15,6 @@ type DeltaListener = (d: MessageDelta) => void;
 
 interface EventsCtx {
   connected: boolean;
-  recent: NovaEvent[];
   subscribe(fn: Listener): () => void;
   onResync(fn: () => void): () => void;
   /** Tekst odpowiedzi na żywo (ulotne `message.delta` — poza listą aktywności). */
@@ -24,7 +23,6 @@ interface EventsCtx {
 
 const Ctx = createContext<EventsCtx>({
   connected: false,
-  recent: [],
   subscribe: () => () => undefined,
   onResync: () => () => undefined,
   subscribeDelta: () => () => undefined,
@@ -36,7 +34,6 @@ const Ctx = createContext<EventsCtx>({
  */
 export function EventsProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
-  const [recent, setRecent] = useState<NovaEvent[]>([]);
   const listeners = useRef(new Set<Listener>());
   const resyncListeners = useRef(new Set<() => void>());
   const deltaListeners = useRef(new Set<DeltaListener>());
@@ -53,7 +50,6 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     const on = (m: MessageEvent<string>) => {
       try {
         const e = JSON.parse(m.data) as NovaEvent;
-        setRecent((r) => [e, ...r.filter((x) => x.id !== e.id)].slice(0, 40));
         listeners.current.forEach((l) => l(e));
       } catch {
         /* ignoruj uszkodzone zdarzenie */
@@ -93,7 +89,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <Ctx.Provider value={{ connected, recent, subscribe, onResync, subscribeDelta }}>
+    <Ctx.Provider value={{ connected, subscribe, onResync, subscribeDelta }}>
       {children}
     </Ctx.Provider>
   );

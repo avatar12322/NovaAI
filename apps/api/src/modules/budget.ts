@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireAuth } from '../access';
+import { requireAuth, requireOwner } from '../access';
 import { writeAudit } from '../audit';
 import { runtimeFor } from '../agent/runtime';
 import type { AppDeps } from '../deps';
@@ -23,10 +23,9 @@ export const budgetRoutes =
       return deps.gateway.budget.status(auth.householdId);
     });
 
-    /** Ustawienia budżetu domu: każdy aktywny domownik; zmiana audytowana i widoczna dla obojga. */
+    /** Ustawienia budżetu domu: tylko właściciel domu; zmiana audytowana i widoczna dla wszystkich. */
     app.put('/budget', async (req) => {
-      const auth = requireAuth(req);
-      if (!auth.householdId) throw forbidden('Brak aktywnego członkostwa w domu');
+      const auth = requireOwner(req, 'Limit kosztów modeli');
       const body = parse(UpdateBudget, req.body);
       if (body.softLimit !== null && body.hardLimit !== null && body.softLimit > body.hardLimit) {
         throw badRequest('Próg ostrzeżenia nie może przekraczać twardego limitu');

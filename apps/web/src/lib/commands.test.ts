@@ -16,4 +16,12 @@ describe('paleta poleceń', () => {
     expect(matchCommands('xyz')[0]!.id).toBe('ask');
     expect(matchCommands('zadania').at(-1)!.id).toBe('ask');
   });
+  it('domownik (nie właściciel) nie widzi modeli, usług ani zadań', () => {
+    const ids = matchCommands('', false).map((c) => c.id);
+    expect(ids).not.toContain('models');
+    expect(ids).not.toContain('services');
+    expect(ids).not.toContain('tasks');
+    expect(ids).toContain('documents');
+    expect(matchCommands('klucze api', false)[0]!.id).toBe('ask');
+  });
 });

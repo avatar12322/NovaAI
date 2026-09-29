@@ -7,6 +7,8 @@ export interface Command {
   hint?: string;
   icon: string;
   keywords: string;
+  /** Tylko dla właściciela domu (domownik ma prosty widok). */
+  ownerOnly?: boolean;
   run:
     { route: Route } | { action: 'new-chat' | 'ask' | 'briefing' | 'theme-light' | 'theme-dark' };
 }
@@ -49,6 +51,7 @@ export const COMMANDS: Command[] = [
   },
   {
     id: 'tasks',
+    ownerOnly: true,
     label: 'Zadania',
     icon: 'tasks',
     keywords: 'zadania kolejka postęp',
@@ -77,6 +80,7 @@ export const COMMANDS: Command[] = [
   },
   {
     id: 'services',
+    ownerOnly: true,
     label: 'Usługi i koszty',
     icon: 'wallet',
     keywords: 'usługi koszty faktury budżet',
@@ -84,6 +88,7 @@ export const COMMANDS: Command[] = [
   },
   {
     id: 'models',
+    ownerOnly: true,
     label: 'Modele AI i klucze API',
     icon: 'key',
     keywords: 'modele klucze api dostawcy anthropic openai gemini',
@@ -123,11 +128,12 @@ const norm = (s: string) =>
  * Dopasowanie: każde słowo zapytania musi wystąpić w nazwie lub słowach kluczowych (bez polskich znaków).
  * Tekst, który nie pasuje do niczego (albo jest pytaniem), trafia jako „Zapytaj asystenta” na początek listy.
  */
-export function matchCommands(query: string): Command[] {
+export function matchCommands(query: string, isOwner = true): Command[] {
+  const available = isOwner ? COMMANDS : COMMANDS.filter((c) => !c.ownerOnly);
   const q = norm(query.trim());
-  if (!q) return COMMANDS;
+  if (!q) return available;
   const words = q.split(/\s+/);
-  const hits = COMMANDS.filter((c) => {
+  const hits = available.filter((c) => {
     const hay = norm(`${c.label} ${c.keywords}`);
     return words.every((w) => hay.includes(w));
   });

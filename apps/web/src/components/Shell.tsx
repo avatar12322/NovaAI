@@ -3,7 +3,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useEventEffect, useEvents } from '../lib/events';
 import { href, type Route } from '../lib/router';
-import { ActivityStrip } from './ActivityStrip';
 import { CommandPalette } from './CommandPalette';
 import { Icon } from './Icon';
 
@@ -14,6 +13,8 @@ interface NavItem {
   match: (r: Route) => boolean;
   mobile?: boolean;
   badge?: number;
+  /** Widoczne tylko dla właściciela domu (ustawienia administracyjne, techniczne widoki). */
+  ownerOnly?: boolean;
 }
 
 export function Shell({
@@ -32,6 +33,8 @@ export function Shell({
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const { connected } = useEvents();
   const [palette, setPalette] = useState(false);
+  // Domownik ma prosty widok: rozmowy, pamięć, dokumenty, dom. Modele, usługi i zadania — właściciel domu.
+  const isOwner = me.household?.role === 'owner';
   // Ctrl+K / Cmd+K — paleta poleceń z każdego miejsca aplikacji.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,7 +73,7 @@ export function Shell({
     };
   }, []);
 
-  const nav: NavItem[] = [
+  const allNav: NavItem[] = [
     {
       label: 'Czat',
       icon: 'chat',
@@ -89,7 +92,8 @@ export function Shell({
       icon: 'tasks',
       to: { view: 'tasks', id: null },
       match: (r) => r.view === 'tasks',
-      mobile: true,
+      mobile: isOwner,
+      ownerOnly: true,
     },
     {
       label: 'Zgody',
@@ -118,18 +122,21 @@ export function Shell({
       icon: 'doc',
       to: { view: 'documents', space: 'private' },
       match: (r) => r.view === 'documents' || r.view === 'document',
+      mobile: !isOwner,
     },
     {
       label: 'Usługi i koszty',
       icon: 'wallet',
       to: { view: 'services', id: null },
       match: (r) => r.view === 'services',
+      ownerOnly: true,
     },
     {
       label: 'Modele AI',
       icon: 'key',
       to: { view: 'models' },
       match: (r) => r.view === 'models',
+      ownerOnly: true,
     },
     {
       label: 'Ustawienia',
@@ -138,6 +145,12 @@ export function Shell({
       match: (r) => r.view === 'settings',
     },
   ];
+  const nav = allNav.filter(
+    (n) =>
+      (isOwner || !n.ownerOnly) &&
+      // Zgody: domownik widzi je tylko wtedy, gdy coś czeka na jego decyzję.
+      (isOwner || n.label !== 'Zgody' || pending > 0 || route.view === 'approvals'),
+  );
 
   return (
     <div className="shell">
@@ -201,14 +214,16 @@ export function Shell({
         >
           <Icon name="search" />
         </button>
-        <a
-          href={href({ view: 'approvals' })}
-          className="icon-btn"
-          aria-label={`Zgody${pending ? `: ${pending} oczekujące` : ''}`}
-        >
-          <Icon name="shield" />
-          {pending ? <span className="count">{pending}</span> : null}
-        </a>
+        {(isOwner || pending > 0) && (
+          <a
+            href={href({ view: 'approvals' })}
+            className="icon-btn"
+            aria-label={`Zgody${pending ? `: ${pending} oczekujące` : ''}`}
+          >
+            <Icon name="shield" />
+            {pending ? <span className="count">{pending}</span> : null}
+          </a>
+        )}
         <a href={href({ view: 'settings' })} className="icon-btn" aria-label="Ustawienia">
           <Icon name="settings" />
         </a>
@@ -235,8 +250,6 @@ export function Shell({
         </main>
       </div>
 
-      <ActivityStrip />
-
       <nav className="bottomnav" aria-label="Nawigacja mobilna">
         {nav
           .filter((n) => n.mobile)
@@ -247,7 +260,9 @@ export function Shell({
               className={
                 n.match(route) ||
                 (n.label === 'Czat' && route.view === 'chat') ||
-                (n.label === 'Pamięć' && (route.view === 'documents' || route.view === 'document'))
+                (isOwner &&
+                  n.label === 'Pamięć' &&
+                  (route.view === 'documents' || route.view === 'document'))
                   ? 'active'
                   : undefined
               }
@@ -259,7 +274,7 @@ export function Shell({
             </a>
           ))}
       </nav>
-      {palette && <CommandPalette onClose={() => setPalette(false)} />}
+      {palette && <CommandPalette isOwner={isOwner} onClose={() => setPalette(false)} />}
     </div>
   );
 }

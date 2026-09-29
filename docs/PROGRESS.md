@@ -730,6 +730,18 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   rozmowie tylko dla właściciela), przekazywanie (Anthropic, ElevenLabs), odłączenie i oświadczenie Limited
   Use (PL + EN). Kontakt z `NOVA_CONTACT_EMAIL` (bez adresu w repozytorium). Test API + smoke test produkcji.
 
+### Prosty widok domownika; bez panelu „Aktywność” (2026-09-29)
+
+- Właściciel domu: pełne menu (Zadania, Usługi i koszty, Modele AI), w Ustawieniach stan usług, limit kosztów,
+  skróty do modeli i usług, urządzenia, domownicy. Domownik: Czat, NovaAI (wspólne), Dom, Pamięć, Dokumenty,
+  Ustawienia (integracje skonfigurowane na serwerze, kalendarz, wygląd, konto); „Zgody” tylko gdy coś czeka.
+  Na telefonie domownik ma w dolnym pasku Dokumenty zamiast Zadań. Paleta poleceń bez widoków właściciela.
+- Serwer: zmiana limitu kosztów modeli (`PUT /api/budget`) tylko dla właściciela (403 dla domownika); modele
+  i domownicy — jak dotąd tylko właściciel. Widoki usług i zadań pod bezpośrednim adresem działają jak wcześniej.
+- Usunięty panel „Aktywność” (prawa kolumna na komputerze) — układ dwukolumnowy. Poprawiony układ kart-skrótów
+  w Ustawieniach (tekst i „Otwórz” w jednym wierszu).
+- Testy: e2e ról (desktop + telefon), paleta poleceń domownika, 403 przy zmianie budżetu przez domownika.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

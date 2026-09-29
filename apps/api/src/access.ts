@@ -20,6 +20,17 @@ export function requireAuth(req: FastifyRequest): AuthContext {
   return req.auth;
 }
 
+/** Ustawienia domu, które dotyczą wszystkich (np. budżet modeli) — zmienia tylko właściciel domu. */
+export function requireOwner(
+  req: FastifyRequest,
+  what: string,
+): AuthContext & { householdId: string } {
+  const auth = requireAuth(req);
+  if (!auth.householdId) throw forbidden('Brak aktywnego członkostwa w domu');
+  if (auth.householdRole !== 'owner') throw forbidden(`${what} zmienia tylko właściciel domu`);
+  return { ...auth, householdId: auth.householdId };
+}
+
 export function actorFor(auth: AuthContext, context: ContextKind = 'user'): Actor {
   return { userId: auth.userId, activeHouseholdIds: auth.activeHouseholdIds, context };
 }

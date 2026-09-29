@@ -32,34 +32,6 @@ export const STEP_STATUS_PL: Record<string, string> = {
   skipped: 'pominięte',
 };
 
-export const EVENT_PL: Record<string, string> = {
-  'task.created': 'Nowe zadanie',
-  'task.status': 'Status zadania',
-  'task.progress': 'Postęp',
-  'step.status': 'Krok',
-  'approval.requested': 'Prośba o zgodę',
-  'approval.resolved': 'Zgoda rozstrzygnięta',
-  'message.created': 'Wiadomość',
-  'memory.changed': 'Pamięć',
-  'notification.created': 'Powiadomienie',
-  'budget.warning': 'Budżet: ostrzeżenie',
-  'budget.blocked': 'Budżet: blokada',
-  'budget.changed': 'Budżet: zmiana ustawień',
-  'device.status': 'Urządzenie',
-  'document.updated': 'Dokument',
-};
-
-/** Statusy i zmiany widoczności dokumentu (zdarzenie `document.updated`). */
-export const DOCUMENT_STATUS_PL: Record<string, string> = {
-  pending: 'w kolejce',
-  indexing: 'indeksowanie',
-  ready: 'gotowy',
-  failed: 'błąd odczytu',
-  deleted: 'usunięty',
-  shared: 'udostępniony',
-  removed: 'udostępnienie cofnięte',
-};
-
 export function formatMoney(value: number, currency: string): string {
   return new Intl.NumberFormat('pl-PL', {
     style: 'currency',

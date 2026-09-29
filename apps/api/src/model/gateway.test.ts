@@ -503,6 +503,14 @@ describe('API budżetu i statusu modeli', () => {
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ softLimit: 100, hardLimit: 150 });
     expect((await beta.get('/api/budget')).body).toMatchObject({ softLimit: 100, hardLimit: 150 });
+    // Domownik widzi limit, ale go nie zmienia (ustawia właściciel domu).
+    const denied = await beta.put('/api/budget', {
+      softLimit: null,
+      hardLimit: null,
+      paidCallsEnabled: true,
+    });
+    expect(denied.status).toBe(403);
+    expect(denied.body.error.message).toContain('tylko właściciel domu');
     const audit = await t.db.owner.query(
       `SELECT actor_user_id FROM audit_log WHERE action = 'budget.update'`,
     );

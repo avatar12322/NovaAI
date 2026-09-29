@@ -11,13 +11,13 @@ import { speakNow } from './Voice';
  * Paleta poleceń (Ctrl+K): przejście do dowolnego widoku, nowa rozmowa, pytanie do asystenta prosto z palety,
  * odczyt przeglądu dnia, zmiana motywu. Pełna obsługa klawiaturą (↑ ↓ Enter Esc).
  */
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({ isOwner, onClose }: { isOwner: boolean; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const items = matchCommands(q);
+  const items = matchCommands(q, isOwner);
   useEffect(() => {
     input.current?.focus();
   }, []);
