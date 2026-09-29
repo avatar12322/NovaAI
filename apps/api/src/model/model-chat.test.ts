@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { seedDev } from '../db/seed';
 import { createTestApp, login, truncateAll, type Client, type TestApp } from '../test/helpers';
+import { wallClockToUtc } from '../calendar/ics';
+import { warsawClock } from '../digest/service';
 import { ModelsConfigSchema } from './config';
 import { FakeProvider } from './providers/fake';
 import type { ProviderResponse } from './types';
@@ -91,7 +93,9 @@ describe('rozmowa przez model', () => {
       'calendar.freebusy',
       'household.notify',
       'memory.create',
+      'reminder.cancel',
       'reminder.create',
+      'reminder.list',
     ]);
   });
 
@@ -111,7 +115,9 @@ describe('rozmowa przez model', () => {
     expect(call.tools.map((x) => x.name).sort()).toEqual([
       'calendar.freebusy',
       'memory.create',
+      'reminder.cancel',
       'reminder.create',
+      'reminder.list',
     ]);
     expect(call.messages[call.messages.length - 1]!.content).toBe('[Alfa (test)] co planujemy?');
   });
@@ -296,5 +302,57 @@ describe('brak modelu dla kontekstu prywatnego', () => {
     } finally {
       await app.close();
     }
+  });
+});
+
+describe('przypomnienia z czatu (także głosem — ta sama tura)', () => {
+  async function toolMessages(c: Client, content: string, space: 'private' | 'shared' = 'private') {
+    const conv = (await c.post('/api/conversations', { space })).body;
+    await c.post(`/api/conversations/${conv.id}/messages`, { content });
+    await t.drain();
+    const msgs = (await c.get(`/api/conversations/${conv.id}/messages`)).body.items as Array<{
+      role: string;
+      content: string;
+    }>;
+    return msgs.filter((m) => m.role === 'tool').map((m) => m.content);
+  }
+
+  it('czas lokalny w Polsce (bez strefy), lista z identyfikatorami, anulowanie tylko własnych', async () => {
+    const tomorrow = new Date(`${warsawClock(new Date()).date}T12:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const day = tomorrow.toISOString().slice(0, 10);
+    toolCalls = [
+      { name: 'reminder.create', input: { text: 'Kolokwium z analizy', dueAt: `${day}T08:00` } },
+    ];
+    const created = await toolMessages(alfa, 'przypomnij mi jutro o 8 o kolokwium');
+    expect(created[0]).toMatch(
+      /^Ustawiono przypomnienie: \S+ \d{1,2} \S+ .*08:00 — Kolokwium z analizy/,
+    );
+    const [y, mo, d] = day.split('-').map(Number);
+    const row = (
+      await t.db.owner.query<{ id: string; due_at: string }>('SELECT id, due_at FROM reminders')
+    ).rows[0]!;
+    expect(new Date(row.due_at).toISOString()).toBe(
+      wallClockToUtc(y!, mo!, d!, 8, 0, 0, 'Europe/Warsaw').toISOString(),
+    );
+
+    toolCalls = [{ name: 'reminder.list', input: {} }];
+    const listed = await toolMessages(alfa, 'jakie mam przypomnienia?');
+    expect(listed[0]).toContain(`[${row.id}]`);
+    expect(listed[0]).toContain('Kolokwium z analizy');
+
+    // Beta nie anuluje cudzego przypomnienia.
+    toolCalls = [{ name: 'reminder.cancel', input: { reminderId: row.id } }];
+    await toolMessages(beta, 'anuluj to przypomnienie');
+    expect(
+      (await t.db.owner.query('SELECT status FROM reminders WHERE id = $1', [row.id])).rows[0]
+        .status,
+    ).toBe('scheduled');
+    const cancelled = await toolMessages(alfa, 'anuluj przypomnienie o kolokwium');
+    expect(cancelled[0]).toBe('Anulowano przypomnienie: Kolokwium z analizy');
+    expect(
+      (await t.db.owner.query('SELECT status FROM reminders WHERE id = $1', [row.id])).rows[0]
+        .status,
+    ).toBe('cancelled');
   });
 });

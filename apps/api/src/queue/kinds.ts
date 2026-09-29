@@ -392,6 +392,20 @@ function formatToolResult(tool: string, out: Record<string, unknown>): string {
       .join('\n');
   } else if (typeof out.reminderId === 'string') {
     body = '';
+  } else if (Array.isArray(out.reminders)) {
+    const rs = out.reminders as Array<{
+      id: string;
+      when: string;
+      text: string;
+      shared: boolean;
+      canCancel: boolean;
+    }>;
+    body = rs
+      .map(
+        (r) =>
+          `[${r.id}] ${r.when}: ${r.text}${r.shared ? ' (wspólne)' : ''}${r.canCancel ? '' : ' — utworzył domownik'}`,
+      )
+      .join('\n');
   } else if (Array.isArray(out.messages)) {
     body = (out.messages as Array<{ id: string; from: string; subject: string }>)
       .map((m) => `[${m.id}] ${m.from}: ${m.subject}`)

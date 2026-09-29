@@ -4,10 +4,9 @@ import { isUuid, requireAuth } from '../access';
 import { writeAudit } from '../audit';
 import { withSystemTx, withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
-import { emitEvent } from '../events';
 import { forbidden, HttpError, notFound } from '../lib/errors';
 import { parse } from '../lib/validate';
-import { createReminder, ReminderError } from './service';
+import { cancelReminder, createReminder, ReminderError } from './service';
 
 const CreateReminder = z.object({
   text: z.string().trim().min(1).max(500),
@@ -99,35 +98,7 @@ export const reminderRoutes =
     app.delete<{ Params: { id: string } }>('/reminders/:id', async (req, reply) => {
       const auth = requireAuth(req);
       if (!isUuid(req.params.id)) throw notFound('Reminder');
-      const ok = await withSystemTx(deps.db, async (c) => {
-        const r = await c.query<{
-          task_id: string | null;
-          household_id: string;
-          visibility: 'private' | 'shared';
-        }>(
-          `UPDATE reminders SET status = 'cancelled', cancelled_at = now()
-            WHERE id = $1 AND owner_user_id = $2 AND status = 'scheduled' RETURNING task_id, household_id, visibility`,
-          [req.params.id, auth.userId],
-        );
-        const row = r.rows[0];
-        if (!row) return false;
-        if (row.task_id) {
-          await c.query(
-            `UPDATE tasks SET status = 'cancelled', finished_at = now(), updated_at = now()
-              WHERE id = $1 AND status IN ('queued','waiting_approval')`,
-            [row.task_id],
-          );
-          await emitEvent(c, {
-            householdId: row.household_id,
-            ownerUserId: auth.userId,
-            visibility: row.visibility,
-            taskId: row.task_id,
-            type: 'task.status',
-            payload: { status: 'cancelled', title: 'Przypomnienie' },
-          });
-        }
-        return true;
-      });
+      const ok = await withSystemTx(deps.db, (c) => cancelReminder(c, req.params.id, auth.userId));
       if (!ok) throw notFound('Reminder');
       return reply.status(204).send();
     });

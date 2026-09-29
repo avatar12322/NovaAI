@@ -770,6 +770,17 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   pogody, miasto tylko właściciel), e2e ustawień przeglądu. Maile nie trafiają do przeglądu — asystent czyta
   pocztę tylko na polecenie (polityka prywatności).
 
+### Szybkie przypomnienia z czatu i głosu (2026-09-29)
+
+- „Przypomnij mi jutro o 8 o kolokwium” (pisane albo w rozmowie głosowej — ta sama tura asystenta) tworzy
+  przypomnienie; o czasie przychodzi powiadomienie i push. Potwierdzenie z czytelną datą („środa 30 września,
+  08:00 — …”). Nowe narzędzia: `reminder.list` („jakie mam przypomnienia?”) i `reminder.cancel` (tylko własne).
+  W NovaAI (rozmowa wspólna) — przypomnienia wspólne.
+- Terminy od modelu jako czas lokalny w Polsce bez strefy (np. 2026-09-30T08:00) — serwer liczy czas letni
+  i zimowy (wcześniej model musiał znać przesunięcie strefy). Anulowanie wspólne dla API i narzędzia.
+- Testy: przez model (FakeProvider): czas lokalny → właściwy UTC, lista z identyfikatorami, anulowanie tylko
+  własnych; dotychczasowe testy przypomnień.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

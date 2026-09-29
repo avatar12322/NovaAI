@@ -72,6 +72,55 @@ export async function createReminder(
 }
 
 /**
+ * Anulowanie przypomnienia (tylko właściciel, tylko zaplanowane) razem z zadaniem dostarczenia.
+ * Wywoływane rolą systemową z jawnym sprawdzeniem właściciela.
+ */
+export async function cancelReminder(
+  c: pg.PoolClient,
+  reminderId: string,
+  userId: string,
+): Promise<boolean> {
+  const r = await c.query<{
+    task_id: string | null;
+    household_id: string;
+    visibility: 'private' | 'shared';
+  }>(
+    `UPDATE reminders SET status = 'cancelled', cancelled_at = now()
+      WHERE id = $1 AND owner_user_id = $2 AND status = 'scheduled' RETURNING task_id, household_id, visibility`,
+    [reminderId, userId],
+  );
+  const row = r.rows[0];
+  if (!row) return false;
+  if (row.task_id) {
+    await c.query(
+      `UPDATE tasks SET status = 'cancelled', finished_at = now(), updated_at = now()
+        WHERE id = $1 AND status IN ('queued','waiting_approval')`,
+      [row.task_id],
+    );
+    await emitEvent(c, {
+      householdId: row.household_id,
+      ownerUserId: userId,
+      visibility: row.visibility,
+      taskId: row.task_id,
+      type: 'task.status',
+      payload: { status: 'cancelled', title: 'Przypomnienie' },
+    });
+  }
+  return true;
+}
+
+/** „środa 30 września, 08:00” (czas polski). */
+export const reminderWhen = (d: Date | string): string =>
+  new Intl.DateTimeFormat('pl-PL', {
+    timeZone: 'Europe/Warsaw',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(d));
+
+/**
  * Dostarczenie: deterministyczne, bez modelu (działa także przy zablokowanym budżecie).
  * Prywatne przypomnienie trafia WYŁĄCZNIE do właściciela; wspólne — do aktywnych członków domu.
  */
