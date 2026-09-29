@@ -71,6 +71,8 @@ interface ModelAvailability {
 
 /** Szacunek tokenów bez tokenizera dostawcy — ZAWSZE oznaczany jako estymacja. */
 const estimateTokens = (chars: number) => Math.ceil(chars / 4);
+/** Zdjęcie w szacunku kosztu: do ~4 tys. tokenów (1600 px po dłuższym boku ≈ 2,6 tys.) — z zapasem. */
+const IMAGE_PROMPT_CHARS = 12_000;
 
 /** Dostawcy i modele dodane w aplikacji dla jednego domu (klucze już odszyfrowane — tylko w pamięci serwera). */
 export interface HouseholdOverlay {
@@ -332,7 +334,10 @@ export class ModelGateway {
     if (!keys.length) throw new ModelUnavailable(`Brak dostępnego modelu dla ${req.capability}`);
     const promptChars =
       req.system.length +
-      req.messages.reduce((n, m) => n + m.content.length, 0) +
+      req.messages.reduce(
+        (n, m) => n + m.content.length + (m.images?.length ?? 0) * IMAGE_PROMPT_CHARS,
+        0,
+      ) +
       JSON.stringify(req.tools).length;
     let lastErr: unknown = null;
 

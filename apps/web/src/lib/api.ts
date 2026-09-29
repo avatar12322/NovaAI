@@ -345,8 +345,12 @@ export const api = {
   conversation: (id: string) => get<Conversation>(`/conversations/${id}`),
   messages: (id: string, cursor?: string) =>
     get<MessagePage>(`/conversations/${id}/messages${qs({ limit: 50, cursor })}`),
-  sendMessage: (id: string, content: string) =>
-    post<PostMessageResponse>(`/conversations/${id}/messages`, { content }),
+  sendMessage: (id: string, content: string, images?: string[]) =>
+    post<PostMessageResponse>(`/conversations/${id}/messages`, {
+      content,
+      ...(images?.length ? { images } : {}),
+    }),
+  uploadChatImage: (blob: Blob) => uploadFile<{ id: string }>('/chat-images', blob, 'image/jpeg'),
 
   memories: (space: Space) => get<MemoryPage>(`/memories${qs({ space, limit: 100 })}`),
   createMemory: (content: string, kind: MemoryKind, space: Space) =>

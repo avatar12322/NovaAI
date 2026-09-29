@@ -24,6 +24,7 @@ import { householdRoutes } from './household/routes';
 import { pushRoutes } from './push/routes';
 import { digestRoutes } from './digest/routes';
 import { shoppingRoutes } from './shopping/routes';
+import { imageRoutes } from './images/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -206,6 +207,7 @@ export async function buildServer(
       await api.register(pushRoutes(deps));
       await api.register(digestRoutes(deps));
       await api.register(shoppingRoutes(deps));
+      await api.register(imageRoutes(deps));
     },
     { prefix: '/api' },
   );

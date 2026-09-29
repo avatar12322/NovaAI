@@ -75,7 +75,24 @@ export class OpenAiCompatProvider implements ModelProvider {
         body: JSON.stringify({
           model: req.model,
           [this.opts.tokenParam ?? tokenParamFor(this.opts.baseUrl)]: req.maxTokens,
-          messages: [{ role: 'system', content: req.system }, ...req.messages],
+          messages: [
+            { role: 'system', content: req.system },
+            // Zdjęcia jako części wiadomości (format „image_url” z adresem data:).
+            ...req.messages.map((m) =>
+              m.images?.length
+                ? {
+                    role: m.role,
+                    content: [
+                      { type: 'text', text: m.content },
+                      ...m.images.map((i) => ({
+                        type: 'image_url',
+                        image_url: { url: `data:${i.mediaType};base64,${i.data}` },
+                      })),
+                    ],
+                  }
+                : { role: m.role, content: m.content },
+            ),
+          ],
           ...(req.tools.length
             ? {
                 tools: req.tools.map((t) => ({

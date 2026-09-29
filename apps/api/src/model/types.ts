@@ -1,8 +1,16 @@
 /** Kontrakt neutralny względem dostawcy. Żadne typy dostawców nie wyciekają poza `providers/`. */
 
+export interface ChatImage {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  /** Zawartość w base64. */
+  data: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /** Zdjęcia dołączone do wiadomości użytkownika (model z obsługą obrazów). */
+  images?: ChatImage[];
 }
 
 export interface ToolSpec {

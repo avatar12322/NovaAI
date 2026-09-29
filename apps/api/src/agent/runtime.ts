@@ -16,6 +16,14 @@ export interface ContextMessage {
    * Nie jest wysyłane do modelu — służy do dołączenia treści w turze uzupełniającej.
    */
   live?: { tool: string; params: Record<string, unknown>; taskId: string | null };
+  /** Zdjęcia dołączone do wiadomości użytkownika (identyfikatory; treść tylko w turze wysłania). */
+  imageIds?: string[];
+}
+
+/** Zdjęcie z bieżącej wiadomości użytkownika (base64) — dla modeli z obsługą obrazów. */
+export interface TurnImage {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  data: string;
 }
 
 export interface ContextMemory {
@@ -57,6 +65,8 @@ export interface AgentTurnInput {
   /** Zadanie kolejki, w ramach którego działa tura (do rozliczenia kosztów). */
   taskId?: string | null;
   userMessage: string;
+  /** Zdjęcia dołączone do bieżącej wiadomości (tylko w tej turze; w historii — znacznik „[zdjęcie]”). */
+  userImages?: TurnImage[];
   history: ContextMessage[];
   memories: ContextMemory[];
   /** Fragmenty dokumentów pasujące do wiadomości (tylko z dokumentów dostępnych w tym kontekście). */

@@ -32,6 +32,7 @@ const PATHS: Record<string, string> = {
   wallet: 'M4 7h14a2 2 0 012 2v9a2 2 0 01-2 2H4zM4 7l11-3v3M16 13h4',
   key: 'M8 15a4 4 0 110-8 4 4 0 010 8zM11.5 11H21M18 11v3M15 11v2',
   voice: 'M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4',
+  camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 11a3 3 0 100 6 3 3 0 000-6z',
 };
 
 export function Icon({

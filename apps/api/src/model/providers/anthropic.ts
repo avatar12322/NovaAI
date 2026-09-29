@@ -48,9 +48,18 @@ export class AnthropicProvider implements ModelProvider {
       ...(tools.length ? { tools, tool_choice: { type: 'auto' as const } } : {}),
       ...(req.effort ? { output_config: { effort: req.effort } } : {}),
     };
+    // Zdjęcia przed tekstem (zalecenie dokumentacji Claude dla obrazów).
     const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({
       role: m.role,
-      content: m.content,
+      content: m.images?.length
+        ? [
+            ...m.images.map((i): Anthropic.ImageBlockParam => ({
+              type: 'image',
+              source: { type: 'base64', media_type: i.mediaType, data: i.data },
+            })),
+            { type: 'text' as const, text: m.content },
+          ]
+        : m.content,
     }));
     const parts: Anthropic.Message[] = [];
     try {

@@ -1,4 +1,5 @@
 import { decide, scopeFor, type ContextKind } from '@nova/permissions';
+import type pg from 'pg';
 import { writeAudit } from '../audit';
 import type { Principal } from '../principal';
 import { withUserTx, type Db } from '../db/pool';
@@ -12,6 +13,7 @@ import type {
   ContextDocument,
   ContextMemory,
   ContextMessage,
+  TurnImage,
 } from './runtime';
 
 const HISTORY_LIMIT = 20;
@@ -61,7 +63,7 @@ export async function buildTurnContext(
     context: contextKind,
   };
 
-  const { history, memories, documents, catalog, dropped } = await withUserTx(
+  const { history, memories, documents, catalog, dropped, latestImages } = await withUserTx(
     db,
     { userId: auth.userId, scope },
     async (c) => {
@@ -164,10 +166,19 @@ export async function buildTurnContext(
         }));
       return {
         catalog,
+        // Zdjęcia najnowszej wiadomości użytkownika (bieżąca tura) — przez RLS, tylko z tej rozmowy.
+        latestImages: await imagesOf(c, conversationId, msgs.rows[0]),
         history: msgs.rows.reverse().map((m) => ({
           role: m.role,
           content: m.content,
           authorName: m.author_name,
+          ...(Array.isArray(m.meta?.images) && m.meta.images.length
+            ? {
+                imageIds: (m.meta.images as unknown[]).filter(
+                  (x): x is string => typeof x === 'string',
+                ),
+              }
+            : {}),
           ...(m.role === 'tool' && m.meta?.live && typeof m.meta.tool === 'string'
             ? {
                 live: {
@@ -202,13 +213,12 @@ export async function buildTurnContext(
     });
   }
 
-  // Ostatnia wiadomość użytkownika jest już w historii; runtime dostaje ją osobno.
-  const trimmedHistory =
+  // Ostatnia wiadomość użytkownika jest już w historii; runtime dostaje ją osobno (razem z jej zdjęciami).
+  const isLatest =
     history.length > 0 &&
     history[history.length - 1]?.role === 'user' &&
-    history[history.length - 1]?.content === userMessage
-      ? history.slice(0, -1)
-      : history;
+    history[history.length - 1]?.content === userMessage;
+  const trimmedHistory = isLatest ? history.slice(0, -1) : history;
 
   return {
     contextKind,
@@ -216,6 +226,7 @@ export async function buildTurnContext(
     input: {
       conversationId,
       userMessage,
+      ...(isLatest && latestImages.length ? { userImages: latestImages } : {}),
       history: trimmedHistory,
       memories,
       documents,
@@ -230,4 +241,20 @@ export async function buildTurnContext(
       runtimeProfile: agent.runtime_profile,
     },
   };
+}
+
+/** Zdjęcia wiadomości użytkownika (base64) — tylko te dołączone do tej rozmowy i widoczne przez RLS. */
+async function imagesOf(
+  c: pg.PoolClient,
+  conversationId: string,
+  latest: { role: string; meta: Record<string, unknown> | null } | undefined,
+): Promise<TurnImage[]> {
+  const ids =
+    latest?.role === 'user' && Array.isArray(latest.meta?.images) ? latest.meta.images : [];
+  if (!ids.length) return [];
+  const r = await c.query<{ id: string; mime: TurnImage['mediaType']; bytes: Buffer }>(
+    `SELECT id, mime, bytes FROM chat_images WHERE id = ANY($1::uuid[]) AND conversation_id = $2`,
+    [ids.filter((x) => typeof x === 'string'), conversationId],
+  );
+  return r.rows.map((x) => ({ mediaType: x.mime, data: x.bytes.toString('base64') }));
 }

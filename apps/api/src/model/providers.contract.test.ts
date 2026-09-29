@@ -308,6 +308,43 @@ describe('AnthropicProvider (SDK) — kontrakt Messages API', () => {
     expect(captured[0]!.body).not.toHaveProperty('output_config');
   });
 
+  it('zdjęcie w wiadomości: blok image (base64) przed tekstem', async () => {
+    respond = () => ({
+      status: 200,
+      body: {
+        id: 'm',
+        type: 'message',
+        role: 'assistant',
+        model: 'x',
+        content: [{ type: 'text', text: 'Paragon: 45,20 zł' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+    });
+    await provider().complete(
+      req({
+        tools: [],
+        messages: [
+          {
+            role: 'user',
+            content: 'ile na paragonie?',
+            images: [{ mediaType: 'image/jpeg', data: 'QUJD' }],
+          },
+        ],
+      }),
+    );
+    expect(captured[0]!.body.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' } },
+          { type: 'text', text: 'ile na paragonie?' },
+        ],
+      },
+    ]);
+  });
+
   it('odmowa (stop_reason=refusal) jest zwracana jawnie', async () => {
     respond = () => ({
       status: 200,
@@ -399,6 +436,25 @@ describe('OpenAiCompatProvider (Hermes API server) — kontrakt Chat Completions
       outputTokens: 20,
       cacheReadTokens: 3,
       cacheWriteTokens: 0,
+    });
+  });
+
+  it('zdjęcie: część image_url z adresem data:', async () => {
+    respond = () => ({ status: 200, body: { choices: [{ message: { content: 'ok' } }] } });
+    await provider().complete(
+      req({
+        tools: [],
+        messages: [
+          { role: 'user', content: 'co to?', images: [{ mediaType: 'image/png', data: 'UE5H' }] },
+        ],
+      }),
+    );
+    expect(captured[0]!.body.messages[1]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: 'co to?' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,UE5H' } },
+      ],
     });
   });
 

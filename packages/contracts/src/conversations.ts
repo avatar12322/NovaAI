@@ -44,6 +44,8 @@ export type MessagePage = z.infer<typeof MessagePage>;
 
 export const PostMessageRequest = z.object({
   content: z.string().trim().min(1).max(LIMITS.messageChars),
+  /** Zdjęcia wgrane wcześniej (POST /api/chat-images), najwyżej 4 na wiadomość. */
+  images: z.array(Uuid).max(4).optional(),
 });
 export type PostMessageRequest = z.infer<typeof PostMessageRequest>;
 

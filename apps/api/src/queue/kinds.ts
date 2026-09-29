@@ -226,8 +226,11 @@ export const agentTurnKind: TaskKindDef = {
       // Propozycje narzędzi => kroki; broker odrzuca niedozwolone (bez efektów).
       // Niezaufany kontekst (fragmenty dokumentów, wyniki narzędzi w historii) mógł podsunąć modelowi akcję:
       // wtedy każde narzędzie ze skutkami wymaga zgody człowieka, nawet jeśli zwykle jej nie wymaga.
+      // Zdjęcie (np. zrzut ekranu) też może zawierać tekst „poleceń” — akcje z niego wymagają zgody.
       const untrusted =
-        (ctx.input.documents?.length ?? 0) > 0 || ctx.input.history.some((m) => m.role === 'tool');
+        (ctx.input.documents?.length ?? 0) > 0 ||
+        (ctx.input.userImages?.length ?? 0) > 0 ||
+        ctx.input.history.some((m) => m.role === 'tool');
       const newSteps: StepSpec[] = [];
       const denied: Array<{ tool: string; reason: string }> = [];
       for (const [i, call] of result.toolCalls.slice(0, 5).entries()) {

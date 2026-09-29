@@ -23,6 +23,7 @@ import { api, ApiError, type SlackLiveItem } from '../lib/api';
 import { useDeltaEffect, useEventEffect } from '../lib/events';
 import { applyDelta, sameText, type LiveReply } from '../lib/live';
 import { CONNECTOR_DENY_PL, formatMoney, locatorLabel, timeAgo, timeOfDay } from '../lib/format';
+import { prepareImage, type PreparedImage } from '../lib/images';
 import { renderMarkdown } from '../lib/markdown';
 import { clearPendingTurn, peekPendingTurn } from '../lib/pending';
 import { prefersReducedMotion } from '../lib/reveal';
@@ -180,6 +181,9 @@ function ConversationPane({
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  // Zdjęcia do wysłania z następną wiadomością (zmniejszone w przeglądarce).
+  const [photos, setPhotos] = useState<PreparedImage[]>([]);
+  const photoInput = useRef<HTMLInputElement>(null);
   /** Zadanie tury agenta w toku — wskaźnik pracy trwa do jego zakończenia (także po narzędziach). */
   const [thinking, setThinking] = useState<string | null>(() => peekPendingTurn(id));
   useEffect(() => {
@@ -289,11 +293,16 @@ function ConversationPane({
   }, [thinking, load]);
 
   /** Wysyłka treści; zwraca zadanie tury (do śledzenia odpowiedzi) albo null przy błędzie. */
-  const sendText = async (content: string): Promise<string | null> => {
+  const sendText = async (
+    content: string,
+    images: PreparedImage[] = [],
+  ): Promise<string | null> => {
     setSending(true);
     setError(null);
     try {
-      const r = await api.sendMessage(id, content);
+      const ids: string[] = [];
+      for (const img of images) ids.push((await api.uploadChatImage(img.blob)).id);
+      const r = await api.sendMessage(id, content, ids);
       setMessages((m) => [...(m ?? []), r.message]);
       markFresh([r.message.id]);
       setThinking(r.taskId);
@@ -308,9 +317,24 @@ function ConversationPane({
 
   const send = async (ev?: FormEvent) => {
     ev?.preventDefault();
-    const content = draft.trim();
+    const content = draft.trim() || (photos.length ? 'Co widzisz na zdjęciu?' : '');
     if (!content || sending) return;
-    if (await sendText(content)) setDraft('');
+    if (await sendText(content, photos)) {
+      setDraft('');
+      setPhotos([]);
+    }
+  };
+
+  const addPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setError(null);
+    const room = 4 - photos.length;
+    try {
+      const ready = await Promise.all([...files].slice(0, room).map((f) => prepareImage(f)));
+      setPhotos((p) => [...p, ...ready].slice(0, 4));
+    } catch {
+      setError('Nie udało się odczytać zdjęcia — spróbuj innego pliku (JPEG, PNG).');
+    }
   };
 
   // Rozmowa głosowa: rozpoznana wypowiedź od razu idzie do asystenta, a ostatnia odpowiedź tej tury jest
@@ -406,7 +430,46 @@ function ConversationPane({
           {voice.error ?? micError}
         </p>
       )}
+      {photos.length > 0 && (
+        <ul className="composer-photos" aria-label="Zdjęcia do wysłania">
+          {photos.map((p, i) => (
+            <li key={p.preview}>
+              <img src={p.preview} alt={`Zdjęcie ${i + 1}`} />
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`Usuń zdjęcie ${i + 1}`}
+                onClick={() => setPhotos((cur) => cur.filter((_, j) => j !== i))}
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <form className="composer" onSubmit={(e) => void send(e)}>
+        <input
+          ref={photoInput}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          aria-label="Wybierz zdjęcie"
+          onChange={(e) => {
+            void addPhotos(e.target.files);
+            e.target.value = '';
+          }}
+        />
+        <button
+          type="button"
+          className="btn"
+          aria-label="Dodaj zdjęcie"
+          title="Zdjęcie: paragon, dokument, lodówka…"
+          disabled={sending || photos.length >= 4}
+          onClick={() => photoInput.current?.click()}
+        >
+          <Icon name="camera" />
+        </button>
         <label htmlFor="composer-input" className="sr-only">
           Wiadomość
         </label>
@@ -444,7 +507,7 @@ function ConversationPane({
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={sending || !draft.trim()}
+          disabled={sending || (!draft.trim() && !photos.length)}
           aria-label="Wyślij"
         >
           <Icon name="send" />
@@ -654,6 +717,15 @@ function MessageBubble({ m, me, fresh }: { m: Message; me: MeResponse; fresh: bo
           </span>
         )}
       </header>
+      {Array.isArray(m.meta.images) && m.meta.images.length > 0 && (
+        <div className="msg-images">
+          {(m.meta.images as string[]).map((img) => (
+            <a key={img} href={`/api/chat-images/${img}`} target="_blank" rel="noopener">
+              <img src={`/api/chat-images/${img}`} alt="Zdjęcie w wiadomości" loading="lazy" />
+            </a>
+          ))}
+        </div>
+      )}
       <div className="msg-body">
         {m.role === 'assistant' ? <RevealText text={m.content} animate={fresh} /> : m.content}
       </div>

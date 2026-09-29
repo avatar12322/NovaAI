@@ -793,6 +793,19 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: API (wspólna lista, powtórzenia, odhaczanie przez domownika, zdarzenia, izolacja innego domu,
   przegląd dnia), przez model (dodaj/pokaż/odhacz), e2e (Alfa dodaje, Beta odhacza i usuwa; telefon).
 
+### Zdjęcia w czacie (2026-09-29)
+
+- Przycisk aparatu w polu wiadomości (na iPhonie: zrobienie zdjęcia albo wybór z galerii), do 4 zdjęć,
+  miniatury przed wysłaniem. Zdjęcie jest zmniejszane w przeglądarce (1600 px, JPEG) i trafia do modelu razem
+  z wiadomością — np. paragon, lodówka („co ugotować?”), pismo, zrzut ekranu. W wiadomości widać zdjęcie.
+- Serwer: `chat_images` (migracja 0024) — prywatne autora do wysłania, potem widoczność rozmowy (RLS);
+  format sprawdzany po nagłówku pliku (JPEG/PNG/WebP, do 4 MB); niewysłane usuwane po dobie. Model widzi
+  zdjęcie tylko w turze wysłania (w historii znacznik „[zdjęcie]”) — mniejszy koszt. Anthropic: blok `image`
+  (base64) przed tekstem; dostawcy zgodni z OpenAI: `image_url` z adresem `data:`. Szacunek kosztu uwzględnia
+  zdjęcia. Tura ze zdjęciem jest traktowana jak treść niezaufana — akcje z niej wymagają zgody.
+- Testy: kontrakt żądań (Anthropic, OpenAI), przepływ przez czat (uprawnienia, raz na wiadomość, tylko bieżąca
+  tura, NovaAI — widzi domownik, zgoda dla akcji), e2e (wybór pliku, miniatura, zdjęcie w wiadomości).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

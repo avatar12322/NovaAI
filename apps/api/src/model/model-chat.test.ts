@@ -394,3 +394,70 @@ describe('lista zakupów z czatu', () => {
     );
   });
 });
+
+describe('zdjęcia w czacie', () => {
+  const jpeg = () => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(300, 7)]);
+  const upload = (c: Client, body: Buffer, type = 'image/jpeg') =>
+    t.app.inject({
+      method: 'POST',
+      url: '/api/chat-images',
+      headers: { cookie: c.cookie, 'x-nova-csrf': '1', 'content-type': type },
+      payload: body,
+    });
+
+  it('zdjęcie trafia do modelu tylko w turze wysłania; widoczność jak rozmowy; tylko raz', async () => {
+    expect((await upload(alfa, Buffer.alloc(300, 1))).statusCode).toBe(400);
+    const up = await upload(alfa, jpeg());
+    expect(up.statusCode).toBe(201);
+    const id = JSON.parse(up.body).id as string;
+    // Przed wysłaniem — tylko autor.
+    expect((await beta.get(`/api/chat-images/${id}`)).status).toBe(404);
+
+    const conv = (await alfa.post('/api/conversations', { space: 'private' })).body;
+    const sent = await alfa.post(`/api/conversations/${conv.id}/messages`, {
+      content: 'ile wynosi ten paragon?',
+      images: [id],
+    });
+    expect(sent.status).toBe(201);
+    expect(sent.body.message.meta.images).toEqual([id]);
+    await t.drain();
+    const last = provider.calls[0]!.messages.at(-1)!;
+    expect(last.images).toEqual([{ mediaType: 'image/jpeg', data: jpeg().toString('base64') }]);
+    // Ponowne użycie tego samego zdjęcia — odrzucone; prywatne zdjęcie niewidoczne dla domownika.
+    expect(
+      (await alfa.post(`/api/conversations/${conv.id}/messages`, { content: 'x', images: [id] }))
+        .status,
+    ).toBe(400);
+    expect((await beta.get(`/api/chat-images/${id}`)).status).toBe(404);
+    const img = await t.app.inject({
+      method: 'GET',
+      url: `/api/chat-images/${id}`,
+      headers: { cookie: alfa.cookie },
+    });
+    expect(img.statusCode).toBe(200);
+    expect(img.headers['content-type']).toBe('image/jpeg');
+
+    // Następna tura: w historii tylko znacznik, bez ponownego wysyłania obrazu.
+    provider.calls = [];
+    await alfa.post(`/api/conversations/${conv.id}/messages`, { content: 'a na co to wydałem?' });
+    await t.drain();
+    const call = provider.calls[0]!;
+    expect(call.messages.some((m) => m.images?.length)).toBe(false);
+    expect(JSON.stringify(call.messages)).toContain('[zdjęcie — widoczne tylko w turze wysłania]');
+  });
+
+  it('zdjęcie w NovaAI widzi domownik; akcja z tury ze zdjęciem wymaga zgody', async () => {
+    const id = JSON.parse((await upload(beta, jpeg())).body).id as string;
+    const conv = (await beta.post('/api/conversations', { space: 'shared' })).body;
+    toolCalls = [{ name: 'shopping.add', input: { items: ['mleko z paragonu'] } }];
+    await beta.post(`/api/conversations/${conv.id}/messages`, {
+      content: 'dopisz to co brakuje',
+      images: [id],
+    });
+    await t.drain();
+    expect((await alfa.get(`/api/chat-images/${id}`)).status).toBe(200);
+    const pending = (await beta.get('/api/approvals?status=pending')).body.items;
+    expect(pending.map((a: { tool: string }) => a.tool)).toEqual(['shopping.add']);
+    expect((await beta.get('/api/shopping')).body.items).toEqual([]);
+  });
+});

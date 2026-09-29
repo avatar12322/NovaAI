@@ -17,6 +17,10 @@ export async function cleanupExpired(db: Db): Promise<Record<string, number>> {
     enrollmentTokens: await q(
       `DELETE FROM enrollment_tokens WHERE used_at IS NULL AND expires_at < now() - interval '1 day'`,
     ),
+    // Zdjęcia wgrane, ale niewysłane w wiadomości.
+    chatImages: await q(
+      `DELETE FROM chat_images WHERE conversation_id IS NULL AND created_at < now() - interval '1 day'`,
+    ),
     sessions: await q(
       `DELETE FROM auth_sessions WHERE (expires_at < now() - interval '30 days') OR (revoked_at < now() - interval '30 days')`,
     ),

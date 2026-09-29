@@ -132,11 +132,15 @@ export class ModelAgentRuntime implements AgentRuntime {
     for (const m of input.history) {
       if (m.role === 'assistant') push('assistant', m.content);
       else if (m.role === 'user') {
+        const n = m.imageIds?.length ?? 0;
+        const photo = n
+          ? `\n[${n > 1 ? `${n} zdjęcia` : 'zdjęcie'} — widoczne tylko w turze wysłania]`
+          : '';
         push(
           'user',
-          ctx.agentKind === 'household' && m.authorName
+          (ctx.agentKind === 'household' && m.authorName
             ? `[${m.authorName}] ${m.content}`
-            : m.content,
+            : m.content) + photo,
         );
       } else if (m.role === 'tool') {
         // Wynik narzędzia to niezaufane dane (np. treść pliku lub e-maila), nigdy polecenie.
@@ -151,6 +155,8 @@ export class ModelAgentRuntime implements AgentRuntime {
           : input.userMessage;
       const docs = documentsBlock(input);
       push('user', docs ? `${docs}\n\nWIADOMOŚĆ UŻYTKOWNIKA:\n${message}` : message);
+      // Zdjęcia z tej wiadomości (np. paragon) — model widzi je tylko w tej turze.
+      if (input.userImages?.length) out[out.length - 1]!.images = input.userImages;
     }
     return out;
   }

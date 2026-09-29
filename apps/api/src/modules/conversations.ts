@@ -17,7 +17,7 @@ import { emitEvent } from '../events';
 import { createTask } from '../queue/tasks';
 import type { AppDeps } from '../deps';
 import { decodeCursor, pageResult } from '../lib/cursor';
-import { forbidden, notFound } from '../lib/errors';
+import { badRequest, forbidden, notFound } from '../lib/errors';
 import { parse } from '../lib/validate';
 
 interface ConversationRow {
@@ -284,11 +284,23 @@ export const conversationRoutes =
         async (c) => {
           const conv = await fetchConversation(c, req.params.id);
           if (!conv) throw notFound('Conversation');
+          // Zdjęcia autora wgrane wcześniej: dołączone do tej rozmowy (z jej widocznością), każde tylko raz.
+          const images = [...new Set(body.images ?? [])];
+          if (images.length) {
+            const r = await c.query(
+              `UPDATE chat_images SET conversation_id = $2, visibility = $3
+                WHERE id = ANY($1::uuid[]) AND owner_user_id = nova_uid() AND conversation_id IS NULL`,
+              [images, conv.id, conv.visibility],
+            );
+            if (r.rowCount !== images.length)
+              throw badRequest('Zdjęcie nie jest już dostępne — dodaj je ponownie');
+          }
           const msg = await insertMessage(c, {
             conversationId: conv.id,
             role: 'user',
             authorUserId: auth.userId,
             content: body.content,
+            ...(images.length ? { meta: { images } } : {}),
             requestId: req.id,
           });
           // Rozmowa z domyślnym tytułem dostaje tytuł z pierwszej wiadomości (lista nie jest ciągiem „Nowa rozmowa”).
