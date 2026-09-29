@@ -863,6 +863,27 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Tryb demo: polecenia „dodaj do kalendarza: 2026-10-05T10:00 | Tytuł” i „zaproponuj zapamiętanie: …”;
   e2e propozycji zapamiętania przechodzi teraz cały przepływ (zgoda w czacie → wpis w Pamięci).
 
+### Skrót Siri „Zapytaj Novę” (2026-09-29)
+
+- Ustawienia → Skrót Siri (każda osoba dla siebie): „Utwórz klucz skrótu” — klucz widoczny raz (Kopiuj),
+  „Nowy klucz” (poprzedni przestaje działać), „Wyłącz”; ostatnie użycie. Instrukcja krok po kroku dla
+  aplikacji Skróty: Dyktuj tekst → Pobierz zawartość URL (POST, `Authorization: Bearer <klucz>`, JSON
+  `question`) → Pokaż wynik. „Hej Siri, Zapytaj Novę” — Siri czyta odpowiedź.
+- Serwer: `POST /api/shortcut/ask` — tylko klucz (bez ciasteczka, więc bez nagłówka CSRF); pytanie trafia do
+  prywatnej rozmowy „Siri” (ta sama przy kolejnych pytaniach, nowa po archiwizacji), tura asystenta jak w czacie,
+  odpowiedź zwykłym tekstem bez formatowania (do 25 s; dłużej — „odpowiedź w aplikacji”). Akcje wymagające zgody
+  czekają w aplikacji („Zgoda czeka w aplikacji NovaAI”). Model wie, że odpowiedź przeczyta Siri (krótko, bez
+  list). Błędy także tekstem. Limity: 30/min na adres, 10/min na osobę. Klucz: w bazie tylko SHA-256, nieważny
+  po wyłączeniu konta lub członkostwa. Migracja 0027. Polityka prywatności uzupełniona (klucz, Apple).
+- Tworzenie rozmowy wydzielone do `createConversation` (czat i skrót — jedna ścieżka).
+- Testy: API 5/5 (klucz widoczny raz i tylko jako skrót, zastąpienie i wyłączenie, pytanie bez ciasteczka →
+  tekst, rozmowa „Siri” prywatna i ciągła, archiwizacja, zgoda czeka, odmowy tekstem, ciasteczko nie zastępuje
+  klucza, limit czasu, tekst do mowy, podpowiedź w prompcie). Cały zestaw API: 349 zaliczonych, 1 niezaliczony
+  tylko na Windowsie bez uprawnień do symlinków (`devices.test.ts`, EPERM — środowisko, nie kod).
+  e2e `shortcut.spec.ts` (klucz z UI → pytanie jak ze Skrótów → rozmowa w czacie) napisany, **nieuruchomiony**
+  (brak Chromium Playwrighta na tym komputerze). **Nie sprawdzone na prawdziwym iPhonie** — wymaga wdrożenia
+  pod publicznym adresem.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

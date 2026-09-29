@@ -79,7 +79,9 @@ export class ModelAgentRuntime implements AgentRuntime {
     );
     return [
       `Jesteś ${ctx.agentName} — ${who}`,
-      'Odpowiadaj po polsku, zwięźle i konkretnie. Formatowanie tylko proste: **pogrubienie**, listy „- ”; bez tabel.',
+      input.spoken
+        ? 'Odpowiadaj po polsku. Odpowiedź przeczyta na głos Siri: 1–3 krótkie zdania, bez formatowania, list, odnośników i emoji.'
+        : 'Odpowiadaj po polsku, zwięźle i konkretnie. Formatowanie tylko proste: **pogrubienie**, listy „- ”; bez tabel.',
       `Teraz: ${nowInPoland()} (czas w Polsce). Daty typu „jutro”, „w piątek” licz od tej chwili.`,
       'Terminy w narzędziach (np. przypomnienia) podawaj jako czas lokalny w Polsce bez strefy, np. 2026-09-30T08:00 — serwer sam uwzględni czas letni i zimowy.',
       '',

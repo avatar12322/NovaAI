@@ -798,3 +798,19 @@ Dokumentacja sprawdzona 2026-09-29: `events.insert` — `POST /calendar/v3/calen
   e-maila). Tylko agent prywatny — NovaAI nie zapisuje w niczyim kalendarzu.
 - Czas lokalny bez przesunięcia + `timeZone: Europe/Warsaw` — Google sam uwzględnia czas letni/zimowy.
 - Aplikacja tylko dodaje; nie czyta, nie zmienia i nie usuwa wydarzeń (mimo że zakres by na to pozwalał).
+
+## D-045 Skrót Siri przez osobisty klucz i endpoint tekstowy
+
+Dokumentacja Apple (Skróty, sprawdzona 2026-09-29 w poprzedniej sesji): Siri uruchamia skrót po jego nazwie
+i czyta na głos jego wynik; akcja „Pobierz zawartość URL” wysyła POST z nagłówkami i treścią JSON.
+
+- Uwierzytelnienie kluczem (`Authorization: Bearer`), nie ciasteczkiem: Skróty nie mają sesji przeglądarki,
+  a passkey nie da się użyć w tle. Klucz 256-bitowy, pokazywany raz, w bazie SHA-256 (jak tokeny sesji); jeden
+  na osobę, zastąpienie i wyłączenie unieważniają poprzedni. Działa wyłącznie dla `/api/shortcut/ask` — nie
+  otwiera reszty API.
+- Ta trasa jest zwolniona z nagłówka CSRF: ochrona CSRF dotyczy uwierzytelnienia ciasteczkiem, a tu ciasteczko
+  jest ignorowane (sama sesja → 401).
+- Pytania idą do prywatnego agenta w stałej rozmowie „Siri” — historia widoczna w aplikacji i ciągłość
+  kontekstu („a jutro?”). NovaAI (wspólny) nie jest dostępny przez skrót.
+- Odpowiedź synchroniczna: endpoint tworzy zwykłą turę w kolejce i czeka na jej wynik (odpytywanie bazy,
+  do 25 s). Akcje ze zgodą nie są zatwierdzane głosem — zgoda zostaje w aplikacji.

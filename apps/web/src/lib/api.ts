@@ -113,6 +113,14 @@ async function uploadFile<T>(
   return data as T;
 }
 
+/** Skrót Siri: czy klucz jest aktywny, adres pytań dla aplikacji Skróty. */
+export interface ShortcutStatus {
+  enabled: boolean;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+  url: string;
+}
+
 /** Komunikat błędu z API; przy walidacji — konkretne powody z serwera (bez wartości pól). */
 export function errorText(e: unknown): string {
   if (!(e instanceof ApiError)) return 'Błąd';
@@ -350,6 +358,9 @@ export const api = {
   pushUnsubscribe: (endpoint: string) =>
     post<{ removed: number }>('/push/unsubscribe', { endpoint }),
   pushTest: () => post<{ delivered: number }>('/push/test'),
+  shortcut: () => get<ShortcutStatus>('/shortcut'),
+  shortcutCreateKey: () => post<{ key: string; url: string }>('/shortcut/key'),
+  shortcutRevokeKey: () => request<void>('DELETE', '/shortcut/key'),
   expenseCategories: () =>
     get<{ categories: Array<{ key: string; label: string }> }>('/expenses/categories'),
   expenses: (month: string, space: 'all' | Space) =>

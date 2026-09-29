@@ -68,6 +68,9 @@ komercyjna ani publiczna: konta powstają wyłącznie z zaproszenia właściciel
     dokumenty, przypomnienia, zadania, kalendarz lokalny i wgrany plan zajęć, lista zakupów, wydatki,
     stałe płatności i raty, terminy i fiszki do nauki.</li>
   <li><strong>Połączone konto Google</strong> — opisane niżej.</li>
+  <li><strong>Skrót Siri</strong> (jeśli go włączysz): osobisty klucz skrótu — serwer przechowuje tylko jego
+    skrót kryptograficzny; pytania i odpowiedzi trafiają do Twojej prywatnej rozmowy „Siri”. Klucz można
+    w każdej chwili wyłączyć w Ustawieniach.</li>
   <li><strong>Dane techniczne:</strong> ciasteczko sesji (niezbędne do logowania) i dziennik zdarzeń
     bezpieczeństwa (np. logowanie, zatwierdzenia) bez treści wiadomości. Aplikacja nie używa narzędzi
     analitycznych, reklam ani śledzenia.</li>
@@ -115,6 +118,8 @@ użytkownika w usługach Google API</a>, w tym z wymaganiami dotyczącymi ograni
     i usługa jej nie widzi.</li>
   <li><strong>Open-Meteo</strong> — prognoza pogody w przeglądzie dnia; trafiają tam tylko współrzędne miasta
     ustawionego przez właściciela domu.</li>
+  <li><strong>Apple (Siri i Skróty)</strong> — tylko przy włączonym Skrócie Siri: pytanie rozpoznaje Siri na
+    Twoim iPhonie (zgodnie z ustawieniami telefonu), a do NovaAI trafia jego tekst.</li>
   <li><strong>OVH</strong> — serwer i kopie zapasowe (centrum danych w Polsce).</li>
 </ul>
 

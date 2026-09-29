@@ -27,6 +27,7 @@ import { shoppingRoutes } from './shopping/routes';
 import { imageRoutes } from './images/routes';
 import { expenseRoutes } from './expenses/routes';
 import { studyRoutes } from './study/routes';
+import { SHORTCUT_ASK_PATH, shortcutRoutes } from './shortcut/routes';
 import { deviceRoutes } from './devices/routes';
 import { conversationRoutes, enqueueAgentTurn } from './modules/conversations';
 import { eventRoutes } from './modules/events';
@@ -112,11 +113,13 @@ export async function buildServer(
     }
     // Ochrona CSRF: mutacje wymagają niestandardowego nagłówka (wymusza preflight CORS,
     // którego serwer nie obsługuje dla obcych originów) + ciasteczko SameSite=Strict.
+    // Wyjątki uwierzytelniają się bez ciasteczek (urządzenia, webhooki, klucz Skrótu Siri).
     if (
       MUTATING.has(req.method) &&
       req.url.startsWith('/api/') &&
       !req.url.startsWith('/api/device-link/') &&
-      !req.url.startsWith('/api/webhooks/')
+      !req.url.startsWith('/api/webhooks/') &&
+      req.url.split('?')[0] !== SHORTCUT_ASK_PATH
     ) {
       if (req.headers['x-nova-csrf'] !== '1') {
         throw new HttpError(403, 'csrf', 'Brak nagłówka x-nova-csrf');
@@ -212,6 +215,7 @@ export async function buildServer(
       await api.register(imageRoutes(deps));
       await api.register(expenseRoutes(deps));
       await api.register(studyRoutes(deps));
+      await api.register(shortcutRoutes(deps));
     },
     { prefix: '/api' },
   );

@@ -2104,21 +2104,37 @@ kbd {
   align-items: center;
   justify-content: space-between;
 }
-.note.invite-link {
+.note.invite-link,
+.note.shortcut-key {
   flex-direction: column;
   align-items: stretch;
 }
-.invite-link p {
+.invite-link p,
+.shortcut-key p {
   margin: 0;
 }
-.invite-link .row {
+.invite-link .row,
+.shortcut-key .row {
   flex-wrap: nowrap;
 }
-.invite-link .row input {
+.invite-link .row input,
+.shortcut-key .row input {
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+}
+
+/* Skrót Siri (Ustawienia) */
+.shortcut-steps summary {
+  cursor: pointer;
+}
+.shortcut-steps ol {
+  margin: var(--space-2) 0 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
 }
 
 /* Przegląd dnia (Ustawienia → Powiadomienia) */

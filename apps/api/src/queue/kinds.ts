@@ -55,19 +55,22 @@ function turnStream(x: StepExecution, step: 'reply' | 'followup') {
   );
 }
 
-/** Wiadomość użytkownika, od której zaczęła się tura — odczyt pod RLS kontekstu zadania. */
-async function loadUserMessage(x: StepExecution): Promise<string> {
+/**
+ * Wiadomość użytkownika, od której zaczęła się tura — odczyt pod RLS kontekstu zadania.
+ * `spoken`: pytanie ze Skrótu Siri — odpowiedź zostanie przeczytana na głos.
+ */
+async function loadUserMessage(x: StepExecution): Promise<{ content: string; spoken: boolean }> {
   const messageId = String(x.task.input.messageId ?? '');
   const scope = x.context === 'household_agent' ? 'shared' : 'user';
-  const content = await withUserTx(x.deps.db, { userId: x.principal.userId, scope }, async (c) => {
-    const r = await c.query<{ content: string }>(
-      'SELECT content FROM messages WHERE id = $1 AND conversation_id = $2',
+  const row = await withUserTx(x.deps.db, { userId: x.principal.userId, scope }, async (c) => {
+    const r = await c.query<{ content: string; via: string | null }>(
+      `SELECT content, meta->>'via' AS via FROM messages WHERE id = $1 AND conversation_id = $2`,
       [messageId, x.task.conversation_id],
     );
-    return r.rows[0]?.content ?? null;
+    return r.rows[0] ?? null;
   });
-  if (content === null) throw new ToolDenied('message_not_visible');
-  return content;
+  if (row === null) throw new ToolDenied('message_not_visible');
+  return { content: row.content, spoken: row.via === 'siri' };
 }
 
 type TurnContext = Awaited<ReturnType<typeof buildTurnContext>>;
@@ -173,7 +176,7 @@ export const agentTurnKind: TaskKindDef = {
   },
   steps: {
     reply: async (x) => {
-      const userMessage = await loadUserMessage(x);
+      const { content: userMessage, spoken } = await loadUserMessage(x);
 
       const ctx = await buildTurnContext(
         x.deps.db,
@@ -216,7 +219,7 @@ export const agentTurnKind: TaskKindDef = {
       const stream = turnStream(x, 'reply');
       const result = await x.deps.runtime
         .runTurn(
-          { ...ctx.input, taskId: x.task.id, stream, disabledFeatures },
+          { ...ctx.input, taskId: x.task.id, stream, disabledFeatures, spoken },
           ctx.userContext,
           capabilities,
         )
@@ -283,7 +286,7 @@ export const agentTurnKind: TaskKindDef = {
       };
     },
     followup: async (x) => {
-      const userMessage = await loadUserMessage(x);
+      const { content: userMessage, spoken } = await loadUserMessage(x);
       const ctx = await buildTurnContext(
         x.deps.db,
         x.principal,
@@ -314,7 +317,15 @@ export const agentTurnKind: TaskKindDef = {
       const stream = turnStream(x, 'followup');
       const result = await x.deps.runtime
         .runTurn(
-          { ...ctx.input, history, documents: [], taskId: x.task.id, followUp: true, stream },
+          {
+            ...ctx.input,
+            history,
+            documents: [],
+            taskId: x.task.id,
+            followUp: true,
+            stream,
+            spoken,
+          },
           ctx.userContext,
           [],
         )

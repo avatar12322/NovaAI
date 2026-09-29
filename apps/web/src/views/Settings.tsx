@@ -10,6 +10,7 @@ import { DevicesPanel } from './Devices';
 import { HouseholdPanel } from './Household';
 import { PasskeysPanel } from './Passkeys';
 import { PushPanel } from './PushPanel';
+import { ShortcutPanel } from './ShortcutPanel';
 import { CalendarPanel, IntegrationsPanel } from './Integrations';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -76,6 +77,7 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
       )}
       <IntegrationsPanel showUnavailable={isOwner} />
       <CalendarPanel />
+      <ShortcutPanel />
       <section className="panel">
         <h2 className="h-sub">Wygląd</h2>
         <div className="space-switch" role="radiogroup" aria-label="Motyw">

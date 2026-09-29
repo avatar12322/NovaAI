@@ -82,6 +82,8 @@ export interface AgentTurnInput {
   followUp?: boolean;
   /** Funkcje kont możliwe do włączenia, a teraz wyłączone (brak połączenia albo uprawnienia) — po polsku. */
   disabledFeatures?: string[];
+  /** Pytanie ze Skrótu Siri: odpowiedź zostanie przeczytana na głos. */
+  spoken?: boolean;
 }
 
 export interface AgentUserContext {

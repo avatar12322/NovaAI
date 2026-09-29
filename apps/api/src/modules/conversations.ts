@@ -75,9 +75,37 @@ const toMessage = (r: MessageRow): Message => ({
   createdAt: r.created_at,
 });
 
-async function fetchConversation(c: pg.PoolClient, id: string): Promise<Conversation | null> {
+export async function fetchConversation(
+  c: pg.PoolClient,
+  id: string,
+): Promise<Conversation | null> {
   const { rows } = await c.query<ConversationRow>(`${CONV_SELECT} WHERE c.id = $1`, [id]);
   return rows[0] ? toConversation(rows[0]) : null;
+}
+
+/**
+ * Nowa rozmowa w transakcji użytkownika. Agenta wyznacza serwer: prywatna => prywatny agent właściciela;
+ * wspólna => NovaAI.
+ */
+export async function createConversation(
+  c: pg.PoolClient,
+  householdId: string,
+  space: 'private' | 'shared',
+  title: string,
+): Promise<Conversation> {
+  const agent = await c.query<{ id: string }>(
+    space === 'private'
+      ? `SELECT id FROM agents WHERE household_id = $1 AND kind = 'private' AND owner_user_id = nova_uid()`
+      : `SELECT id FROM agents WHERE household_id = $1 AND kind = 'household'`,
+    [householdId],
+  );
+  if (!agent.rows[0]) throw notFound('Agent');
+  const ins = await c.query<{ id: string }>(
+    `INSERT INTO conversations (household_id, owner_user_id, agent_id, visibility, title)
+     VALUES ($1, nova_uid(), $2, $3, $4) RETURNING id`,
+    [householdId, agent.rows[0].id, space, title],
+  );
+  return (await fetchConversation(c, ins.rows[0]!.id))!;
 }
 
 export async function insertMessage(
@@ -122,7 +150,7 @@ export function shortText(text: string, max: number): string {
 
 type MessageHandler = (args: {
   deps: AppDeps;
-  auth: AuthContext;
+  auth: Pick<AuthContext, 'userId' | 'householdId'>;
   conversation: Conversation;
   message: Message;
   requestId: string;
@@ -200,30 +228,14 @@ export const conversationRoutes =
         visibility: body.space,
       });
       if (!decision.allow) throw forbidden();
-      const conversation = await withUserTx(
-        deps.db,
-        { userId: auth.userId, scope: 'user' },
-        async (c) => {
-          // Agenta wyznacza serwer: prywatna => prywatny agent właściciela; wspólna => NovaAI.
-          const agent = await c.query<{ id: string }>(
-            body.space === 'private'
-              ? `SELECT id FROM agents WHERE household_id = $1 AND kind = 'private' AND owner_user_id = nova_uid()`
-              : `SELECT id FROM agents WHERE household_id = $1 AND kind = 'household'`,
-            [auth.householdId],
-          );
-          if (!agent.rows[0]) throw notFound('Agent');
-          const ins = await c.query<{ id: string }>(
-            `INSERT INTO conversations (household_id, owner_user_id, agent_id, visibility, title)
-           VALUES ($1, nova_uid(), $2, $3, $4) RETURNING id`,
-            [
-              auth.householdId,
-              agent.rows[0].id,
-              body.space,
-              body.title ?? (body.space === 'shared' ? 'Wspólna rozmowa' : 'Nowa rozmowa'),
-            ],
-          );
-          return fetchConversation(c, ins.rows[0]!.id);
-        },
+      const householdId = auth.householdId;
+      const conversation = await withUserTx(deps.db, { userId: auth.userId, scope: 'user' }, (c) =>
+        createConversation(
+          c,
+          householdId,
+          body.space,
+          body.title ?? (body.space === 'shared' ? 'Wspólna rozmowa' : 'Nowa rozmowa'),
+        ),
       );
       await writeAudit(deps.db, {
         actorKind: 'user',
@@ -233,7 +245,7 @@ export const conversationRoutes =
         source: 'api',
         action: 'conversation.create',
         resourceType: 'conversation',
-        resourceId: conversation!.id,
+        resourceId: conversation.id,
         outcome: 'ok',
         correlationId: req.id,
         details: { visibility: body.space },
