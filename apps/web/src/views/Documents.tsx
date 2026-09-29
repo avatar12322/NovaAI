@@ -7,6 +7,7 @@ import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { formatSize, locatorLabel, timeAgo } from '../lib/format';
 import { href } from '../lib/router';
+import { FlashcardsPanel } from './Flashcards';
 
 const FORMAT_PL: Record<DocumentInfo['format'], string> = {
   pdf: 'PDF',
@@ -106,6 +107,7 @@ export function DocumentsView({ space }: { space: Space }) {
           ))}
         </ul>
       )}
+      {space === 'private' && <FlashcardsPanel />}
     </section>
   );
 }

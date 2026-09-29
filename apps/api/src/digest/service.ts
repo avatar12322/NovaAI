@@ -4,6 +4,7 @@ import type { AppDeps } from '../deps';
 import { emitEvent } from '../events';
 import { formatMoney, paymentsDueOn } from '../expenses/service';
 import { shortList } from '../shopping/service';
+import { deadlinesOn, dueCount, KIND_PL } from '../study/service';
 import { weatherText, type DayWeather } from '../weather/openmeteo';
 
 /**
@@ -55,6 +56,12 @@ export function warsawClock(now: Date): { date: string; minutes: number } {
     minutes: Number(parts.hour) * 60 + Number(parts.minute),
   };
 }
+
+const addDays = (isoDate: string, n: number) => {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 const dayLabel = (isoDate: string) =>
   new Intl.DateTimeFormat('pl-PL', {
@@ -131,7 +138,21 @@ export async function buildDigest(
     );
     const targetDate = date.rows[0]!.date;
     const payments = await paymentsDueOn(c, user.householdId, targetDate);
-    return { date: targetDate, events, reminders, renewals, shopping, payments };
+    const deadlines = await deadlinesOn(c, targetDate);
+    // Rano: zapowiedź terminów za 3 dni i liczba fiszek do powtórki.
+    const soon = kind === 'morning' ? await deadlinesOn(c, addDays(targetDate, 3)) : [];
+    const cards = kind === 'morning' ? await dueCount(c, targetDate) : 0;
+    return {
+      date: targetDate,
+      events,
+      reminders,
+      renewals,
+      shopping,
+      payments,
+      deadlines,
+      soon,
+      cards,
+    };
   });
 
   const lines: string[] = [];
@@ -143,6 +164,14 @@ export async function buildDigest(
     lines.push(
       `Przypomnienie ${time(r.due_at)}: ${r.text}${r.visibility === 'shared' ? ' (wspólne)' : ''}`,
     );
+  for (const d of data.deadlines)
+    lines.push(
+      `${KIND_PL[d.kind]}: ${d.title}${d.subject ? ` (${d.subject})` : ''}${d.allDay ? '' : `, ${time(d.dueAt)}`}`,
+    );
+  for (const d of data.soon)
+    lines.push(
+      `Za 3 dni — ${KIND_PL[d.kind].toLowerCase()}: ${d.title}${d.subject ? ` (${d.subject})` : ''}`,
+    );
   for (const s of data.renewals.rows) lines.push(`Odnowienie usługi: ${s.name}`);
   for (const p of data.payments)
     lines.push(
@@ -150,6 +179,7 @@ export async function buildDigest(
     );
   if (data.shopping.rows.length)
     lines.push(`Lista zakupów: ${shortList(data.shopping.rows.map((x) => x.text))}`);
+  if (data.cards) lines.push(`Fiszki do powtórki: ${data.cards}`);
   if (!lines.length)
     lines.push(kind === 'morning' ? 'Nic w planie na dziś.' : 'Nic w planie na jutro.');
   const w = await weatherFor(deps, user.householdId, data.date);

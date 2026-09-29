@@ -285,6 +285,32 @@ export interface RecurringPayment {
   remaining: number | null;
 }
 
+export interface Deadline {
+  id: string;
+  title: string;
+  subject: string;
+  kind: 'egzamin' | 'oddanie' | 'inne';
+  dueAt: string;
+  allDay: boolean;
+  done: boolean;
+}
+
+export interface FlashDeck {
+  id: string;
+  title: string;
+  subject: string;
+  cards: number;
+  due: number;
+  learned: number;
+}
+
+export interface FlashCard {
+  id: string;
+  front: string;
+  back: string;
+  box: number;
+}
+
 export interface ShoppingItem {
   id: string;
   text: string;
@@ -346,6 +372,17 @@ export const api = {
   }) => post<{ id: string }>('/payments', p),
   paymentPaid: (id: string) => post<{ paid: true; already: boolean }>(`/payments/${id}/paid`),
   endPayment: (id: string) => request<void>('DELETE', `/payments/${id}`),
+  deadlines: () => get<{ items: Deadline[] }>('/deadlines'),
+  addDeadline: (d: { title: string; subject: string; kind: Deadline['kind']; due: string }) =>
+    post<{ deadline: Deadline }>('/deadlines', d),
+  setDeadlineDone: (id: string, done: boolean) =>
+    request<{ ok: true }>('PATCH', `/deadlines/${id}`, { done }),
+  deleteDeadline: (id: string) => request<void>('DELETE', `/deadlines/${id}`),
+  decks: () => get<{ items: FlashDeck[] }>('/flashcards/decks'),
+  dueCards: (deckId: string) => get<{ items: FlashCard[] }>(`/flashcards/decks/${deckId}/due`),
+  reviewCard: (id: string, known: boolean) =>
+    post<{ box: number; dueOn: string }>(`/flashcards/${id}/review`, { known }),
+  deleteDeck: (id: string) => request<void>('DELETE', `/flashcards/decks/${id}`),
   shopping: () => get<{ items: ShoppingItem[] }>('/shopping'),
   shoppingAdd: (items: string[]) =>
     post<{ added: string[]; skipped: string[] }>('/shopping', { items }),

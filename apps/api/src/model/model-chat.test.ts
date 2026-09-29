@@ -91,8 +91,12 @@ describe('rozmowa przez model', () => {
     expect(call.tools.map((x) => x.name).sort()).toEqual([
       'calendar.agenda',
       'calendar.freebusy',
+      'deadline.add',
+      'deadline.done',
+      'deadline.list',
       'expense.add',
       'expense.summary',
+      'flashcards.create',
       'household.notify',
       'memory.create',
       'payment.add',
@@ -521,5 +525,54 @@ describe('wydatki i raty z czatu', () => {
     expect(await toolMessage(alfa, 'zapłaciłem ratę za laptop')).toMatch(
       /^Zapłacone: Rata za laptop — 250,00/,
     );
+  });
+});
+
+describe('terminy i fiszki z czatu', () => {
+  async function toolMessage(c: Client, content: string) {
+    const conv = (await c.post('/api/conversations', { space: 'private' })).body;
+    await c.post(`/api/conversations/${conv.id}/messages`, { content });
+    await t.drain();
+    const msgs = (await c.get(`/api/conversations/${conv.id}/messages`)).body.items as Array<{
+      role: string;
+      content: string;
+    }>;
+    return msgs.find((m) => m.role === 'tool')?.content ?? '';
+  }
+
+  it('termin kolokwium i fiszki z notatek', async () => {
+    const d = new Date(`${warsawClock(new Date()).date}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 7);
+    const day = d.toISOString().slice(0, 10);
+    toolCalls = [
+      {
+        name: 'deadline.add',
+        input: {
+          title: 'Kolokwium',
+          subject: 'Analiza danych',
+          kind: 'egzamin',
+          due: `${day}T10:00`,
+        },
+      },
+    ];
+    expect(await toolMessage(alfa, 'kolokwium z analizy za tydzień o 10')).toMatch(
+      /^Zapisano termin: Egzamin \/ kolokwium — Kolokwium \(Analiza danych\), .* 10:00$/,
+    );
+    toolCalls = [
+      {
+        name: 'flashcards.create',
+        input: {
+          deck: 'Analiza danych',
+          cards: [
+            { front: 'Mediana?', back: 'Wartość środkowa' },
+            { front: 'Moda?', back: 'Najczęstsza wartość' },
+          ],
+        },
+      },
+    ];
+    expect(await toolMessage(alfa, 'zrób fiszki z notatek')).toBe(
+      'Dodano 2 fiszki do talii „Analiza danych” — nauka: Dokumenty → Fiszki',
+    );
+    expect((await alfa.get('/api/flashcards/decks')).body.items[0].cards).toBe(2);
   });
 });

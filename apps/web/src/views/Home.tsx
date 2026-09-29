@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api';
 import { useEventEffect } from '../lib/events';
 import { TASK_STATUS_PL, timeAgo } from '../lib/format';
 import { href } from '../lib/router';
+import { DeadlinesPanel } from './Deadlines';
 import { RemindersPanel } from './Reminders';
 import { ShoppingPanel } from './Shopping';
 
@@ -46,6 +47,7 @@ export function HomeView({ me }: { me: MeResponse }) {
       </header>
       <BriefingPanel />
       <ShoppingPanel me={me} />
+      <DeadlinesPanel />
       <RemindersPanel />
       {/* Błąd dotyczy wiadomości i zadań — pokazujemy go przy nich, nie nad całą stroną. */}
       {error && <ErrorNote error={error} onRetry={load} />}

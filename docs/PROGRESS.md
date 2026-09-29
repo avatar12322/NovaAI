@@ -822,6 +822,21 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   opłacony przez domownika, zakończenie przez autora, przegląd dnia), przez model (wydatek, podsumowanie,
   rata), e2e (wspólny wydatek Bety u Alfy, rata „Zapłacone”).
 
+### Terminy i fiszki (2026-09-29)
+
+- „Dom” → Terminy: egzamin/kolokwium, oddanie (projekt, zlecenie — przyda się też przy pracy grafika), inny;
+  data i opcjonalnie godzina, przedmiot podpowiadany z planu zajęć; „za N dni”, odhaczenie „zrobione”.
+  Przegląd dnia: 3 dni wcześniej (rano), dzień przed (wieczorem) i w dniu terminu. Prywatne.
+- „Dokumenty” → Fiszki: talie tworzy asystent z notatek („zrób fiszki z …” — czyta dokument i zapisuje karty),
+  nauka: pytanie → „Pokaż odpowiedź” → „Umiem” / „Jeszcze nie” (metoda Leitnera: przerwy 1, 2, 4, 8, 16 dni).
+  Rano w przeglądzie: „Fiszki do powtórki: N”.
+- Asystent (czat prywatny): `deadline.add`, `deadline.list`, `deadline.done`, `flashcards.create`.
+- Dane: `deadlines`, `flashcard_decks`, `flashcards` — tylko właściciel (RLS; karta tylko do własnej talii),
+  migracja 0026.
+- Testy: API (czas polski, prywatność, przeszłość odrzucona, zapowiedź 3 dni / wieczór / dzień, fiszki:
+  Leitner, dopisanie do talii, prywatność, usunięcie), przez model (termin, fiszki), e2e (termin w „Dom”,
+  nauka z talii).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
