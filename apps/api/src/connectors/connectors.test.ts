@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { seedDev } from '../db/seed';
 import { withUserTx } from '../db/pool';
+import { warsawClock } from '../digest/service';
 import { createTestApp, login, truncateAll, type Client, type TestApp } from '../test/helpers';
 import { buildRfc2822, type GoogleEndpoints } from './google';
 
@@ -21,6 +22,7 @@ interface MockState {
   sent: string[];
   tokenCalls: Array<Record<string, string>>;
   busy: Array<{ start: string; end: string }>;
+  events: Array<Record<string, any>>;
 }
 const mock: MockState = {
   challenge: null,
@@ -30,6 +32,7 @@ const mock: MockState = {
   sent: [],
   tokenCalls: [],
   busy: [],
+  events: [],
 };
 let server: Server;
 let endpoints: GoogleEndpoints;
@@ -64,7 +67,7 @@ function startMock(): Promise<void> {
             refresh_token: '1//REFRESH-1',
             expires_in: mock.expiresIn,
             scope:
-              'https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+              'https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events.owned https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
             token_type: 'Bearer',
           });
         }
@@ -75,7 +78,7 @@ function startMock(): Promise<void> {
             access_token: 'ya29.ACCESS-2',
             expires_in: 3600,
             scope:
-              'https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
+              'https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events.owned https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
           });
         }
         return send(400, { error: 'unsupported_grant_type' });
@@ -85,6 +88,13 @@ function startMock(): Promise<void> {
         return send(200, {});
       }
       if (!bearer.startsWith('Bearer ya29.')) return send(401, {});
+      if (url.pathname === '/calendar/calendars/primary/events' && req.method === 'POST') {
+        mock.events.push(JSON.parse(raw));
+        return send(200, {
+          id: `ev-${mock.events.length}`,
+          htmlLink: 'https://calendar.google.com/calendar/event?eid=test',
+        });
+      }
       if (url.pathname === '/calendar/freeBusy')
         return send(200, { calendars: { primary: { busy: mock.busy } } });
       if (url.pathname === '/gmail/users/me/messages/send') {
@@ -167,6 +177,7 @@ beforeEach(async () => {
     sent: [],
     tokenCalls: [],
     busy: [],
+    events: [],
   });
 });
 
@@ -370,6 +381,86 @@ describe('free/busy dla NovaAI — tylko z jawnym grantem, bez szczegółów', (
     expect(msgs.find((m) => m.role === 'tool').content).toContain(
       'zajęte 2026-10-01T12:00:00Z – 2026-10-01T13:00:00Z',
     );
+  });
+});
+
+describe('Kalendarz Google: dodawanie wydarzeń', () => {
+  const inDays = (n: number) => {
+    const d = new Date(`${warsawClock(new Date()).date}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it('zawsze zgoda z podglądem; po zatwierdzeniu jedno wydarzenie w czasie polskim', async () => {
+    const { url } = await connectGoogle(alfa, ['calendar.write']);
+    expect(url.searchParams.get('scope')).toBe(
+      'https://www.googleapis.com/auth/calendar.events.owned',
+    );
+    const day = inDays(5);
+    const msgs = await chat(alfa, `dodaj do kalendarza: ${day}T10:00 | Oddanie projektu logo`);
+    expect(msgs[msgs.length - 1].meta.proposedTools).toEqual([
+      { tool: 'calendar.create', approval: true },
+    ]);
+    expect(mock.events).toHaveLength(0);
+    const ap = (await alfa.get('/api/approvals')).body.items[0];
+    expect(ap.summary).toMatch(
+      /^Nowe wydarzenie: Oddanie projektu logo — \S+ \d+\.\d\d, 10:00–11:00$/,
+    );
+    expect(ap.target).toBe('Kalendarz Google');
+    expect(ap.diff).toContain('Tytuł: Oddanie projektu logo');
+    await alfa.post(`/api/approvals/${ap.id}/approve`, { actionHash: ap.actionHash });
+    await t.drain();
+    expect(mock.events).toEqual([
+      {
+        summary: 'Oddanie projektu logo',
+        start: { dateTime: `${day}T10:00:00`, timeZone: 'Europe/Warsaw' },
+        end: { dateTime: `${day}T11:00:00`, timeZone: 'Europe/Warsaw' },
+        reminders: { useDefault: true },
+      },
+    ]);
+    const tool = (await alfa.get(`/api/tasks/${ap.taskId}`)).body.steps.find(
+      (s: any) => s.tool === 'calendar.create',
+    );
+    expect(tool.status).toBe('completed');
+  });
+
+  it('cały dzień: koniec wyłączny u Google; przeszłość i zły czas odrzucone', async () => {
+    await connectGoogle(alfa, ['calendar.write']);
+    const from = inDays(3);
+    const to = inDays(4);
+    await chat(alfa, `dodaj do kalendarza: ${from} - ${to} | Wyjazd`);
+    const ap = (await alfa.get('/api/approvals')).body.items[0];
+    expect(ap.summary).toContain('(całe dni)');
+    await alfa.post(`/api/approvals/${ap.id}/approve`, { actionHash: ap.actionHash });
+    await t.drain();
+    expect(mock.events[0]).toMatchObject({
+      start: { date: from },
+      end: { date: inDays(5) },
+    });
+
+    for (const bad of [
+      `dodaj do kalendarza: ${inDays(-3)}T10:00 | Za późno`,
+      `dodaj do kalendarza: ${from}T10:00 - ${from}T09:00 | Wstecz`,
+      `dodaj do kalendarza: ${from} - ${to}T10:00 | Mieszane`,
+    ]) {
+      const m = await chat(alfa, bad);
+      expect(m[m.length - 1].meta.deniedTools).toEqual([
+        { tool: 'calendar.create', reason: 'invalid_params' },
+      ]);
+    }
+    expect(mock.events).toHaveLength(1);
+  });
+
+  it('bez uprawnienia do zapisu brak narzędzia; NovaAI nie dodaje wydarzeń', async () => {
+    await connectGoogle(alfa, ['calendar.freebusy']);
+    const priv = await chat(alfa, `dodaj do kalendarza: ${inDays(2)}T10:00 | Test`);
+    expect(priv[priv.length - 1].meta.proposedTools ?? []).toEqual([]);
+    const shared = await chat(alfa, `dodaj do kalendarza: ${inDays(2)}T10:00 | Test`, 'shared');
+    expect(shared[shared.length - 1].meta.deniedTools).toEqual([
+      { tool: 'calendar.create', reason: 'tool_not_in_context' },
+    ]);
+    expect((await alfa.get('/api/approvals?status=all')).body.items).toHaveLength(0);
+    expect(mock.events).toHaveLength(0);
   });
 });
 

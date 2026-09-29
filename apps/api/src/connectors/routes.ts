@@ -18,6 +18,7 @@ const StartBody = z.object({
       z.enum([
         'calendar.freebusy',
         'calendar.read',
+        'calendar.write',
         'mail.search',
         'mail.read',
         'mail.send',

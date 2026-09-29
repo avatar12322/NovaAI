@@ -167,6 +167,33 @@ export class FakeAgentRuntime implements AgentRuntime {
       });
       lines.push('Proponuję wysłać wiadomość na Slacku (wymaga Twojej zgody).');
     }
+    const suggest = /(?:^|\n)\s*zaproponuj zapamiętanie:\s*(.+)$/im.exec(text);
+    if (suggest?.[1]) {
+      toolCalls.push({
+        tool: 'memory.suggest',
+        params: { content: suggest[1].trim() },
+        reason: 'propozycja zapamiętania',
+      });
+      lines.push(`Czy zapamiętać: „${suggest[1].trim()}”?`);
+    }
+    // „dodaj do kalendarza: 2026-10-05T10:00[ - 2026-10-05T12:00] | Tytuł” (czas polski; sama data = cały dzień).
+    const LOCAL = String.raw`\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?`;
+    const addEvent = new RegExp(
+      String.raw`(?:^|\n)\s*dodaj do kalendarza:\s*(${LOCAL})(?:\s*-\s*(${LOCAL}))?\s*\|\s*(.+)$`,
+      'im',
+    ).exec(text);
+    if (addEvent?.[1] && addEvent[3]) {
+      toolCalls.push({
+        tool: 'calendar.create',
+        params: {
+          title: addEvent[3].trim(),
+          start: addEvent[1],
+          ...(addEvent[2] ? { end: addEvent[2] } : {}),
+        },
+        reason: 'nowe wydarzenie w kalendarzu',
+      });
+      lines.push(`Proponuję dodać do kalendarza: „${addEvent[3].trim()}” (wymaga Twojej zgody).`);
+    }
     const remind =
       /(?:^|\n)\s*przypomnij (?:mi|nam)\s+(za\s+(\d{1,4})\s*(min|minut|minuty|godz|godzin|godziny|h)|(\d{4}-\d{2}-\d{2}T\S+))\s*:\s*(.+)$/im.exec(
         text,

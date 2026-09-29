@@ -81,6 +81,19 @@ export interface CalendarEvent {
   showAs: string;
 }
 
+/** Nowe wydarzenie: czas lokalny „RRRR-MM-DDTGG:MM” albo daty „RRRR-MM-DD” (całodniowe; koniec włącznie). */
+export interface NewCalendarEvent {
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  timeZone: string;
+  location: string;
+  description: string;
+  /** Przypomnienie w minutach przed; null = domyślne przypomnienia kalendarza. */
+  reminderMinutes: number | null;
+}
+
 /** Wiadomość z komunikatora (np. Slack) — pobierana na żywo, nie zapisywana w NovaAI. */
 export interface ChatMessage {
   author: string;
@@ -155,6 +168,10 @@ export interface Connector {
     to: string,
     max: number,
   ): Promise<CalendarEvent[]>;
+  calendarCreate?(
+    accessToken: string,
+    ev: NewCalendarEvent,
+  ): Promise<{ id: string; webLink: string | null }>;
   chatSearch?(
     accessToken: string,
     q: { query: string; channelTypes: string[]; limit: number; after?: number },

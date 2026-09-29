@@ -783,3 +783,18 @@ niekomercyjnego, < 10 000 zapytań dziennie, licencja CC BY 4.0 (podajemy źród
   prywatna. Zgoda zamraża treść (hash akcji), jak każda inna.
 - Karta zgody pod wiadomością korzysta z istniejącego API zgód (lista oczekujących, zatwierdzenie z hashem,
   odrzucenie); widok „Zgody” zostaje jako pełna lista.
+
+## D-044 Dodawanie wydarzeń do Kalendarza Google
+
+Dokumentacja sprawdzona 2026-09-29: `events.insert` — `POST /calendar/v3/calendars/primary/events`, wymagane
+`start`/`end` (`date` dla całego dnia — koniec wyłączny; `dateTime` + `timeZone`), `reminders.useDefault` /
+`overrides` (popup, 0–40320 min). Zakresy pozwalające na insert: `calendar`, `calendar.events`,
+`calendar.events.owned`, `calendar.app.created`.
+
+- Zakres `calendar.events.owned` („See, create, change, and delete events on Google calendars you own”) —
+  najwęższy dla kalendarza głównego; `calendar.app.created` dotyczy tylko kalendarzy utworzonych przez
+  aplikację (wydarzenia nie byłyby w kalendarzu, który użytkownik ogląda). Uprawnienie domyślnie wyłączone.
+- Zawsze zgoda (akcja w cudzej usłudze), bez automatycznego ponowienia przy niepewnym wyniku (jak wysyłka
+  e-maila). Tylko agent prywatny — NovaAI nie zapisuje w niczyim kalendarzu.
+- Czas lokalny bez przesunięcia + `timeZone: Europe/Warsaw` — Google sam uwzględnia czas letni/zimowy.
+- Aplikacja tylko dodaje; nie czyta, nie zmienia i nie usuwa wydarzeń (mimo że zakres by na to pozwalał).

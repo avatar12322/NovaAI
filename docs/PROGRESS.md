@@ -848,6 +848,21 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: przez model (propozycja → zgoda → zapis; odrzucona → brak zapisu; brak wpisu u domownika), e2e
   (karta zgody w czacie; odpowiedzi serwera podstawione w przeglądarce — e2e działa w trybie demo).
 
+### Dodawanie wydarzeń do Kalendarza Google (2026-09-29)
+
+- Asystent prywatny: `calendar.create` („wpisz mi w kalendarz oddanie projektu w piątek o 10”) — tytuł, czas
+  lokalny w Polsce (albo cały dzień / kilka dni), miejsce, opis, opcjonalne przypomnienie. **Zawsze zgoda**
+  z podglądem (karta w czacie); wydarzenie trafia do kalendarza głównego połączonego konta Google.
+  Domyślny czas trwania — godzina. NovaAI (wspólny) nie ma tego narzędzia.
+- Uprawnienie osobne, domyślnie wyłączone: Integracje → Google → „Dodawanie wydarzeń do Twojego kalendarza”
+  (zakres `calendar.events.owned` — najwęższy pozwalający dodać wydarzenie; dokumentacja sprawdzona
+  2026-09-29). Bez niego model wie, gdzie je włączyć. Polityka prywatności uzupełniona.
+- Testy: kontrakt na atrapie Google (zakres w URL autoryzacji, zgoda z podglądem, treść żądania: czas polski
+  z `timeZone`, całodniowe z końcem wyłącznym, domyślne przypomnienia; błędny czas i przeszłość odrzucone;
+  bez uprawnienia brak narzędzia; NovaAI — odmowa). **Nie sprawdzone na prawdziwym koncie Google.**
+- Tryb demo: polecenia „dodaj do kalendarza: 2026-10-05T10:00 | Tytuł” i „zaproponuj zapamiętanie: …”;
+  e2e propozycji zapamiętania przechodzi teraz cały przepływ (zgoda w czacie → wpis w Pamięci).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).
@@ -877,8 +892,9 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   Google Drive; subskrypcje zmian Graph/Gmail, załączniki. Slack: powiadomienia o nowych wzmiankach w czasie
   rzeczywistym (wymagałyby zakresów `*:history`), wysyłka do rozmów bezpośrednich, pliki, Enterprise Grid.
 - Transkrypcja głosu po stronie serwera. Web Push nie sprawdzony na prawdziwym iPhonie (tylko atrapa usługi push).
-- Zapis w kalendarzach Google i Outlook (jest odczyt: zajętość z grantem, wydarzenia Outlook dla agenta prywatnego,
-  kalendarz lokalny).
+- Zapis w kalendarzu Outlook; zmiana i usuwanie wydarzeń Google; odczyt wydarzeń Google w przeglądzie dnia
+  (jest: dodawanie do Kalendarza Google po zgodzie, zajętość z grantem, wydarzenia Outlook dla agenta
+  prywatnego, kalendarz lokalny).
 
 ## Następne 3 zadania
 

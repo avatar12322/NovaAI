@@ -30,6 +30,10 @@ na serwerze właściciela.
   `http://localhost:5173/api/connections/google/callback`. `GOOGLE_CLIENT_ID/SECRET` — w `.env` właściciela.
 - Sprawdzone przez właściciela lokalnie: połączenie konta, odczyt poczty, wysyłka e-maila po zatwierdzeniu
   (uprawnienie dołożone przez „Zmień uprawnienia”). Niesprawdzone: zajętość w kalendarzu.
+- Dodawanie wydarzeń (2026-09-29, niesprawdzone na prawdziwym koncie): w Google Cloud → Google Auth Platform →
+  Data Access dodać zakres `https://www.googleapis.com/auth/calendar.events.owned`; potem w NovaAI
+  Ustawienia → Integracje → Google → „Zmień uprawnienia” → zaznaczyć „Dodawanie wydarzeń…”. Przy publikacji
+  aplikacji Google może wymagać weryfikacji tego zakresu — sprawdzić komunikat w konsoli.
 - Branding (ekran zgody): strona główna `https://novaai.pl`, polityka prywatności `https://novaai.pl/privacy`,
   warunki `https://novaai.pl/terms` (strony serwuje aplikacja; podlinkowane z ekranu logowania; kontakt z
   `NOVA_CONTACT_EMAIL` w `.env` serwera), domena autoryzowana `novaai.pl`. Bez logo — logo wymusza weryfikację

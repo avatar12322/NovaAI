@@ -605,6 +605,7 @@ const TOOL_PL: Record<string, string> = {
   'household.notify': 'Wiadomość do domownika',
   'calendar.freebusy': 'Zajętość w kalendarzach',
   'calendar.events': 'Wydarzenia z kalendarza',
+  'calendar.create': 'Nowe wydarzenie w kalendarzu',
   'mail.search': 'Wyszukiwanie poczty',
   'mail.read': 'Odczyt e-maila',
   'mail.send': 'Wysyłka e-maila',

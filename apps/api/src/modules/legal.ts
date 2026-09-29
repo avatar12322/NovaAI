@@ -84,6 +84,9 @@ o uprawnienia:</p>
     zatwierdzeniu</strong> treści w aplikacji.</li>
   <li><code>calendar.freebusy</code> — przedziały zajętości (bez tytułów i szczegółów wydarzeń), gdy
     o nie poprosisz albo włączysz udostępnianie zajętości domownikom.</li>
+  <li><code>calendar.events.owned</code> — dodanie wydarzenia do Twojego kalendarza (tytuł, czas, miejsce,
+    opis), <strong>zawsze dopiero po Twoim zatwierdzeniu</strong> w aplikacji; uprawnienie włączasz osobno.
+    Aplikacja nie odczytuje, nie zmienia i nie usuwa innych wydarzeń.</li>
 </ul>
 <p><strong>Przechowywanie.</strong> Tokeny dostępu Google są zaszyfrowane (AES-256-GCM) w bazie danych na
 serwerze w Polsce. Fragmenty wiadomości, które asystent odczytał na Twoją prośbę, zostają zapisane w tej
@@ -137,7 +140,9 @@ strony.</p>
 <p>NovaAI is a private, invite-only AI assistant for a single household, run by an individual (the household
 owner). Contact: ${who}. With your permission it uses Google data as follows: <code>gmail.readonly</code> to
 search and read messages only when you ask the assistant; <code>gmail.send</code> to send an email only after
-you approve it in the app; <code>calendar.freebusy</code> to read busy intervals (no event details). Google
+you approve it in the app; <code>calendar.freebusy</code> to read busy intervals (no event details);
+<code>calendar.events.owned</code> (optional) to add an event to your calendar only after you approve it in the
+app — NovaAI does not read, change or delete your other events. Google
 OAuth tokens are stored encrypted (AES-256-GCM) on a server in Poland; message excerpts the assistant read for
 you stay in that conversation, visible only to you. Content needed to answer is sent to the AI model provider
 (Anthropic) and, if you enable read-aloud, the reply text to ElevenLabs. Google user data is not sold, not used

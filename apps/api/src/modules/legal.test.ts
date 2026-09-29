@@ -17,7 +17,12 @@ describe('polityka prywatności i warunki', () => {
     expect(p.headers['content-security-policy']).toContain("script-src 'self'");
     expect(p.body).toContain('mailto:kontakt@example.test');
     expect(p.body).toContain('https://nova.example.test');
-    for (const scope of ['gmail.readonly', 'gmail.send', 'calendar.freebusy'])
+    for (const scope of [
+      'gmail.readonly',
+      'gmail.send',
+      'calendar.freebusy',
+      'calendar.events.owned',
+    ])
       expect(p.body).toContain(scope);
     expect(p.body).toContain('including the Limited Use requirements');
     expect(p.body).not.toContain('<script');

@@ -17,6 +17,7 @@ const CAP_PL: Record<string, string> = {
   'mail.draft': 'Szkice e-maili w Outlooku — zawsze po Twojej zgodzie',
   'calendar.freebusy': 'Zajętość kalendarza (bez szczegółów wydarzeń)',
   'calendar.read': 'Odczyt wydarzeń (tytuł, czas, miejsce) — tylko prywatny asystent',
+  'calendar.write': 'Dodawanie wydarzeń do Twojego kalendarza — zawsze po Twojej zgodzie',
   'chat.read': 'Wzmianki i wiadomości z kanałów publicznych, do których należysz',
   'chat.read_private': 'Także Twoje kanały prywatne',
   'chat.read_dm': 'Także rozmowy bezpośrednie i grupowe',
@@ -25,6 +26,7 @@ const CAP_PL: Record<string, string> = {
 
 /** Domyślnie tylko odczyt; działania ze skutkami (wysyłka, szkice) użytkownik włącza świadomie. */
 const OPT_IN = new Set([
+  'calendar.write',
   'mail.send',
   'mail.draft',
   'chat.send',

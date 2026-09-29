@@ -5,12 +5,14 @@ import {
   type ConnectorCapability,
   type MailMessage,
   type MailSummary,
+  type NewCalendarEvent,
   type TokenSet,
 } from './types';
 
 /**
- * Google (OAuth 2.0 web server + PKCE S256; Calendar freeBusy; Gmail). Endpointy i zakresy zweryfikowane
- * w oficjalnej dokumentacji 2026-09-25 (patrz docs/DECISIONS.md D-019). Adresy można podmienić w testach.
+ * Google (OAuth 2.0 web server + PKCE S256; Calendar freeBusy i dodawanie wydarzeń; Gmail). Endpointy i zakresy
+ * zweryfikowane w oficjalnej dokumentacji 2026-09-25 i 2026-09-29 (docs/DECISIONS.md D-019, D-044). Adresy można
+ * podmienić w testach.
  */
 export interface GoogleEndpoints {
   authUrl: string;
@@ -31,6 +33,8 @@ const GOOGLE_ENDPOINTS: GoogleEndpoints = {
 /** Minimalne zakresy per zdolność. */
 const SCOPES: Partial<Record<ConnectorCapability, string>> = {
   'calendar.freebusy': 'https://www.googleapis.com/auth/calendar.freebusy',
+  // Najwęższy zakres pozwalający dodać wydarzenie do własnego kalendarza (events.insert).
+  'calendar.write': 'https://www.googleapis.com/auth/calendar.events.owned',
   'mail.search': 'https://www.googleapis.com/auth/gmail.readonly',
   'mail.read': 'https://www.googleapis.com/auth/gmail.readonly',
   'mail.send': 'https://www.googleapis.com/auth/gmail.send',
@@ -80,6 +84,7 @@ export class GoogleConnector implements Connector {
   readonly title = 'Google (Gmail, Kalendarz)';
   readonly capabilities: readonly ConnectorCapability[] = [
     'calendar.freebusy',
+    'calendar.write',
     'mail.search',
     'mail.read',
     'mail.send',
@@ -236,6 +241,39 @@ export class GoogleConnector implements Connector {
     return (cal?.busy ?? []).map((b) => ({ start: b.start, end: b.end }));
   }
 
+  /**
+   * Nowe wydarzenie w kalendarzu głównym. Czas lokalny bez przesunięcia + `timeZone` (Google sam liczy
+   * czas letni/zimowy); wydarzenie całodniowe — daty, koniec wyłączny (dzień po ostatnim).
+   */
+  async calendarCreate(
+    accessToken: string,
+    ev: NewCalendarEvent,
+  ): Promise<{ id: string; webLink: string | null }> {
+    const when = (v: string) =>
+      ev.allDay ? { date: v } : { dateTime: `${v}:00`, timeZone: ev.timeZone };
+    const body = {
+      summary: ev.title,
+      ...(ev.location ? { location: ev.location } : {}),
+      ...(ev.description ? { description: ev.description } : {}),
+      start: when(ev.start),
+      end: when(ev.allDay ? nextDate(ev.end) : ev.end),
+      reminders:
+        ev.reminderMinutes === null
+          ? { useDefault: true }
+          : { useDefault: false, overrides: [{ method: 'popup', minutes: ev.reminderMinutes }] },
+    };
+    const r = await this.api<{ id?: string; htmlLink?: string }>(
+      accessToken,
+      `${this.ep.calendarBase}/calendars/primary/events`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+    return { id: r.id ?? '', webLink: r.htmlLink ?? null };
+  }
+
   async mailSearch(accessToken: string, query: string, max: number): Promise<MailSummary[]> {
     const q = new URLSearchParams({ q: query, maxResults: String(Math.min(max, 20)) });
     const list = await this.api<{ messages?: Array<{ id: string }> }>(
@@ -287,6 +325,13 @@ export class GoogleConnector implements Connector {
     );
     return { id: r.id ?? '' };
   }
+}
+
+/** „RRRR-MM-DD” → następny dzień (koniec wyłączny wydarzenia całodniowego). */
+function nextDate(d: string): string {
+  const t = new Date(`${d}T12:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + 1);
+  return t.toISOString().slice(0, 10);
 }
 
 interface GmailPart {

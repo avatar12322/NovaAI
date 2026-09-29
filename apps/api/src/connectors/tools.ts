@@ -1,5 +1,7 @@
 import { decide } from '@nova/permissions';
 import { z } from 'zod';
+import { DEFAULT_ZONE } from '../calendar/ics';
+import { parseLocalDue } from '../study/service';
 import type { ToolContext, ToolDef } from '../tools/types';
 import { mapErr } from './tool-errors';
 import {
@@ -242,6 +244,165 @@ const calendarEventsTool: ToolDef<EventsParams> = {
   },
 };
 
+type CreateEventParams = {
+  title: string;
+  start: string;
+  end?: string;
+  location: string;
+  description: string;
+  reminderMinutes?: number;
+  account?: 'google' | 'microsoft';
+};
+
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
+
+/** Koniec wydarzenia: podany albo domyślny (godzina po początku; całodniowe — ten sam dzień). */
+function eventEnd(p: CreateEventParams): string {
+  if (p.end) return p.end;
+  if (p.start.length === 10) return p.start;
+  const [d, t] = p.start.split('T') as [string, string];
+  const at = new Date(`${d}T${t}:00Z`);
+  at.setUTCHours(at.getUTCHours() + 1);
+  return at.toISOString().slice(0, 16);
+}
+
+/** „śr 30.09, 08:00–09:00” / „pt 2.10 (cały dzień)” — czas polski, do podglądu zgody i wyniku. */
+function eventWhen(start: string, end: string): string {
+  const day = (v: string) => {
+    const d = new Date(`${v.slice(0, 10)}T12:00:00Z`);
+    const wd = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'][d.getUTCDay()];
+    return `${wd} ${d.getUTCDate()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+  if (start.length === 10)
+    return end === start ? `${day(start)} (cały dzień)` : `${day(start)} – ${day(end)} (całe dni)`;
+  const sameDay = start.slice(0, 10) === end.slice(0, 10);
+  return sameDay
+    ? `${day(start)}, ${start.slice(11)}–${end.slice(11)}`
+    : `${day(start)} ${start.slice(11)} – ${day(end)} ${end.slice(11)}`;
+}
+
+/**
+ * calendar.create — nowe wydarzenie we WŁASNYM kalendarzu (Kalendarz Google). ZAWSZE zgoda z podglądem
+ * tytułu, czasu i miejsca; czas lokalny w Polsce. Tylko agent prywatny i użytkownik — NovaAI nie zapisuje
+ * w cudzych kalendarzach. Wynik niepewny => bez automatycznego ponowienia (nonIdempotentExternal).
+ */
+const calendarCreateTool: ToolDef<CreateEventParams> = {
+  name: 'calendar.create',
+  capability: 'calendar.write',
+  title: 'Dodaj wydarzenie do kalendarza',
+  contexts: ['private_agent', 'user'],
+  resultVisibility: 'private',
+  nonIdempotentExternal: true,
+  params: z
+    .object({
+      title: z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .refine((s) => !/[\r\n]/.test(s)),
+      start: z
+        .string()
+        .regex(LOCAL_TIME)
+        .describe('Czas lokalny w Polsce: RRRR-MM-DDTGG:MM, albo RRRR-MM-DD dla całego dnia'),
+      end: z
+        .string()
+        .regex(LOCAL_TIME)
+        .optional()
+        .describe(
+          'Koniec w tym samym formacie; brak = godzina po początku (cały dzień: ten dzień)',
+        ),
+      location: z.string().trim().max(300).default(''),
+      description: z.string().trim().max(2000).default(''),
+      reminderMinutes: z
+        .number()
+        .int()
+        .min(0)
+        .max(40320)
+        .optional()
+        .describe('Przypomnienie w minutach przed; brak = domyślne przypomnienia kalendarza'),
+      account: Account,
+    })
+    .refine(
+      (p) => {
+        const s = parseLocalDue(p.start);
+        const e = parseLocalDue(eventEnd(p));
+        if (!s || !e || s.allDay !== e.allDay) return false;
+        const span = e.at.getTime() - s.at.getTime();
+        // Całodniowe: koniec włącznie (ten sam dzień = 0); z godziną: koniec po początku. Maks. 31 dni.
+        return (s.allDay ? span >= 0 : span > 0) && span <= MAX_EVENTS_RANGE_MS;
+      },
+      { message: 'nieprawidłowy czas wydarzenia' },
+    )
+    .refine((p) => (parseLocalDue(p.start)?.at.getTime() ?? 0) > Date.now() - 24 * 3600_000, {
+      message: 'wydarzenie w przeszłości',
+    }) as unknown as z.ZodType<CreateEventParams>,
+  requiresApproval: () => true,
+  async prepare(ctx, p) {
+    return {
+      ...p,
+      end: eventEnd(p),
+      account: await resolveAccount(ctx, 'calendar.write', p.account),
+    };
+  },
+  async preview(ctx, p) {
+    const provider = p.account ?? 'google';
+    const label = await ctx.deps.connections.accountLabel(ctx.principal.userId, provider);
+    const when = eventWhen(p.start, eventEnd(p));
+    return {
+      summary: `Nowe wydarzenie: ${p.title} — ${when}`,
+      target: `${CALENDAR_NAME[provider]}${label ? ` (${label})` : ''}`,
+      scope: 'jedno wydarzenie we własnym kalendarzu',
+      diff: [
+        `Tytuł: ${p.title}`,
+        `Kiedy: ${when}`,
+        ...(p.location ? [`Miejsce: ${p.location}`] : []),
+        ...(p.reminderMinutes !== undefined
+          ? [`Przypomnienie: ${p.reminderMinutes} min przed`]
+          : []),
+        ...(p.description ? ['', p.description] : []),
+      ].join('\n'),
+    };
+  },
+  async authorize(ctx, p) {
+    if (ctx.context === 'household_agent')
+      return { allow: false, reason: 'calendar_details_private' };
+    // Sprawdzane przy planowaniu i ponownie tuż przed wykonaniem (np. konto odłączone po zgodzie).
+    const ok = await ctx.deps.connections.capable(ctx.principal.userId, 'calendar.write');
+    return p.account && ok.includes(p.account)
+      ? { allow: true, reason: 'owner_connected' }
+      : { allow: false, reason: 'connector:not_connected' };
+  },
+  async execute(ctx, p) {
+    const provider = p.account!;
+    const end = eventEnd(p);
+    try {
+      const r = await ctx.deps.connections.call(
+        ctx.principal.userId,
+        provider,
+        'calendar.write',
+        (token, c) =>
+          c.calendarCreate!(token, {
+            title: p.title,
+            start: p.start,
+            end,
+            allDay: p.start.length === 10,
+            timeZone: DEFAULT_ZONE,
+            location: p.location,
+            description: p.description,
+            reminderMinutes: p.reminderMinutes ?? null,
+          }),
+      );
+      return {
+        summary: `Dodano do: ${CALENDAR_NAME[provider]} — ${p.title}, ${eventWhen(p.start, end)}`,
+        output: { account: provider, eventId: r.id, webLink: r.webLink },
+      };
+    } catch (e) {
+      mapErr(e);
+    }
+  },
+};
+
 function mailTool<P extends Record<string, unknown>>(
   def: Omit<ToolDef<P>, 'contexts' | 'resultVisibility'> & { contexts?: ToolDef<P>['contexts'] },
 ): ToolDef<P> {
@@ -447,6 +608,7 @@ const mailDraftTool = outgoingTool('draft');
 export const CONNECTOR_TOOLS: ToolDef[] = [
   calendarFreeBusyTool as unknown as ToolDef,
   calendarEventsTool as unknown as ToolDef,
+  calendarCreateTool as unknown as ToolDef,
   mailSearchTool as unknown as ToolDef,
   mailReadTool as unknown as ToolDef,
   mailSendTool as unknown as ToolDef,
@@ -460,6 +622,7 @@ export const CAPABILITY_PL: Partial<Record<ConnectorCapability, string>> = {
   'mail.send': 'wysyłka e-maili',
   'mail.draft': 'szkice e-maili',
   'calendar.read': 'odczyt wydarzeń kalendarza',
+  'calendar.write': 'dodawanie wydarzeń do kalendarza',
   'chat.read': 'odczyt wiadomości ze Slacka',
   'chat.send': 'wysyłanie wiadomości na Slacku',
 };
@@ -467,6 +630,7 @@ export const CAPABILITY_PL: Partial<Record<ConnectorCapability, string>> = {
 /** Narzędzia wymagające połączonego konta z daną zdolnością (bez konta model ich nie dostaje). */
 export const CONNECTOR_REQUIRED: ReadonlyMap<string, ConnectorCapability> = new Map([
   ['calendar.events', 'calendar.read'],
+  ['calendar.create', 'calendar.write'],
   ['mail.search', 'mail.search'],
   ['mail.read', 'mail.read'],
   ['mail.send', 'mail.send'],

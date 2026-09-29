@@ -308,7 +308,7 @@ describe('brak modelu dla kontekstu prywatnego', () => {
       expect(names).toEqual(expect.arrayContaining(['mail.search', 'mail.read']));
       expect(names).not.toContain('mail.send');
       expect(call.system).toContain(
-        'Funkcje kont wyłączone w tej rozmowie (konto niepołączone albo uprawnienie wyłączone): wysyłka e-maili.',
+        'Funkcje kont wyłączone w tej rozmowie (konto niepołączone albo uprawnienie wyłączone): dodawanie wydarzeń do kalendarza, wysyłka e-maili.',
       );
       expect(call.system).toContain('Ustawienia → Integracje');
     } finally {
