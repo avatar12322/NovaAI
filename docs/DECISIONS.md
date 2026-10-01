@@ -851,3 +851,18 @@ samo po kilku dniach, z korektą w rozmowie.
   a zgoda na listę z przepisu pokazuje je osobno.
 - Danie (`meals`) zapisuje model przy liście z przepisu (`meal.uses` — tylko to, co danie zużyje w całości);
   rozliczenie po 3 dniach przy odczycie spiżarni (kontekst, ekran, przegląd).
+
+## D-048 Połączenia z otwartych rozkładów GTFS, wyszukiwane na serwerze
+
+Sprawdzone 2026-10-01: mkuran.pl `polish_trains.zip` (13 przewoźników, dane PKP PLK „Otwarte Dane Kolejowe”,
+aktualizacja codzienna, 30 dni naprzód) z danymi na żywo `updates.json`; Koleje Małopolskie publikują GTFS
+pociągów i autobusów (`ald-gtfs.zip`). Wyszukiwarki (KOLEO, e-podróżnik, jakdojade) nie mają publicznego API;
+Google Routes (transit) wymagałby klucza z rozliczeniem i ma niepewne pokrycie regionalnych autobusów.
+
+- Wyszukiwanie lokalne (Connection Scan Algorithm) — bez kosztów i kluczy, wynik tylko z rozkładów; model
+  dostaje gotowe połączenia i nie szuka godzin w internecie (zasada w `WEB_SEARCH_RULES`).
+- Rozkład w pamięci procesu (ok. 120 MB), pobierany przy pierwszym pytaniu i co 20 h; przy błędzie
+  odświeżenia zostaje poprzedni. Opóźnienia tylko jako adnotacja (bez przeliczania tras z opóźnieniami).
+- Czytnik ZIP własny (~40 linii, `node:zlib`) — bez nowej zależności.
+- Poza zakresem: prywatni przewoźnicy busów (brak otwartych danych), komunikacja miejska (można dodać GTFS
+  ZTP Kraków jako kolejne źródło).

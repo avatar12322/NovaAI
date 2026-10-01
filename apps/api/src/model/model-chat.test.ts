@@ -111,6 +111,7 @@ describe('rozmowa przez model', () => {
       'shopping.add',
       'shopping.check',
       'shopping.list',
+      'transit.search',
     ]);
   });
 
@@ -144,6 +145,7 @@ describe('rozmowa przez model', () => {
       'shopping.add',
       'shopping.check',
       'shopping.list',
+      'transit.search',
     ]);
     expect(call.messages[call.messages.length - 1]!.content).toBe('[Alfa (test)] co planujemy?');
   });

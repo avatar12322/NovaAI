@@ -122,6 +122,8 @@ użytkownika w usługach Google API</a>, w tym z wymaganiami dotyczącymi ograni
     Twoim iPhonie (zgodnie z ustawieniami telefonu), a do NovaAI trafia jego tekst.</li>
   <li><strong>aniagotuje.pl</strong> — przepisy: gdy napiszesz, co chcesz ugotować, serwer wyszukuje przepis
     w tym serwisie i pobiera jego składniki; trafia tam tylko nazwa dania.</li>
+  <li><strong>Rozkłady jazdy</strong> (PKP PLK „Otwarte Dane Kolejowe” przez mkuran.pl, Koleje Małopolskie) — serwer
+    pobiera publiczne rozkłady i opóźnienia pociągów; nie przekazuje tam żadnych Twoich danych ani tras.</li>
   <li><strong>OVH</strong> — serwer i kopie zapasowe (centrum danych w Polsce).</li>
 </ul>
 

@@ -29,6 +29,8 @@ import { STUDY_TOOLS } from './study/tools';
 import { RecipeSource } from './recipes/aniagotuje';
 import { recipeFindTool } from './recipes/tools';
 import { pantryUpdateTool } from './pantry/tools';
+import { TransitSource, type FeedSource } from './transit/source';
+import { transitSearchTool } from './transit/tools';
 import { DeviceHub } from './devices/hub';
 import { deviceSigningKey } from './devices/keys';
 import { DEVICE_TOOLS } from './devices/tools';
@@ -71,6 +73,9 @@ export interface AppOptions {
   weatherBases?: { forecast: string; geocoding: string };
   /** Adres serwisu z przepisami (testy: lokalna atrapa aniagotuje.pl). */
   recipeBase?: string;
+  /** Źródła rozkładów GTFS i danych na żywo (testy: lokalna atrapa). */
+  transitFeeds?: FeedSource[];
+  transitRealtime?: string | null;
   version?: string;
   demoStepMs?: number;
   runnerWorkerId?: string;
@@ -101,6 +106,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
   for (const t of STUDY_TOOLS) broker.register(t as unknown as ToolDef);
   broker.register(recipeFindTool);
   broker.register(pantryUpdateTool);
+  broker.register(transitSearchTool);
   const vault = vaultFromEnv(config.secretKey, config.secretKeyId, config.secretKeysOld);
   const connections = new ConnectionService(
     db,
@@ -204,6 +210,7 @@ export function createApp(config: AppConfig, db: Db, opts: AppOptions = {}): App
       ? new OpenMeteo(opts.weatherBases.forecast, opts.weatherBases.geocoding)
       : new OpenMeteo(),
     recipes: new RecipeSource(opts.recipeBase),
+    transit: new TransitSource(opts.transitFeeds, opts.transitRealtime),
     kickQueue: () => undefined,
     queueStatus: () => 'disabled',
   };

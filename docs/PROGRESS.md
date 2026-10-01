@@ -943,6 +943,26 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   brak (Chromium niedostępny lokalnie). **Nie sprawdzone z prawdziwym modelem** (rozpoznawanie ze zdjęcia,
   trafność maybe/uses).
 
+### Połączenia pociągów i autobusów z rozkładów (2026-10-01)
+
+- Zgłoszenie: asystent szukał połączeń Andrychów → Kraków Główny w internecie i nie podał godzin.
+- Nowe narzędzie `transit.search` (zamiast wyszukiwania w internecie): serwer pobiera rozkłady GTFS — pociągi
+  wszystkich przewoźników (`polish_trains.zip`, mkuran.pl z PKP PLK „Otwarte Dane Kolejowe”, codziennie,
+  ok. 30 dni naprzód) i autobusy Kolei Małopolskich (`ald-gtfs.zip`, m.in. A40 Andrychów ↔ Kraków MDA) —
+  i sam wyszukuje połączenia (Connection Scan): przesiadki (min. 4 min), przejścia piesze między pobliskimi
+  przystankami (np. Kraków MDA ↔ Kraków Główny), dni kursowania, zakazy wsiadania/wysiadania, kursy po północy.
+  Tryby: odjazd od godziny albo „przyjazd do” (np. zajęcia o 10:00). Dziś — opóźnienia i odwołania pociągów
+  na żywo (najwyżej sprzed 2 min). Wynik: godziny, czas, przesiadki, przewoźnik i numer, peron/tor.
+- Nazwy bez polskich znaków; „Kraków” → Kraków Główny, „Andrychów” → stacja i przystanki w mieście.
+  Nieznana nazwa → podpowiedzi zamiast zgadywania. Rozkłady pobierane przy pierwszym pytaniu (ok. 31 MB,
+  wczytanie ~1 s), odświeżane co 20 h; pamięć ok. 120 MB.
+- Sprawdzone na prawdziwych danych (2 października): Andrychów → Kraków Główny 06:28 → 07:46 i 07:18 →
+  09:11, Kraków Główny → Andrychów 15:56 → 19:05 — zgodnie z KOLEO; do tego autobusy KM (np. 05:52 →
+  07:41 z dojściem z MDA), których KOLEO dla stacji nie pokazuje. Prywatni przewoźnicy busów — nie ma ich w
+  otwartych danych.
+- Testy: `transit.test.ts` 5/5 (czytnik ZIP i GTFS, nazwy, autobus + dojście wygrywa z przesiadką, kurs
+  odwołany w danym dniu pominięty, przesiadka w Kalwarii, „przyjazd do”, opóźnienie na żywo, przez asystenta).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

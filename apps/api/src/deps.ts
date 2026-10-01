@@ -9,6 +9,7 @@ import type { LiveHub } from './live';
 import type { PushService } from './push/service';
 import type { OpenMeteo } from './weather/openmeteo';
 import type { RecipeSource } from './recipes/aniagotuje';
+import type { TransitSource } from './transit/source';
 import type { ElevenLabsStt, ElevenLabsTts } from './voice/elevenlabs';
 import type { ModelGateway } from './model/gateway';
 import type { CostAdapterRegistry } from './services/adapters';
@@ -43,6 +44,8 @@ export interface AppDeps {
   weather: OpenMeteo;
   /** Przepisy z aniagotuje.pl (składniki do listy zakupów). */
   recipes: RecipeSource;
+  /** Rozkłady jazdy (pociągi, autobusy KM) i opóźnienia na żywo. */
+  transit: TransitSource;
   /** Budzenie kolejki po utworzeniu zadania (no-op, gdy kolejka wyłączona). */
   kickQueue: () => void;
   /** Stan pętli kolejki w tym procesie (do healthchecka). */
