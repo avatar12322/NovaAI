@@ -45,7 +45,7 @@ export function SettingsView({ me, onLogout }: { me: MeResponse; onLogout: () =>
       <header className="section-head">
         <h1>Ustawienia</h1>
       </header>
-      <PushPanel />
+      <PushPanel userId={me.user.id} />
       {isOwner && (
         <>
           <ServiceStatus />

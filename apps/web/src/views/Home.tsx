@@ -7,6 +7,7 @@ import { useEventEffect } from '../lib/events';
 import { TASK_STATUS_PL, timeAgo } from '../lib/format';
 import { href } from '../lib/router';
 import { DeadlinesPanel } from './Deadlines';
+import { PushPrompt } from './PushPanel';
 import { RemindersPanel } from './Reminders';
 
 /** Dom: domownicy, wiadomości od domowników, wspólne zadania. */
@@ -44,6 +45,7 @@ export function HomeView({ me }: { me: MeResponse }) {
           Otwórz NovaAI
         </a>
       </header>
+      <PushPrompt userId={me.user.id} />
       <BriefingPanel />
       <DeadlinesPanel />
       <RemindersPanel />

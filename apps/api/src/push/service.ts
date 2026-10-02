@@ -42,7 +42,12 @@ const fetchTransport: PushTransport = async (req) => {
     body: req.body,
     signal: AbortSignal.timeout(10_000),
   });
-  await res.arrayBuffer().catch(() => undefined);
+  if (res.ok) await res.arrayBuffer().catch(() => undefined);
+  else {
+    // Powód odrzucenia od usługi push (np. Apple: {"reason":"BadJwtToken"}) — do dziennika serwera.
+    const reason = (await res.text().catch(() => '')).slice(0, 200);
+    console.error(`[push] ${new URL(req.endpoint).hostname}: ${res.status} ${reason}`.trim());
+  }
   return res.status;
 };
 

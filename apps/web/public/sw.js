@@ -2,8 +2,13 @@
 const CACHE = 'nova-shell-v1';
 
 self.addEventListener('install', (event) => {
+  // Bufor powłoki to dodatek: błąd sieci przy instalacji (słaby zasięg) nie może zablokować workera — bez niego
+  // nie ma powiadomień push.
   event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])),
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg']))
+      .catch(() => undefined),
   );
   self.skipWaiting();
 });

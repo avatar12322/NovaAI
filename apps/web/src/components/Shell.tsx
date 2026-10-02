@@ -2,7 +2,7 @@ import type { MeResponse } from '@nova/contracts';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useEventEffect, useEvents } from '../lib/events';
-import { setAppBadge } from '../lib/push';
+import { setAppBadge, syncPush } from '../lib/push';
 import { href, type Route } from '../lib/router';
 import { CommandPalette } from './CommandPalette';
 import { Icon } from './Icon';
@@ -59,6 +59,10 @@ export function Shell({
       .catch(() => undefined);
   };
   useEffect(refreshCounts, []);
+  // Urządzenie z włączonymi powiadomieniami zgłasza się serwerowi ponownie, jeśli ten je „zgubił”.
+  useEffect(() => {
+    void syncPush(me.user.id).catch(() => undefined);
+  }, [me.user.id]);
   // Liczba nieprzeczytanych także na ikonie aplikacji (ekran główny telefonu, pasek zadań).
   useEffect(() => {
     setAppBadge(unread);

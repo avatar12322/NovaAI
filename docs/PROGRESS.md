@@ -963,6 +963,24 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: `transit.test.ts` 5/5 (czytnik ZIP i GTFS, nazwy, autobus + dojście wygrywa z przesiadką, kurs
   odwołany w danym dniu pominięty, przesiadka w Kalwarii, „przyjazd do”, opóźnienie na żywo, przez asystenta).
 
+### Poprawka: powiadomienia push na iPhonie (aplikacja z ekranu głównego) (2026-10-02)
+
+- Zgłoszenie: brak powiadomień na iPhonie (NovaAI dodana do ekranu głównego, nie z App Store).
+- Włączenie czeka na aktywny service worker (`navigator.serviceWorker.ready`, do 10 s) — pierwsze otwarcie
+  z ekranu głównego ma osobną pamięć, worker dopiero się instaluje i subskrypcja kończyła się błędem. Brak
+  rejestracji w zbudowanej aplikacji → rejestracja na miejscu. Instalacja workera nie przerywa się już przy
+  błędzie buforowania powłoki (słaby zasięg) — wcześniej oznaczało to brak workera, a więc brak push.
+- Przy każdym starcie aplikacji urządzenie z włączonymi powiadomieniami (ta sama osoba, zgoda systemowa)
+  sprawdza, czy serwer zna jego subskrypcję; jeśli nie (usunięta po błędach, iPhone wymienił ją, nowy klucz
+  serwera) — zgłasza ją ponownie bez pytania o zgodę. Wyłączenie i wylogowanie — bez ponownego zgłaszania.
+- Dom: karta „Powiadomienia na tym urządzeniu” z przyciskiem „Włącz powiadomienia”, gdy urządzenie obsługuje
+  push, a osoba jeszcze nie odpowiedziała na pytanie o zgodę („Nie teraz” ukrywa ją na stałe). iPad
+  (przedstawia się jako Mac) rozpoznawany jako iPadOS — w Safari dostaje instrukcję dodania do ekranu głównego.
+- Serwer zapisuje w dzienniku powód odrzucenia przez usługę push (np. Apple `BadJwtToken`):
+  `journalctl -u novaai | grep '\[push\]'`.
+- Testy: `push.test.ts` (rozpoznanie iPhone/iPad), e2e zachęty na ekranie Dom. Nadal **niesprawdzone na
+  prawdziwym iPhonie** — wymaga wdrożenia.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

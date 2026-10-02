@@ -9,8 +9,16 @@ export type PushSupport = 'ok' | 'ios-install' | 'unsupported';
 /** Błąd z komunikatem dla użytkownika (zgoda, brak service workera, konfiguracja serwera). */
 export class PushSetupError extends Error {}
 
+/** iPhone/iPad; iPadOS przedstawia się jako Mac — rozpoznawany po ekranie dotykowym. */
+export function isIos(
+  ua = navigator.userAgent,
+  touchPoints = navigator.maxTouchPoints ?? 0,
+): boolean {
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1);
+}
+
 export function pushSupport(): PushSupport {
-  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const ios = isIos();
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -54,8 +62,46 @@ function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+/**
+ * Aktywny service worker. Pierwsze otwarcie z ekranu głównego (iPhone: osobna pamięć, worker instaluje się od nowa):
+ * rejestracja już jest, ale worker jeszcze się instaluje — subskrypcja wymaga aktywnego, więc czekamy na `ready`.
+ */
 async function registration(): Promise<ServiceWorkerRegistration | null> {
-  return (await navigator.serviceWorker.getRegistration()) ?? null;
+  const reg =
+    (await navigator.serviceWorker.getRegistration()) ??
+    (import.meta.env.PROD
+      ? await navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+      : undefined);
+  if (!reg) return null;
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((r) => setTimeout(() => r(null), 10_000)),
+  ]);
+}
+
+/** Osoba, która włączyła powiadomienia na tym urządzeniu (do ponownego zgłoszenia subskrypcji przy starcie). */
+const OWNER_KEY = 'nova-push-user';
+
+function pushOwner(): string | null {
+  try {
+    return localStorage.getItem(OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setPushOwner(userId: string | null): void {
+  try {
+    if (userId) localStorage.setItem(OWNER_KEY, userId);
+    else localStorage.removeItem(OWNER_KEY);
+  } catch {
+    /* storage niedostępny */
+  }
+}
+
+/** Zgoda systemowa na powiadomienia (null — brak obsługi). */
+export function pushPermission(): NotificationPermission | null {
+  return 'Notification' in window ? Notification.permission : null;
 }
 
 /** Subskrypcja tego urządzenia (jeśli jest). */
@@ -69,7 +115,7 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
  * Włączenie na tym urządzeniu. Wywołać bezpośrednio z obsługi kliknięcia: zgoda musi być pierwszym krokiem
  * (Safari wymaga gestu użytkownika), potem subskrypcja z kluczem serwera i zapis na serwerze.
  */
-export async function enablePush(): Promise<void> {
+export async function enablePush(userId: string): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted')
     throw new PushSetupError(
@@ -77,6 +123,12 @@ export async function enablePush(): Promise<void> {
         ? 'Powiadomienia są zablokowane — włącz je w ustawieniach urządzenia (Powiadomienia → NovaAI).'
         : 'Nie udzielono zgody na powiadomienia.',
     );
+  await subscribeAndSave();
+  setPushOwner(userId);
+}
+
+/** Subskrypcja z aktualnym kluczem serwera i zapis na serwerze (zgoda już udzielona — bez gestu). */
+async function subscribeAndSave(): Promise<void> {
   const reg = await registration();
   if (!reg)
     throw new PushSetupError(
@@ -108,12 +160,32 @@ export async function enablePush(): Promise<void> {
   });
 }
 
+/**
+ * Przy starcie aplikacji: jeśli ta osoba włączyła powiadomienia na tym urządzeniu, a serwer nie zna już jego
+ * subskrypcji (usunięta po błędach dostarczenia, iPhone wymienił ją na nową, zmiana klucza serwera) — zgłoszenie
+ * jej od nowa, bez ponownego pytania o zgodę. Bez zgody systemowej albo po wyłączeniu — nic.
+ */
+export async function syncPush(userId: string): Promise<void> {
+  if (pushSupport() !== 'ok' || Notification.permission !== 'granted') return;
+  const owner = pushOwner();
+  if (owner !== null && owner !== userId) return;
+  const [sub, list] = await Promise.all([currentSubscription(), api.pushDevices()]);
+  const known = sub !== null && list.items.some((d) => d.endpoint === sub.endpoint);
+  if (owner === null) {
+    // Włączone przed zapamiętywaniem osoby: przejęte tylko, gdy serwer przypisuje subskrypcję tej osobie.
+    if (known) setPushOwner(userId);
+    return;
+  }
+  if (!known) await subscribeAndSave();
+}
+
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 /** Wyłączenie na tym urządzeniu (także przy wylogowaniu — powiadomienia nie trafiają do następnej osoby). */
 export async function disablePush(): Promise<void> {
+  setPushOwner(null);
   const sub = await currentSubscription();
   if (!sub) return;
   await api.pushUnsubscribe(sub.endpoint).catch(() => undefined);
