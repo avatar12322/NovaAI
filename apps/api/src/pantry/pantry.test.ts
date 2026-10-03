@@ -218,9 +218,10 @@ describe('spiżarnia', () => {
       content: 'zrobiłem leczo, mleko się skończyło',
     });
     await t.drain();
-    const system = provider.calls[0]!.system;
-    expect(system).toContain('SPIŻARNIA (szacunek');
-    expect(system).toContain('- masz: mleko (lodówka, 0 dni), papryka (lodówka, 0 dni)');
+    const { system, messages } = provider.calls[0]!;
+    const turnText = messages.at(-1)!.content;
+    expect(turnText).toContain('SPIŻARNIA (szacunek');
+    expect(turnText).toContain('- masz: mleko (lodówka, 0 dni), papryka (lodówka, 0 dni)');
     expect(system).toContain('Nie pytaj użytkownika, czy coś ma');
     const msgs = (await alfa.get(`/api/conversations/${conv.id}/messages`)).body.items;
     expect(msgs.find((m: { role: string }) => m.role === 'tool').content).toBe(

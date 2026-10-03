@@ -18,6 +18,18 @@ import type {
 } from './runtime';
 
 const HISTORY_LIMIT = 20;
+/**
+ * Okno historii przesuwa się skokami (co tyle wiadomości), a nie o jedną: początek rozmowy wysyłanej do modelu
+ * zostaje taki sam przez kilka tur, więc dostawca odczytuje go z pamięci podręcznej (prompt caching) zamiast
+ * liczyć pełną cenę. W modelu jest od HISTORY_LIMIT do HISTORY_LIMIT + HISTORY_STEP − 1 wiadomości.
+ */
+const HISTORY_STEP = 10;
+
+/** Ile ostatnich wiadomości z `total` trafia do kontekstu (początek okna wyrównany do HISTORY_STEP). */
+export function historyWindow(total: number): number {
+  if (total <= HISTORY_LIMIT) return total;
+  return HISTORY_LIMIT + ((total - HISTORY_LIMIT) % HISTORY_STEP);
+}
 const MEMORY_LIMIT = 50;
 /** Fragmenty dokumentów w turze: niewiele i przycięte — koszt tokenów i mniej miejsca na wstrzyknięcia. */
 const DOCUMENT_CHUNKS = 4;
@@ -85,6 +97,10 @@ export async function buildTurnContext(
       ) {
         throw notFound('Conversation');
       }
+      const total = await c.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM messages WHERE conversation_id = $1',
+        [conversationId],
+      );
       const msgs = await c.query<{
         role: ContextMessage['role'];
         content: string;
@@ -94,7 +110,7 @@ export async function buildTurnContext(
         `SELECT m.role, m.content, u.display_name AS author_name, m.meta
          FROM messages m LEFT JOIN users u ON u.id = m.author_user_id
         WHERE m.conversation_id = $1 ORDER BY m.created_at DESC, m.id DESC LIMIT $2`,
-        [conversationId, HISTORY_LIMIT],
+        [conversationId, historyWindow(total.rows[0]?.n ?? 0)],
       );
       const mem = await c.query<{
         id: string;

@@ -44,23 +44,29 @@ export class AnthropicProvider implements ModelProvider {
     const base = {
       model: req.model,
       max_tokens: req.maxTokens,
-      system: req.system,
+      // Pamięć podręczna (prompt caching): narzędzia i prompt systemowy są stałe w rozmowie — znacznik na końcu
+      // promptu obejmuje oba; drugi znacznik niżej, na końcu historii.
+      system: [{ type: 'text' as const, text: req.system, cache_control: CACHE }],
       ...(tools.length ? { tools, tool_choice: { type: 'auto' as const } } : {}),
       ...(req.effort ? { output_config: { effort: req.effort } } : {}),
     };
-    // Zdjęcia przed tekstem (zalecenie dokumentacji Claude dla obrazów).
-    const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({
-      role: m.role,
-      content: m.images?.length
-        ? [
-            ...m.images.map((i): Anthropic.ImageBlockParam => ({
-              type: 'image',
-              source: { type: 'base64', media_type: i.mediaType, data: i.data },
-            })),
-            { type: 'text' as const, text: m.content },
-          ]
-        : m.content,
-    }));
+    // Zdjęcia przed tekstem (zalecenie dokumentacji Claude dla obrazów). Znacznik pamięci podręcznej na
+    // przedostatniej wiadomości (koniec historii): kolejna tura odczyta całą wcześniejszą rozmowę z pamięci,
+    // a pełną cenę zapłaci tylko za ostatnią wiadomość (bieżące dane i pytanie).
+    const cachedUpTo = req.messages.length - 2;
+    const messages: Anthropic.MessageParam[] = req.messages.map((m, i) => {
+      const cache = i === cachedUpTo ? { cache_control: CACHE } : {};
+      return {
+        role: m.role,
+        content: [
+          ...(m.images ?? []).map((img): Anthropic.ImageBlockParam => ({
+            type: 'image',
+            source: { type: 'base64', media_type: img.mediaType, data: img.data },
+          })),
+          { type: 'text' as const, text: m.content, ...cache },
+        ],
+      };
+    });
     const parts: Anthropic.Message[] = [];
     try {
       // Wyszukiwanie może przerwać turę (pause_turn) — wznowienie: ta sama wiadomość asystenta odesłana bez zmian.
@@ -118,6 +124,9 @@ export class AnthropicProvider implements ModelProvider {
     };
   }
 }
+
+/** Pamięć podręczna 5 min (zapis 1,25× ceny wejścia, odczyt ok. 0,1×; każdy odczyt odnawia czas). */
+const CACHE = { type: 'ephemeral' } as const;
 
 /** Najwyżej tyle wznowień po pause_turn (ochrona przed pętlą). */
 const MAX_CONTINUATIONS = 3;

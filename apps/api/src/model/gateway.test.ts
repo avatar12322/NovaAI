@@ -346,6 +346,55 @@ describe('koszt i zapis zużycia', () => {
     }
   });
 
+  it('pamięć podręczna w koszcie: Anthropic bez cen cache — zapis 1,25×, odczyt 0,1× wejścia; ceny z cennika mają pierwszeństwo', async () => {
+    const withCache = (kind: 'anthropic' | 'fake'): ModelProvider => ({
+      kind,
+      async complete() {
+        return {
+          text: 'ok',
+          toolCalls: [],
+          usage: {
+            inputTokens: 100,
+            outputTokens: 0,
+            cacheReadTokens: 10_000,
+            cacheWriteTokens: 1_000,
+          },
+          stopReason: 'end_turn',
+        };
+      },
+    });
+    const base = cfg();
+    const model = (pricing: Record<string, unknown>) => ({
+      provider: 'paid',
+      model: 'claude-test',
+      maxTokens: 1000,
+      pricing: { currency: 'PLN', inputPerMTok: 10, outputPerMTok: 20, ...pricing },
+    });
+    const config = ModelsConfigSchema.parse({
+      ...base,
+      models: {
+        ...base.models,
+        implicit: model({}),
+        explicit: model({ cacheReadPerMTok: 0.5, cacheWritePerMTok: 12.5 }),
+      },
+      routes: { ...base.routes, 'chat.implicit': ['implicit'], 'chat.explicit': ['explicit'] },
+    });
+    const anthropic = new ModelGateway(t.db, config, {}, { paid: withCache('anthropic') });
+    // 100×10 + 10 000×(10×0,1) + 1000×(10×1,25) = 1000 + 10 000 + 12 500
+    expect((await anthropic.complete(request({ capability: 'chat.implicit' }))).costMicros).toBe(
+      23_500,
+    );
+    // 100×10 + 10 000×0,5 + 1000×12,5 = 1000 + 5000 + 12 500
+    expect((await anthropic.complete(request({ capability: 'chat.explicit' }))).costMicros).toBe(
+      18_500,
+    );
+    // Inni dostawcy bez cen cache — jak zwykłe wejście: 100×10 + 10 000×10 + 1000×10.
+    const other = new ModelGateway(t.db, config, {}, { paid: withCache('fake') });
+    expect((await other.complete(request({ capability: 'chat.implicit' }))).costMicros).toBe(
+      111_000,
+    );
+  });
+
   it('brak metadanych usage => koszt oznaczony jako estymacja', async () => {
     const gw = new ModelGateway(t.db, cfg(), {}, { paid: new FakeProvider({ usage: 'none' }) });
     const r = await gw.complete(request());

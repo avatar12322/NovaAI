@@ -169,11 +169,18 @@ describe('AnthropicProvider (SDK) — kontrakt Messages API', () => {
     expect(c.body).toMatchObject({
       model: 'model-from-config',
       max_tokens: 1234,
-      system: 'SYSTEM',
+      // Pamięć podręczna: znacznik na końcu promptu systemowego (obejmuje też narzędzia)…
+      system: [{ type: 'text', text: 'SYSTEM', cache_control: { type: 'ephemeral' } }],
       tool_choice: { type: 'auto' },
       output_config: { effort: 'low' },
     });
     expect(c.body.messages).toHaveLength(3);
+    // …i na końcu historii (przedostatnia wiadomość); ostatnia — bieżące dane i pytanie — bez znacznika.
+    const marks = (c.body.messages as Array<{ content: Array<Record<string, unknown>> }>).map((m) =>
+      m.content.map((b) => b.cache_control ?? null),
+    );
+    expect(marks).toEqual([[null], [{ type: 'ephemeral' }], [null]]);
+    expect(JSON.stringify(c.body).match(/cache_control/g)).toHaveLength(2);
     expect(c.body.tools[0]).toMatchObject({
       name: 'memory__create',
       input_schema: { type: 'object' },

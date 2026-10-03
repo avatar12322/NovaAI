@@ -196,11 +196,15 @@ class ResolvedModels {
   ): number {
     const p = m.pricing;
     const fx = this.fxRate(m);
+    const input = p.inputPerMTok ?? 0;
+    // Cennik bez cen pamięci podręcznej: u Anthropic mnożniki z dokumentacji (zapis 5-min. 1,25× wejścia,
+    // odczyt najwyżej 0,1× — szacunek z góry); u pozostałych dostawców — jak zwykłe wejście.
+    const anthropic = this.providers.get(m.provider)?.kind === 'anthropic';
     const raw =
-      u.inputTokens * (p.inputPerMTok ?? 0) +
+      u.inputTokens * input +
       u.outputTokens * (p.outputPerMTok ?? 0) +
-      u.cacheReadTokens * (p.cacheReadPerMTok ?? p.inputPerMTok ?? 0) +
-      u.cacheWriteTokens * (p.cacheWritePerMTok ?? p.inputPerMTok ?? 0);
+      u.cacheReadTokens * (p.cacheReadPerMTok ?? (anthropic ? input * 0.1 : input)) +
+      u.cacheWriteTokens * (p.cacheWritePerMTok ?? (anthropic ? input * 1.25 : input));
     return Math.ceil(raw * fx);
   }
 }

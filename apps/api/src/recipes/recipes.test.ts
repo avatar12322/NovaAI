@@ -150,13 +150,18 @@ describe('przepisy z aniagotuje.pl', () => {
 
     // Tura: lista zakupów w kontekście, wskazówka o przepisach; pusty tekst → ukryta zapowiedź.
     const [reply, follow] = provider.calls;
-    expect(reply!.system).toContain('LISTA ZAKUPÓW (do kupienia, 2 poz.');
-    expect(reply!.system).toContain('- cebula 1 szt.');
+    // Lista zakupów zmienia się często — na początku ostatniej wiadomości, nie w prompcie systemowym (cache).
+    const turnText = reply!.messages.at(-1)!.content;
+    expect(turnText).toContain('LISTA ZAKUPÓW (do kupienia, 2 poz.');
+    expect(turnText).toContain('- cebula 1 szt.');
+    expect(reply!.system).not.toContain('LISTA ZAKUPÓW (do kupienia');
     expect(reply!.system).toContain('aniagotuje.pl — główne źródło przepisów');
     expect(requested).toEqual(['/szukaj?s=leczo', '/przepis/leczo']);
     // Tura uzupełniająca: składniki bez wody, soli i pieprzu; jedyne narzędzie — lista zakupów.
     expect(follow!.tools.map((x: { name: string }) => x.name)).toEqual(['shopping.add']);
     const toolMsg = JSON.stringify(follow!.messages);
+    // Lista zakupów także w turze uzupełniającej (po wynikach narzędzi) — do sumowania ilości.
+    expect(follow!.messages.at(-1)!.content).toContain('- cebula 1 szt.');
     expect(toolMsg).toContain('3 średnie cebule - 350 g');
     expect(toolMsg).not.toContain('- 1 szklanka wody');
     expect(toolMsg).toContain('Pominięte (zwykle w domu)');

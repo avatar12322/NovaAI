@@ -994,6 +994,24 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   przypomnień rozszerzone o odczyt — liczniki maleją bez przeładowania (bez poprawki test nie przechodzi).
   Naprawione niejednoznaczne lokatory w tym teście („Termin”, „Dodaj” — od czasu panelu „Terminy”).
 
+### Taniej: pamięć podręczna zapytań do Claude (prompt caching) (2026-10-03)
+
+- Zgłoszenie: koszt modeli za wysoki (ok. 0,03–0,19 zł za wiadomość); subskrypcja Claude/ChatGPT/Gemini nie
+  może zastąpić API (warunki dostawców) — zostajemy przy API Claude, ale oszczędniej.
+- Dotąd każde zapytanie szło w pełnej cenie: godzina („Teraz: …”) na początku promptu systemowego zmieniała
+  go co minutę, więc nic nie dało się odczytać z pamięci podręcznej.
+- Teraz: prompt systemowy stały w rozmowie (instrukcje, pamięć); godzina, lista zakupów, spiżarnia i
+  dokumenty — w bloku na początku ostatniej wiadomości (TERAZ, LISTA ZAKUPÓW, SPIŻARNIA, DOKUMENTY).
+  Anthropic: znacznik `cache_control` na końcu promptu systemowego (obejmuje narzędzia) i na końcu historii —
+  kolejna tura odczytuje całą wcześniejszą rozmowę po ok. 0,1× (Opus 5.5: 0,05×) ceny wejścia, zapis 1,25×.
+  Okno historii (20 wiadomości) przesuwa się skokami co 10, żeby początek rozmowy nie zmieniał się w każdej
+  turze. Ten sam układ pomaga automatycznej pamięci podręcznej OpenAI/Gemini.
+- Budżet: cennik bez cen cache — dla Anthropic zapis 1,25×, odczyt 0,1× ceny wejścia (szacunek z góry);
+  ceny wpisane w cenniku mają pierwszeństwo.
+- Testy: kontrakt Anthropic (dokładnie 2 znaczniki: system i koniec historii), trzy tury tej samej rozmowy —
+  identyczny prompt systemowy i początek historii mimo zmiany listy zakupów, koszt z tokenami cache, okno
+  historii. Niesprawdzone na prawdziwym koncie — po wdrożeniu widać w koszcie odpowiedzi.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

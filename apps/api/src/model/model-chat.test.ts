@@ -147,7 +147,35 @@ describe('rozmowa przez model', () => {
       'shopping.list',
       'transit.search',
     ]);
-    expect(call.messages[call.messages.length - 1]!.content).toBe('[Alfa (test)] co planujemy?');
+    expect(call.messages[call.messages.length - 1]!.content).toMatch(
+      /^TERAZ: [^\n]+\n(.|\n)*\n\nWIADOMOŚĆ UŻYTKOWNIKA:\n\[Alfa \(test\)\] co planujemy\?$/,
+    );
+  });
+
+  it('pamięć podręczna: kolejne tury mają ten sam początek zapytania (prompt systemowy, historia)', async () => {
+    await alfa.post('/api/shopping', { items: ['mleko'] });
+    const conv = (await alfa.post('/api/conversations', { space: 'private' })).body;
+    const say = async (content: string) => {
+      await alfa.post(`/api/conversations/${conv.id}/messages`, { content });
+      await t.drain();
+    };
+    await say('pierwsze');
+    await alfa.post('/api/shopping', { items: ['chleb'] }); // zmiana listy między turami
+    await say('drugie');
+    await say('trzecie');
+    const [a, b, c] = provider.calls;
+    // Prompt systemowy bez godziny i listy zakupów — identyczny w każdej turze.
+    expect(b!.system).toBe(a!.system);
+    expect(c!.system).toBe(a!.system);
+    // Historia wysłana w turze 2 (bez ostatniej wiadomości) to dokładny początek tury 3.
+    expect(c!.messages.slice(0, b!.messages.length - 1)).toEqual(b!.messages.slice(0, -1));
+    expect(c!.messages.slice(0, 2).map((m) => m.content)).toEqual([
+      'pierwsze',
+      'Odpowiedź modelu.',
+    ]);
+    // Bieżące dane tylko w ostatniej wiadomości.
+    expect(c!.messages.at(-1)!.content).toContain('- chleb');
+    expect(c!.messages.at(-1)!.content).toMatch(/WIADOMOŚĆ UŻYTKOWNIKA:\ntrzecie$/);
   });
 
   it('model nie omija ACL: propozycja narzędzia spoza kontekstu jest odrzucona', async () => {
