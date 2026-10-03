@@ -130,6 +130,31 @@ describe('dostarczanie przypomnień', () => {
   });
 });
 
+describe('odczyt powiadomień', () => {
+  it('„przeczytane”: zdarzenie notification.read tylko dla właściciela i tylko raz', async () => {
+    await alfa.post('/api/reminders', { text: 'Leki o 21:00', dueAt: inMinutes(5) });
+    await makeDue();
+    await t.drain();
+    const [n] = (await alfa.get('/api/notifications')).body.items as Array<{ id: string }>;
+    const before = (await t.db.owner.query(`SELECT coalesce(max(id), 0)::int AS id FROM events`))
+      .rows[0].id as number;
+    const readEvents = async (c: Client) =>
+      (
+        (await c.get(`/api/events?after=${before}`)).body.items as Array<{
+          type: string;
+          payload: unknown;
+        }>
+      ).filter((e) => e.type === 'notification.read');
+
+    expect((await beta.post(`/api/notifications/${n!.id}/read`)).body).toEqual({ ok: false });
+    expect((await alfa.post(`/api/notifications/${n!.id}/read`)).body).toEqual({ ok: true });
+    expect((await alfa.post(`/api/notifications/${n!.id}/read`)).body).toEqual({ ok: false });
+    expect((await alfa.get('/api/notifications')).body.unread).toBe(0);
+    expect((await readEvents(alfa)).map((e) => e.payload)).toEqual([{ notificationId: n!.id }]);
+    expect(await readEvents(beta)).toHaveLength(0);
+  });
+});
+
 describe('walidacja i czat', () => {
   it('termin w przeszłości lub > 1 rok => 400', async () => {
     expect(

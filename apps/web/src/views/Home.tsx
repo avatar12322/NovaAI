@@ -28,7 +28,7 @@ export function HomeView({ me }: { me: MeResponse }) {
   useEffect(load, [load]);
   useEventEffect(
     (e) =>
-      e.type === 'notification.created' || (e.visibility === 'shared' && e.type === 'task.status'),
+      e.type.startsWith('notification.') || (e.visibility === 'shared' && e.type === 'task.status'),
     load,
   );
 
@@ -72,7 +72,18 @@ export function HomeView({ me }: { me: MeResponse }) {
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
-                    onClick={() => void api.readNotification(n.id).then(load)}
+                    onClick={() => {
+                      // Od razu jako przeczytane; listę i liczniki odświeża zdarzenie z serwera
+                      // (notification.read). Błąd — przywrócenie stanu z serwera.
+                      const at = new Date().toISOString();
+                      setNotes(
+                        (ns) => ns?.map((x) => (x.id === n.id ? { ...x, readAt: at } : x)) ?? ns,
+                      );
+                      api.readNotification(n.id).catch((e: unknown) => {
+                        setError(e instanceof ApiError ? e.message : 'Błąd');
+                        load();
+                      });
+                    }}
                   >
                     Oznacz jako przeczytane
                   </button>

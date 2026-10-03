@@ -59,7 +59,7 @@ export function BriefingPanel() {
     (e) =>
       e.type === 'task.status' ||
       e.type.startsWith('approval.') ||
-      e.type === 'notification.created' ||
+      e.type.startsWith('notification.') ||
       e.type.startsWith('budget.'),
     load,
   );

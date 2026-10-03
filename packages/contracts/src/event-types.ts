@@ -12,6 +12,7 @@ export const EVENT_TYPES = [
   'message.created',
   'memory.changed',
   'notification.created',
+  'notification.read',
   'budget.warning',
   'budget.blocked',
   'budget.changed',

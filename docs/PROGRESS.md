@@ -981,6 +981,19 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
 - Testy: `push.test.ts` (rozpoznanie iPhone/iPad), e2e zachęty na ekranie Dom. Nadal **niesprawdzone na
   prawdziwym iPhonie** — wymaga wdrożenia.
 
+### Poprawka: „Oznacz jako przeczytane” od razu zmniejsza liczniki (2026-10-03)
+
+- Zgłoszenie: po „Oznacz jako przeczytane” na ekranie Dom licznik nieprzeczytanych nie znikał do ponownego
+  otwarcia aplikacji.
+- Przyczyna: odświeżała się tylko lista wiadomości; liczniki (menu „Dom”, „Nieprzeczytane” w przeglądzie dnia,
+  liczba na ikonie aplikacji) reagowały wyłącznie na nowe powiadomienia.
+- Serwer po odczycie wysyła zdarzenie `notification.read` (prywatne, tylko do tej osoby) — liczniki odświeżają
+  się od razu, także na innych urządzeniach tej osoby. Wiadomość od razu oznaczona w liście (bez czekania na
+  serwer); błąd przywraca stan z serwera.
+- Testy: API (zdarzenie tylko dla właściciela i tylko raz; domownik nie oznaczy cudzej wiadomości), e2e
+  przypomnień rozszerzone o odczyt — liczniki maleją bez przeładowania (bez poprawki test nie przechodzi).
+  Naprawione niejednoznaczne lokatory w tym teście („Termin”, „Dodaj” — od czasu panelu „Terminy”).
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

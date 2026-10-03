@@ -68,7 +68,7 @@ export function Shell({
     setAppBadge(unread);
   }, [unread]);
   useEventEffect(
-    (e) => e.type.startsWith('approval.') || e.type === 'notification.created',
+    (e) => e.type.startsWith('approval.') || e.type.startsWith('notification.'),
     refreshCounts,
   );
   useEffect(() => {

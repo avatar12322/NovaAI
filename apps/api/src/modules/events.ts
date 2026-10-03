@@ -5,7 +5,7 @@ import { authorize, isUuid, requireAuth } from '../access';
 import { resolveSession, SESSION_COOKIE } from '../auth/session';
 import { withUserTx } from '../db/pool';
 import type { AppDeps } from '../deps';
-import { EVENT_SELECT, toEvent } from '../events';
+import { emitEvent, EVENT_SELECT, toEvent } from '../events';
 import { notFound } from '../lib/errors';
 import { parse } from '../lib/validate';
 
@@ -157,11 +157,23 @@ export const eventRoutes =
       const auth = requireAuth(req);
       if (!isUuid(req.params.id)) throw notFound('Notification');
       const ok = await withUserTx(deps.db, { userId: auth.userId, scope: 'user' }, async (c) => {
-        const r = await c.query(
-          `UPDATE notifications SET read_at = now() WHERE id = $1 AND read_at IS NULL`,
+        const r = await c.query<{ household_id: string }>(
+          `UPDATE notifications SET read_at = now() WHERE id = $1 AND read_at IS NULL
+           RETURNING household_id`,
           [req.params.id],
         );
-        return r.rowCount === 1;
+        const row = r.rows[0];
+        // Liczniki nieprzeczytanych (menu, przegląd dnia, ikona aplikacji) odświeżają się od razu —
+        // także na innych urządzeniach tej osoby.
+        if (row)
+          await emitEvent(c, {
+            householdId: row.household_id,
+            ownerUserId: auth.userId,
+            visibility: 'private',
+            type: 'notification.read',
+            payload: { notificationId: req.params.id },
+          });
+        return !!row;
       });
       return { ok };
     });
