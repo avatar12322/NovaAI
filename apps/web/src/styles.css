@@ -1484,6 +1484,17 @@ mark {
   font-size: var(--fs-xs);
   color: var(--text-muted);
 }
+.note.saver {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.note.saver p {
+  margin: 0;
+  flex: 1 1 280px;
+}
 .service-form label.check,
 label.check {
   flex-direction: row;

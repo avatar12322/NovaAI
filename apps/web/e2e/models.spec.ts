@@ -151,3 +151,55 @@ test('klucz z .env serwera: stan „brak cennika”, preset bez błędu nazwy, c
   await expect(page.getByLabel('Stan asystenta')).toContainText('tryb demo');
   await expect(fileModel.locator('.badge')).toHaveText('brak cennika');
 });
+
+test('oszczędny zestaw Claude: Haiku 4.5 do krótkich pytań, Sonnet 5.5 do złożonych; gotowe ustawienia w formularzu', async ({
+  page,
+}) => {
+  await loginAs(page, 'Alfa (test)');
+  await page.goto('/#/models');
+  // Sprzątanie zawsze (także po błędzie) — baza e2e jest wspólna dla testów.
+  const cleanup = async () => {
+    const overview = await (await page.request.get('/api/model/providers')).json();
+    for (const m of overview.models as Array<{ id: string; model: string }>) {
+      if (m.model === 'claude-haiku-4-5' || m.model === 'claude-sonnet-5-5')
+        await page.request.delete(`/api/model/models/${m.id}`, {
+          headers: { 'x-nova-csrf': '1' },
+        });
+    }
+  };
+  try {
+    const saver = page.getByRole('group', { name: 'Oszczędny zestaw Claude' });
+    await saver.getByRole('button', { name: 'Ustaw oszczędnie' }).click();
+    await expect(saver.locator('.badge')).toHaveText('ustawiony');
+    await expect(page.getByText(/^Ustawiono: krótkie pytania — Claude Haiku 4\.5/)).toBeVisible();
+    const haiku = page.locator('.model-item').filter({ hasText: 'claude-haiku-4-5' });
+    const sonnet = page.locator('.model-item').filter({ hasText: 'claude-sonnet-5-5' });
+    await expect(haiku).toContainText('1 / 5 USD za mln tokenów');
+    await expect(haiku).toContainText('krótkie pytania');
+    await expect(sonnet).toContainText('2 / 10 USD za mln tokenów');
+    await expect(sonnet).toContainText('złożone zadania');
+    // Bez kursu USD→PLN modele czekają na kurs — w teście żadnych wywołań dostawcy.
+    await expect(page.getByLabel('Stan asystenta')).toContainText('tryb demo');
+
+    // Formularz: gotowe ustawienia wypełniają identyfikator i cennik (także cache).
+    await page.getByRole('button', { name: 'Dodaj model' }).click();
+    const mform = page.locator('.model-form').first();
+    await mform.getByLabel('Dostawca').selectOption('s:anthropic');
+    await mform.getByRole('button', { name: /Claude Opus 5\.5/ }).click();
+    await expect(mform.getByLabel('Identyfikator modelu u dostawcy')).toHaveValue(
+      'claude-opus-5-5',
+    );
+    await expect(mform.getByLabel('Cena wejścia (za 1 mln tokenów)')).toHaveValue('4');
+    await expect(mform.getByLabel('Odczyt z cache (opcjonalnie)')).toHaveValue('0,2');
+    await expect(mform.getByLabel('Zapis do cache (opcjonalnie)')).toHaveValue('5');
+    await mform.getByRole('button', { name: 'Anuluj' }).click();
+  } finally {
+    await cleanup();
+  }
+  await page.reload();
+  await expect(
+    page
+      .getByRole('group', { name: 'Oszczędny zestaw Claude' })
+      .getByRole('button', { name: 'Ustaw oszczędnie' }),
+  ).toBeVisible();
+});

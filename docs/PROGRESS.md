@@ -1012,6 +1012,19 @@ Gałąź `claude/novaai-jarvis-ui` od `claude/novaai-model-providers`.
   identyczny prompt systemowy i początek historii mimo zmiany listy zakupów, koszt z tokenami cache, okno
   historii. Niesprawdzone na prawdziwym koncie — po wdrożeniu widać w koszcie odpowiedzi.
 
+### „Ustaw oszczędnie”: Haiku 4.5 do krótkich pytań, Sonnet 5.5 do złożonych (2026-10-03)
+
+- Modele AI i klucze API → sekcja Modele: panel „Oszczędny zestaw Claude” (gdy jest dostawca Anthropic — z
+  aplikacji albo klucz z serwera). Przycisk „Ustaw oszczędnie” dodaje (albo aktualizuje) Claude Haiku 4.5 —
+  „krótkie pytania”, priorytet 1 — i Claude Sonnet 5.5 — „złożone zadania i długie rozmowy”, priorytet 2.
+  Dotychczasowe modele zostają zapasowe (dalej na trasie). Formularz „Dodaj model” dla dostawcy Claude ma
+  gotowe ustawienia: Haiku 4.5, Sonnet 5.5, Opus 5.5.
+- Ceny (USD za mln tokenów, cennik Anthropic sprawdzony 2026-10-03): Haiku 4.5 1 / 5 (cache: odczyt 0,10,
+  zapis 1,25), Sonnet 5.5 2 / 10 (0,20 / 2,50), Opus 5.5 4 / 20 (0,20 / 5); wyszukiwanie 10 za 1000
+  (`CLAUDE_MODEL_PRESETS` w `@nova/contracts`). Modele w USD wymagają kursu USD→PLN.
+- Test e2e: przycisk, ceny i zastosowanie obu modeli, tryb demo bez kursu, gotowe ustawienia w formularzu;
+  sprzątanie przez API także po błędzie.
+
 ## Blokady
 
 - Brak demona Docker w sesji zdalnej — `infra/compose.yaml` nieprzetestowany tutaj (używany lokalny klaster).

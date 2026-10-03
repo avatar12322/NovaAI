@@ -1,10 +1,13 @@
-import type {
-  FileModelInfo,
-  HouseholdModelInfo,
-  ModelProviderInfo,
-  ModelProviderPreset,
-  ModelsOverview,
-  ServerProviderInfo,
+import {
+  CLAUDE_MODEL_PRESETS,
+  CLAUDE_SAVER_SET,
+  type ClaudeModelPreset,
+  type FileModelInfo,
+  type HouseholdModelInfo,
+  type ModelProviderInfo,
+  type ModelProviderPreset,
+  type ModelsOverview,
+  type ServerProviderInfo,
 } from '@nova/contracts';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
@@ -37,6 +40,111 @@ const keyFrom = (model: string) =>
     .replace(/[^a-z0-9_.-]+/g, '-')
     .replace(/^[^a-z0-9]+/, '')
     .slice(0, 60);
+
+/** Liczba w polu formularza (przecinek dziesiętny). */
+const plNum = (n: number) => String(n).replace('.', ',');
+
+type ClaudeTarget = { providerId: string } | { serverProvider: string };
+
+/** Dostawca Claude dla gotowych ustawień: dodany w aplikacji (włączony), inaczej klucz z serwera. */
+function claudeTarget(data: ModelsOverview): ClaudeTarget | null {
+  const own = data.providers.find((p) => p.kind === 'anthropic' && p.enabled && p.usable);
+  if (own) return { providerId: own.id };
+  const server = data.serverProviders.find(
+    (p) => p.kind === 'anthropic' && p.usable && !p.overridden,
+  );
+  return server ? { serverProvider: server.name } : null;
+}
+
+const onTarget = (m: HouseholdModelInfo, t: ClaudeTarget) =>
+  'providerId' in t
+    ? m.providerId === t.providerId
+    : m.serverProvider && m.providerName === t.serverProvider;
+
+/**
+ * „Ustaw oszczędnie”: Haiku 4.5 do krótkich pytań i Sonnet 5.5 do złożonych zadań — z cenami z cennika
+ * (także pamięci podręcznej). Istniejące modele o tych identyfikatorach są aktualizowane, pozostałe zostają
+ * jako zapasowe (dalej na trasie, używane przy błędzie).
+ */
+function SaverPanel({
+  data,
+  target,
+  onChanged,
+  onError,
+}: {
+  data: ModelsOverview;
+  target: ClaudeTarget;
+  onChanged: (d: ModelsOverview, msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const presets = CLAUDE_SAVER_SET.map((id) => CLAUDE_MODEL_PRESETS.find((p) => p.id === id)!);
+  const matching = (p: ClaudeModelPreset, models: readonly HouseholdModelInfo[]) =>
+    models.find((m) => m.model === p.model && onTarget(m, target));
+  const done = presets.every((p) => {
+    const m = matching(p, data.models);
+    return (
+      m?.enabled &&
+      m.useSimple === p.useSimple &&
+      m.useComplex === p.useComplex &&
+      m.priority <= p.priority &&
+      m.pricing.cacheReadPerMTok !== null
+    );
+  });
+  const run = async () => {
+    setBusy(true);
+    try {
+      let d = data;
+      for (const p of presets) {
+        const body = {
+          model: p.model,
+          maxTokens: p.maxTokens,
+          pricing: p.pricing,
+          useSimple: p.useSimple,
+          useComplex: p.useComplex,
+          priority: p.priority,
+          enabled: true,
+        };
+        const cur = matching(p, d.models);
+        if (cur) d = await api.updateHouseholdModel(cur.id, body);
+        else {
+          const base = keyFrom(p.model);
+          const name = d.models.some((m) => m.name === base) ? `${base}-2` : base;
+          d = await api.addHouseholdModel({ ...body, ...target, name, dataPolicy: 'private_ok' });
+        }
+      }
+      onChanged(
+        d,
+        'Ustawiono: krótkie pytania — Claude Haiku 4.5, złożone zadania — Claude Sonnet 5.5. Pozostałe modele zostają zapasowe.',
+      );
+    } catch (e) {
+      onError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="note note-muted saver" role="group" aria-label="Oszczędny zestaw Claude">
+      <p>
+        <strong>Oszczędny zestaw Claude:</strong> Haiku 4.5 do krótkich pytań (1 / 5 USD za mln
+        tokenów) i Sonnet 5.5 do złożonych zadań i długich rozmów (2 / 10 USD). Ceny z cennika
+        Anthropic, razem z pamięcią podręczną. Inne modele zostają jako zapasowe.
+      </p>
+      {done ? (
+        <Badge tone="ok">ustawiony</Badge>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={busy}
+          onClick={() => void run()}
+        >
+          Ustaw oszczędnie
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function ModelsView() {
   const [data, setData] = useState<ModelsOverview | null>(null);
@@ -80,6 +188,7 @@ export function ModelsView() {
     );
 
   const manage = data.canManage;
+  const claude = claudeTarget(data);
   const canAddModel = data.providers.length > 0 || data.serverProviders.some((p) => !p.overridden);
   /** „Uzupełnij cennik” dla modelu z pliku: formularz z dostawcą, nazwą i identyfikatorem modelu. */
   const fillPricing = (m: FileModelInfo) => {
@@ -206,6 +315,9 @@ export function ModelsView() {
           Ceny wpisz z oficjalnego cennika dostawcy (za milion tokenów). NovaAI liczy z nich koszt
           każdej odpowiedzi i pilnuje budżetu — model bez cennika nie jest używany.
         </p>
+        {manage && claude && (
+          <SaverPanel data={data} target={claude} onChanged={apply} onError={setError} />
+        )}
         {modelDraft && (
           <ModelForm
             key={JSON.stringify(modelDraft)}
@@ -647,6 +759,28 @@ function ModelForm({
         return next;
       });
   const pricingUrl = presetFor(f.provider)?.pricingUrl;
+  const isClaude = f.provider.startsWith('p:')
+    ? data.providers.find((p) => `p:${p.id}` === f.provider)?.kind === 'anthropic'
+    : data.serverProviders.find((p) => `s:${p.name}` === f.provider)?.kind === 'anthropic';
+  /** Gotowe ustawienia modelu Claude: identyfikator, ceny (z cache i wyszukiwaniem), zastosowanie. */
+  const usePreset = (p: ClaudeModelPreset) =>
+    setF((cur) => ({
+      ...cur,
+      model: p.model,
+      name: cur.nameTouched ? cur.name : keyFrom(p.model),
+      currency: p.pricing.currency,
+      input: plNum(p.pricing.inputPerMTok),
+      output: plNum(p.pricing.outputPerMTok),
+      cacheRead: plNum(p.pricing.cacheReadPerMTok),
+      cacheWrite: plNum(p.pricing.cacheWritePerMTok),
+      webSearch: plNum(p.pricing.webSearchPer1k),
+      source: p.pricing.source,
+      verifiedAt: p.pricing.verifiedAt,
+      maxTokens: String(p.maxTokens),
+      useSimple: p.useSimple,
+      useComplex: p.useComplex,
+      priority: String(p.priority),
+    }));
   const providerId = f.provider.startsWith('p:') ? f.provider.slice(2) : null;
   const listId = `models-${f.provider.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
@@ -719,6 +853,16 @@ function ModelForm({
             ))}
           </select>
         </label>
+      )}
+      {!initial && isClaude && (
+        <fieldset className="wide preset-choice">
+          <legend>Gotowe ustawienia (cennik Anthropic)</legend>
+          {CLAUDE_MODEL_PRESETS.map((p) => (
+            <button key={p.id} type="button" className="btn btn-sm" onClick={() => usePreset(p)}>
+              {p.label}
+            </button>
+          ))}
+        </fieldset>
       )}
       <label>
         Identyfikator modelu u dostawcy

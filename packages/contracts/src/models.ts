@@ -67,6 +67,93 @@ export const MODEL_PROVIDER_PRESETS: readonly ModelProviderPreset[] = [
   },
 ];
 
+/**
+ * Gotowe ustawienia modeli Claude (ceny w USD za mln tokenów, cennik Anthropic sprawdzony 2026-10-03:
+ * zapis do pamięci podręcznej 5-min. = 1,25× wejścia, odczyt 0,1× — w Opus 5.5 0,05×; wyszukiwanie 10 USD
+ * za 1000). Zestaw oszczędny: Haiku do krótkich pytań, Sonnet do złożonych zadań i długich rozmów.
+ */
+export interface ClaudeModelPreset {
+  id: 'haiku' | 'sonnet' | 'opus';
+  label: string;
+  model: string;
+  maxTokens: number;
+  useSimple: boolean;
+  useComplex: boolean;
+  /** Mniejszy = pierwszy na trasie (pozostałe modele zostają zapasowe). */
+  priority: number;
+  pricing: {
+    currency: 'USD';
+    inputPerMTok: number;
+    outputPerMTok: number;
+    cacheReadPerMTok: number;
+    cacheWritePerMTok: number;
+    webSearchPer1k: number;
+    source: string;
+    verifiedAt: string;
+  };
+}
+
+const CLAUDE_PRICING = {
+  currency: 'USD',
+  webSearchPer1k: 10,
+  source: 'https://platform.claude.com/docs/en/about-claude/pricing',
+  verifiedAt: '2026-10-03',
+} as const;
+
+export const CLAUDE_MODEL_PRESETS: readonly ClaudeModelPreset[] = [
+  {
+    id: 'haiku',
+    label: 'Claude Haiku 4.5 — krótkie pytania (najtańszy)',
+    model: 'claude-haiku-4-5',
+    maxTokens: 4000,
+    useSimple: true,
+    useComplex: false,
+    priority: 1,
+    pricing: {
+      ...CLAUDE_PRICING,
+      inputPerMTok: 1,
+      outputPerMTok: 5,
+      cacheReadPerMTok: 0.1,
+      cacheWritePerMTok: 1.25,
+    },
+  },
+  {
+    id: 'sonnet',
+    label: 'Claude Sonnet 5.5 — złożone zadania i długie rozmowy',
+    model: 'claude-sonnet-5-5',
+    maxTokens: 8000,
+    useSimple: false,
+    useComplex: true,
+    priority: 2,
+    pricing: {
+      ...CLAUDE_PRICING,
+      inputPerMTok: 2,
+      outputPerMTok: 10,
+      cacheReadPerMTok: 0.2,
+      cacheWritePerMTok: 2.5,
+    },
+  },
+  {
+    id: 'opus',
+    label: 'Claude Opus 5.5 — najmocniejszy (droższy)',
+    model: 'claude-opus-5-5',
+    maxTokens: 8000,
+    useSimple: false,
+    useComplex: true,
+    priority: 3,
+    pricing: {
+      ...CLAUDE_PRICING,
+      inputPerMTok: 4,
+      outputPerMTok: 20,
+      cacheReadPerMTok: 0.2,
+      cacheWritePerMTok: 5,
+    },
+  },
+];
+
+/** Zestaw oszczędny („Ustaw oszczędnie”): Haiku 4.5 + Sonnet 5.5. */
+export const CLAUDE_SAVER_SET: readonly ClaudeModelPreset['id'][] = ['haiku', 'sonnet'];
+
 const LOCAL_BASE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?(\/|$)/;
 
 /** Adres serwera: https:// albo lokalny http://localhost (bez loginu/hasła w adresie). */
